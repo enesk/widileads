@@ -26,7 +26,7 @@
                     <x-heroicon-s-shield-exclamation />
                 </div>
                 <p>
-                    {{ __('Two-factor authentication is an security feature that helps protect your account.') }}
+                    {{ __('Two-factor authentication is a security feature that helps protect your account.') }}
                     <br/>
                     {{ __('You can enable two-factor authentication by clicking the button below.') }}
                     <br/>
