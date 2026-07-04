@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laragear\TwoFactor\Contracts\TwoFactorAuthenticatable;
 use Laragear\TwoFactor\TwoFactorAuthentication;
 use Laravel\Sanctum\HasApiTokens;
@@ -29,6 +30,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Two
      * @var array<int, string>
      */
     protected $fillable = [
+        'uuid',
         'name',
         'email',
         'password',
@@ -62,6 +64,17 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Two
         'password' => 'hashed',
         'last_seen_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        // Ensure every user gets a UUID regardless of how it is created
+        // (registration, social login, admin panel, factories, seeders).
+        static::creating(function (User $user): void {
+            if (empty($user->uuid)) {
+                $user->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     public function roadmapItems()
     {
