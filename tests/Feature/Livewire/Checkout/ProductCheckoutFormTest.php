@@ -135,10 +135,8 @@ class ProductCheckoutFormTest extends FeatureTest
             ->call('checkout')
             ->assertRedirect('http://paymore.com/checkout');
 
-        // assert user has been created
-        $this->assertDatabaseHas('users', [
-            'email' => 'something@gmail.com',
-        ]);
+        // assert the existing user has been logged in instead of a new one being created
+        $this->assertAuthenticatedAs($user);
 
         // assert order has been created
         $this->assertEquals($ordersBefore + 1, Order::count());
