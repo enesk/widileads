@@ -4,22 +4,22 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Database\Seeders\Testing\TestingDatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class FeatureTest extends TestCase
+abstract class FeatureTest extends TestCase
 {
-    protected static bool $setUpHasRunOnce = false;
+    use RefreshDatabase;
+
+    /**
+     * Seeds the shared fixtures once per process, immediately after the database is
+     * migrated, so the seeded rows live outside of the per-test transaction.
+     */
+    protected string $seeder = TestingDatabaseSeeder::class;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        if (! static::$setUpHasRunOnce) {
-            $this->artisan('migrate:fresh');
-            $this->seed(TestingDatabaseSeeder::class);
-
-            static::$setUpHasRunOnce = true;
-        }
 
         $this->configureDefaultCurrency();
         $this->withoutExceptionHandling();
