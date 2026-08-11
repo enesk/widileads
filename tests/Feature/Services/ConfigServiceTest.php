@@ -13,17 +13,9 @@ class ConfigServiceTest extends FeatureTest
 {
     public function test_load_configs()
     {
+        Config::set('app.admin_settings.enabled', true);
+
         Cache::shouldReceive('many')->once()->with(ConfigConstants::OVERRIDABLE_CONFIGS)->andReturn([
-            'app.name' => 'SaaSyKit',
-            'app.support_email' => 'test@test.com',
-        ]);
-
-        Config::shouldReceive('get')
-            ->once()
-            ->with('app.admin_settings.enabled', false)
-            ->andReturn(true);
-
-        Config::shouldReceive('set')->once()->with([
             'app.name' => 'SaaSyKit',
             'app.support_email' => 'test@test.com',
         ]);
@@ -31,14 +23,14 @@ class ConfigServiceTest extends FeatureTest
         $configService = new ConfigService;
 
         $configService->loadConfigs();
+
+        $this->assertEquals('SaaSyKit', Config::get('app.name'));
+        $this->assertEquals('test@test.com', Config::get('app.support_email'));
     }
 
     public function test_load_configs_only_if_enabled()
     {
-        Config::shouldReceive('get')
-            ->once()
-            ->with('app.admin_settings.enabled', false)
-            ->andReturn(false);
+        Config::set('app.admin_settings.enabled', false);
 
         Cache::expects('many')->never();
 
