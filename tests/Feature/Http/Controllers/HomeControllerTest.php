@@ -8,6 +8,11 @@ use Tests\Feature\FeatureTest;
 
 class HomeControllerTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['announcements'];
+
     public function test_announcement_is_displayed()
     {
         Announcement::query()->delete();

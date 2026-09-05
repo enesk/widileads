@@ -7,6 +7,11 @@ use Tests\Feature\FeatureTest;
 
 class RoadmapResourceTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['roadmap'];
+
     public function test_list(): void
     {
         $user = $this->createAdminUser();

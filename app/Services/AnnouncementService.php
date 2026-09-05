@@ -15,6 +15,10 @@ class AnnouncementService
 
     public function getAnnouncement(AnnouncementPlacement $announcementPlacement): ?Announcement
     {
+        if (! config('funnel.features.announcements')) {
+            return null;
+        }
+
         $user = auth()->user();
 
         $dismissedAnnouncementIds = session()->get(SessionConstants::DISMISSED_ANNOUNCEMENTS, []);

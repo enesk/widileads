@@ -66,40 +66,7 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ])
-            ->navigationGroups([
-                NavigationGroup::make()
-                    ->label(fn () => (__('Revenue')))
-                    ->icon('heroicon-s-rocket-launch')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => __('Tenancy'))
-                    ->icon('heroicon-s-home')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('Product Management')))
-                    ->icon('heroicon-s-shopping-cart')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('User Management')))
-                    ->icon('heroicon-s-users')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('Settings')))
-                    ->icon('heroicon-s-cog')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('Announcements')))
-                    ->icon('heroicon-s-megaphone')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('Blog')))
-                    ->icon('heroicon-s-newspaper')
-                    ->collapsed(),
-                NavigationGroup::make()
-                    ->label(fn () => (__('Roadmap')))
-                    ->icon('heroicon-s-bug-ant')
-                    ->collapsed(),
-            ])
+            ->navigationGroups($this->navigationGroups())
             ->plugins([
                 BreezyCore::make()
                     ->myProfile(
@@ -110,5 +77,61 @@ class AdminPanelProvider extends PanelProvider
                     ),
             ])
             ->sidebarCollapsibleOnDesktop();
+    }
+
+    /**
+     * Navigationsgruppen des Admin-Panels. Die Gruppen der optionalen
+     * SaaSykit-Module werden nur registriert, wenn das jeweilige Feature-Flag
+     * gesetzt ist (siehe config/funnel.php).
+     *
+     * @return list<NavigationGroup>
+     */
+    private function navigationGroups(): array
+    {
+        $groups = [
+            NavigationGroup::make()
+                ->label(fn () => (__('Revenue')))
+                ->icon('heroicon-s-rocket-launch')
+                ->collapsed(),
+            NavigationGroup::make()
+                ->label(fn () => __('Tenancy'))
+                ->icon('heroicon-s-home')
+                ->collapsed(),
+            NavigationGroup::make()
+                ->label(fn () => (__('Product Management')))
+                ->icon('heroicon-s-shopping-cart')
+                ->collapsed(),
+            NavigationGroup::make()
+                ->label(fn () => (__('User Management')))
+                ->icon('heroicon-s-users')
+                ->collapsed(),
+            NavigationGroup::make()
+                ->label(fn () => (__('Settings')))
+                ->icon('heroicon-s-cog')
+                ->collapsed(),
+        ];
+
+        if (config('funnel.features.announcements')) {
+            $groups[] = NavigationGroup::make()
+                ->label(fn () => (__('Announcements')))
+                ->icon('heroicon-s-megaphone')
+                ->collapsed();
+        }
+
+        if (config('funnel.features.blog')) {
+            $groups[] = NavigationGroup::make()
+                ->label(fn () => (__('Blog')))
+                ->icon('heroicon-s-newspaper')
+                ->collapsed();
+        }
+
+        if (config('funnel.features.roadmap')) {
+            $groups[] = NavigationGroup::make()
+                ->label(fn () => (__('Roadmap')))
+                ->icon('heroicon-s-bug-ant')
+                ->collapsed();
+        }
+
+        return $groups;
     }
 }

@@ -23,6 +23,11 @@ class AnnouncementResource extends Resource
 {
     protected static ?string $model = Announcement::class;
 
+    public static function canAccess(): bool
+    {
+        return (bool) config('funnel.features.announcements');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('Announcements');

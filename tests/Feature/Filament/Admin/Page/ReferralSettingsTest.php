@@ -7,6 +7,11 @@ use Tests\Feature\FeatureTest;
 
 class ReferralSettingsTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['referral'];
+
     public function test_admin_can_access_referral_settings_page(): void
     {
         config(['app.admin_settings.enabled' => true]);

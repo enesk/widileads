@@ -8,6 +8,11 @@ use Tests\Feature\FeatureTest;
 
 class BlogControllerTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['blog'];
+
     public function test_view()
     {
         $this->withoutExceptionHandling();

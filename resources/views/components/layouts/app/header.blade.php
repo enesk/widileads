@@ -1,5 +1,7 @@
 <nav class="relative bg-primary-500 text-white border-gray-200">
-    <livewire:announcement.view />
+    @if(config('funnel.features.announcements'))
+        <livewire:announcement.view />
+    @endif
     <div class="navbar max-w-(--breakpoint-xl) items-center mx-auto">
         <div class="navbar-start">
             <div class="dropdown">

@@ -8,6 +8,11 @@ use Tests\Feature\FeatureTest;
 
 class RoadmapControllerTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['roadmap'];
+
     public function test_index()
     {
         $response = $this->get(route('roadmap'));

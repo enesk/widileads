@@ -21,6 +21,11 @@ class ReferralResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
+    public static function canAccess(): bool
+    {
+        return (bool) config('funnel.features.referral');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('User Management');

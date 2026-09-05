@@ -4,6 +4,7 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BladeProvider;
 use App\Providers\ConfigProvider;
+use App\Providers\DestructiveCommandGuardServiceProvider;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Providers\Filament\DashboardPanelProvider;
 use App\Providers\HorizonServiceProvider;
@@ -12,6 +13,7 @@ use Spatie\Permission\PermissionServiceProvider;
 
 return [
     ConfigProvider::class,
+    DestructiveCommandGuardServiceProvider::class,
     BladeProvider::class,
     AppServiceProvider::class,
     AuthServiceProvider::class,

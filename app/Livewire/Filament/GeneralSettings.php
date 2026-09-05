@@ -280,6 +280,7 @@ class GeneralSettings extends Component implements HasForms
                         ]),
                     Tab::make(__('Roadmap'))
                         ->icon('heroicon-o-bug-ant')
+                        ->visible(fn (): bool => (bool) config('funnel.features.roadmap'))
                         ->schema([
                             Toggle::make('roadmap_enabled')
                                 ->label(__('Roadmap Enabled'))
@@ -372,7 +373,10 @@ class GeneralSettings extends Component implements HasForms
         $this->configService->set('app.social_links.youtube', $data['social_links_youtube']);
         $this->configService->set('app.social_links.github', $data['social_links_github']);
         $this->configService->set('app.social_links.discord', $data['social_links_discord']);
-        $this->configService->set('app.roadmap_enabled', $data['roadmap_enabled']);
+        // Der Roadmap-Tab wird nur angezeigt, wenn das Feature-Flag gesetzt ist.
+        if (array_key_exists('roadmap_enabled', $data)) {
+            $this->configService->set('app.roadmap_enabled', $data['roadmap_enabled']);
+        }
         $this->configService->set('app.recaptcha_enabled', $data['recaptcha_enabled']);
         $this->configService->set('recaptcha.api_site_key', $data['recaptcha_api_site_key']);
         $this->configService->set('recaptcha.api_secret_key', $data['recaptcha_api_secret_key']);

@@ -21,7 +21,10 @@ class ReferralService
 {
     public function isEnabled(): bool
     {
-        return (bool) config('app.referral.enabled', false);
+        // Das Funnel-Feature-Flag ist der Hauptschalter, die SaaSykit-Einstellung
+        // bleibt als feingranulare Konfiguration erhalten (siehe config/funnel.php).
+        return (bool) config('funnel.features.referral')
+            && (bool) config('app.referral.enabled', false);
     }
 
     public function isDiscountUsedAsReward(Discount $discount): bool

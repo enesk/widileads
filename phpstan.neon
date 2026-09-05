@@ -1,18 +1,24 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
 
 parameters:
 
     paths:
         - app/
+        - config/funnel.php
+        - routes/
 
-    # Level 9 is the highest level
-    level: 3
+    # Level 9 is the highest level.
+    #
+    # FB-001: Das Zielniveau ist Level 6. Der Bestandscode aus dem SaaSykit-
+    # Starterkit erfuellt dieses Niveau noch nicht, deshalb sind die bestehenden
+    # Fehler in phpstan-baseline.neon eingefroren. Neuer und geaenderter Code
+    # wird ab sofort gegen Level 6 geprueft. Die verbleibenden Fehlerklassen und
+    # der Abbauplan stehen in docs/BACKLOG.md.
+    #
+    # Die Baseline darf nur schrumpfen: neue Eintraege sind im Review zu
+    # begruenden, sonst ist der Fehler zu beheben.
+    level: 6
 
-#    ignoreErrors:
-#        - '#PHPDoc tag @var#'
-#
-#    excludePaths:
-#        - ./*/*/FileToBeExcluded.php
-#
-#    checkMissingIterableValueType: false
+    treatPhpDocTypesAsCertain: false

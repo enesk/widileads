@@ -1,0 +1,135 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Funnel Builder
+    |--------------------------------------------------------------------------
+    |
+    | Zentrale Konfiguration der Funnel-Builder-Plattform. Alle Schwellwerte
+    | des Funnel-/Lead-Geschaefts stehen hier und ausschliesslich hier. Kein
+    | Service, Job, Command oder Livewire-Component darf einen dieser Werte
+    | hartkodieren -- immer ueber config('funnel.*') lesen.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Feature-Flags (FB-001)
+    |--------------------------------------------------------------------------
+    |
+    | Mitgelieferte SaaSykit-Module, die der Funnel Builder nicht benoetigt.
+    | Die Module bleiben im Code erhalten und werden ausschliesslich ueber
+    | diese Flags deaktiviert (Default: aus). Ist ein Flag aus, werden weder
+    | die oeffentlichen Routen noch die Navigationseintraege registriert.
+    |
+    */
+
+    'features' => [
+
+        // Oeffentlicher Blog (/blog) inkl. Admin-Resources fuer Posts & Kategorien.
+        'blog' => env('FUNNEL_FEATURE_BLOG_ENABLED', false),
+
+        // Oeffentliche Roadmap (/roadmap) inkl. Voting und Admin-Resource.
+        'roadmap' => env('FUNNEL_FEATURE_ROADMAP_ENABLED', false),
+
+        // Announcement-Banner im Frontend/Dashboard inkl. Admin-Resource.
+        'announcements' => env('FUNNEL_FEATURE_ANNOUNCEMENTS_ENABLED', false),
+
+        // Referral-Programm (Empfehlungs-Codes, Rewards) inkl. Admin- & Dashboard-Resources.
+        'referral' => env('FUNNEL_FEATURE_REFERRAL_ENABLED', false),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Destruktive Artisan-Befehle (FB-003)
+    |--------------------------------------------------------------------------
+    |
+    | Der DestructiveCommandGuard blockt migrate:fresh, migrate:refresh,
+    | migrate:reset und db:wipe in jeder Umgebung. Einzige Ausnahme:
+    | APP_ENV=testing UND FUNNEL_ALLOW_DESTRUCTIVE=1 -- damit die Testsuite
+    | ihre Datenbank weiterhin selbst aufbauen kann.
+    |
+    */
+
+    // Hauptschalter des DestructiveCommandGuard. Nur zusammen mit APP_ENV=testing
+    // wirksam, in allen anderen Umgebungen wird der Wert ignoriert.
+    'allow_destructive_commands' => env('FUNNEL_ALLOW_DESTRUCTIVE', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Leads
+    |--------------------------------------------------------------------------
+    */
+
+    'lead' => [
+
+        // Standard-Verkaufspreis eines Leads in EUR, falls weder Funnel noch
+        // Kaeufer-Vertrag einen abweichenden Preis definieren.
+        'default_price' => (float) env('FUNNEL_LEAD_DEFAULT_PRICE', 15.00),
+
+        // Minuten, die ein Lead fuer einen Kaeufer exklusiv reserviert bleibt,
+        // bevor die Reservierung verfaellt und der Lead wieder freigegeben wird.
+        'reservation_ttl' => (int) env('FUNNEL_LEAD_RESERVATION_TTL', 10),
+
+        // Tage, die ein Lead samt personenbezogener Daten aufbewahrt wird,
+        // bevor er anonymisiert/geloescht wird (DSGVO-Aufbewahrungsfrist).
+        'retention_days' => (int) env('FUNNEL_LEAD_RETENTION_DAYS', 730),
+
+        // Tage ohne Fortschritt, nach denen ein Lead als "abgestanden" gilt
+        // und nicht mehr zum vollen Preis verkauft wird.
+        'stale_after_days' => (int) env('FUNNEL_LEAD_STALE_AFTER_DAYS', 3),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Oeffentliche Funnel-Endpunkte
+    |--------------------------------------------------------------------------
+    */
+
+    'public' => [
+
+        // Maximale Anzahl oeffentlicher Funnel-Submits pro IP und Stunde
+        // (Rate-Limiting gegen Bots und Massen-Einreichungen).
+        'rate_limit_per_hour' => (int) env('FUNNEL_PUBLIC_RATE_LIMIT_PER_HOUR', 20),
+
+        // Mindestdauer in Sekunden zwischen Funnel-Start und Absenden. Wird
+        // schneller abgeschickt, gilt die Einreichung als Bot (Zeit-Honeypot).
+        'min_seconds_before_submit' => (int) env('FUNNEL_PUBLIC_MIN_SECONDS_BEFORE_SUBMIT', 30),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Telefonische Kontaktaufnahme durch den Kaeufer
+    |--------------------------------------------------------------------------
+    */
+
+    'call' => [
+
+        // Ab dieser Gespraechsdauer in Sekunden gilt ein Anruf als angenommen
+        // (kuerzere Verbindungen zaehlen als nicht erreicht).
+        'answered_after_seconds' => (int) env('FUNNEL_CALL_ANSWERED_AFTER_SECONDS', 30),
+
+        // Anzahl erfolgloser Anrufversuche, nach denen der Kaeufer seine
+        // Kontaktpflicht erfuellt hat und der Lead nicht reklamiert werden kann.
+        'max_failed_attempts' => (int) env('FUNNEL_CALL_MAX_FAILED_ATTEMPTS', 3),
+
+        // Mindestabstand in Stunden zwischen zwei Anrufversuchen, damit
+        // Versuche als eigenstaendig gezaehlt werden.
+        'min_gap_hours' => (int) env('FUNNEL_CALL_MIN_GAP_HOURS', 2),
+
+        // Mindestanzahl unterschiedlicher Kalendertage, an denen angerufen
+        // worden sein muss.
+        'min_days' => (int) env('FUNNEL_CALL_MIN_DAYS', 2),
+
+        // Tage ab Lead-Zustellung, innerhalb derer der Kaeufer die
+        // Kontaktversuche abgeschlossen haben muss.
+        'deadline_days' => (int) env('FUNNEL_CALL_DEADLINE_DAYS', 7),
+
+    ],
+
+];

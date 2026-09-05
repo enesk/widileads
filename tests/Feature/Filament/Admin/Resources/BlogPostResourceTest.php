@@ -7,6 +7,11 @@ use Tests\Feature\FeatureTest;
 
 class BlogPostResourceTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['blog'];
+
     public function test_list(): void
     {
         $user = $this->createAdminUser();

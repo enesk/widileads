@@ -28,7 +28,8 @@ class ReferralSettings extends Page
     {
         $configService = app()->make(ConfigService::class);
 
-        return $configService->isAdminSettingsEnabled()
+        return (bool) config('funnel.features.referral')
+            && $configService->isAdminSettingsEnabled()
             && auth()->user()
             && auth()->user()->hasPermissionTo('update settings');
     }

@@ -10,6 +10,11 @@ use Tests\Feature\FeatureTest;
 
 class AnnouncementServiceTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['announcements'];
+
     public function test_get_announcement_for_frontend()
     {
         Announcement::query()->delete();

@@ -30,3 +30,101 @@
 * And much more...
 
 For more details, check the [documentation](https://saasykit.com/docs).
+
+---
+
+# Funnel Builder
+
+Der Funnel Builder ist die auf SaaSykit Tenancy aufsetzende Plattform, mit der
+dynamische Lead-Funnels (Quiz-Funnels) angelegt, ueber eine REST-API verwaltet,
+eingebettet und die daraus entstehenden Leads an Kaeufer verkauft werden.
+
+## Setup
+
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed   # NICHT migrate:fresh - siehe "Datenschutz-Guard"
+npm run dev
+```
+
+Die relevanten Env-Werte fuer den Funnel Builder stehen im Block
+`Funnel Builder` in `.env.example`. Alle Schwellwerte der Plattform liegen in
+`config/funnel.php`; jeder Key hat einen Env-Fallback und einen Kommentar.
+Werte aus dieser Datei duerfen nirgends im Code hartkodiert werden.
+
+## Feature-Flags
+
+Die mitgelieferten SaaSykit-Module Blog, Roadmap, Announcements und Referral
+sind standardmaessig **aus**. Bei deaktiviertem Flag werden weder die
+oeffentlichen Routen noch die Navigationseintraege registriert - `/blog` und
+`/roadmap` liefern dann 404.
+
+| Env                                    | Wirkung                                    |
+| -------------------------------------- | ------------------------------------------ |
+| `FUNNEL_FEATURE_BLOG_ENABLED`          | `/blog` + Admin-Resources fuer Blog        |
+| `FUNNEL_FEATURE_ROADMAP_ENABLED`       | `/roadmap` + Admin-Resource fuer Roadmap   |
+| `FUNNEL_FEATURE_ANNOUNCEMENTS_ENABLED` | Announcement-Banner + Admin-Resource       |
+| `FUNNEL_FEATURE_REFERRAL_ENABLED`      | Referral-Programm + Admin-/Dashboard-Views |
+
+Die Module bleiben im Code erhalten und werden ausschliesslich ueber diese
+Flags deaktiviert.
+
+## Datenschutz-Guard fuer destruktive Befehle
+
+`migrate:fresh`, `migrate:refresh`, `migrate:reset` und `db:wipe` sind in
+**jeder** Umgebung gesperrt und brechen mit Exit-Code 1 ab - auch mit `--force`.
+Verkaufte Leads sind nicht rekonstruierbar, deshalb greift der Schutz auch
+lokal. Fuer Schema-Aenderungen `php artisan migrate` verwenden.
+
+Einzige Ausnahme ist die Testsuite: `APP_ENV=testing` **und**
+`FUNNEL_ALLOW_DESTRUCTIVE=1` (in `phpunit.xml` und `.env.testing` gesetzt).
+`FUNNEL_ALLOW_DESTRUCTIVE` niemals ausserhalb der Testumgebung auf `1` setzen.
+
+## Sprache
+
+Die Anwendung laeuft auf Deutsch (`APP_LOCALE=de`). UI-Strings gehoeren nach
+`lang/de/*.php` - keine hartkodierten Strings im Code. Das frueher parallel
+existierende `resources/lang/` wurde entfernt; `lang/` ist das einzige
+Uebersetzungsverzeichnis.
+
+## Queues, Horizon & Redis
+
+Geprueft und einsatzbereit, mit folgenden Voraussetzungen:
+
+- **Redis** wird von `compose.yml` als Service `redis` bereitgestellt. Als
+  Client wird `phpredis` verwendet (`REDIS_CLIENT`, Default `phpredis`) - die
+  PHP-Extension `redis` muss installiert sein, andernfalls `REDIS_CLIENT=predis`
+  setzen und `predis/predis` ergaenzen.
+- **`QUEUE_CONNECTION=redis`** setzen. `.env.example` liefert `sync` aus; damit
+  laeuft Horizon zwar, verarbeitet aber keine Jobs.
+- **Horizon starten** mit `php artisan horizon` (lokal) bzw. per Supervisor im
+  Deployment. Dashboard: `/horizon`, Zugriff ueber das Gate `viewHorizon`
+  (nur Admin-User, siehe `app/Providers/HorizonServiceProvider.php`).
+- **Supervisor-Konfiguration** in `config/horizon.php` existiert fuer
+  `production` und `local`.
+
+Offene Punkte dazu (fehlender `horizon:snapshot`-Schedule, fehlende
+`staging`-Umgebung) stehen in [docs/BACKLOG.md](docs/BACKLOG.md).
+
+## Qualitaets-Check
+
+```bash
+composer check     # Pint (dry run) + PHPStan + PHPUnit
+```
+
+Einzeln:
+
+```bash
+vendor/bin/pint --format agent      # Formatierung korrigieren
+vendor/bin/phpstan analyse          # Larastan, Level 6
+php artisan test --compact          # PHPUnit
+```
+
+Larastan laeuft auf Level 6. Die Fehler des Bestandscodes sind in
+`phpstan-baseline.neon` eingefroren, neuer Code wird voll geprueft. Die Baseline
+darf nur schrumpfen - Details und Abbauplan in [docs/BACKLOG.md](docs/BACKLOG.md).
+
+Aenderungen werden in [docs/CHANGELOG.md](docs/CHANGELOG.md) festgehalten.
