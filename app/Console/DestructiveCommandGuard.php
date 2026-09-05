@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console;
 
 /**
@@ -10,7 +12,7 @@ namespace App\Console;
  * Datenbank aufbauen koennen muss: dafuer muessen APP_ENV=testing und
  * FUNNEL_ALLOW_DESTRUCTIVE=1 gleichzeitig gesetzt sein.
  */
-class DestructiveCommandGuard
+final class DestructiveCommandGuard
 {
     /**
      * @var list<string>

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Console;
 
 use Illuminate\Console\Command;
@@ -16,7 +18,7 @@ use Illuminate\Console\Command;
  * nicht automatisch als eigenstaendigen Befehl registriert -- sie wird immer
  * mit dem Namen des zu blockierenden Befehls instanziiert.
  */
-class BlockedDestructiveCommand extends Command
+final class BlockedDestructiveCommand extends Command
 {
     public function __construct(string $blockedCommand)
     {
