@@ -22,6 +22,9 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_LOCALE" value="de"/>
+        <!-- Die Testsuite muss ihre eigene Datenbank aufbauen duerfen (siehe DestructiveCommandGuard). -->
+        <env name="FUNNEL_ALLOW_DESTRUCTIVE" value="1"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
         <env name="MAIL_MAILER" value="array"/>

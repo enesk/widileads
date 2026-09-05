@@ -190,4 +190,6 @@ return [
 
     'phone' => 'The :attribute field must be a valid number.',
 
+    'recaptcha' => 'Captcha verification failed. Please try again.',
+
 ];
