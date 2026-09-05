@@ -32,6 +32,11 @@ class RoadmapItemResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function canAccess(): bool
+    {
+        return (bool) config('funnel.features.roadmap');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('Roadmap');

@@ -33,6 +33,11 @@ class BlogPostResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canAccess(): bool
+    {
+        return (bool) config('funnel.features.blog');
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('Blog');

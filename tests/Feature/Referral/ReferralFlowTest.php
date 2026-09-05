@@ -21,6 +21,11 @@ use Tests\Feature\FeatureTest;
 
 class ReferralFlowTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['referral'];
+
     public function test_referral_code_is_stored_in_session_from_url(): void
     {
         $this->withExceptionHandling();

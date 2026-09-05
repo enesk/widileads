@@ -103,7 +103,7 @@ class ReferralRewardResource extends Resource
 
     public static function canAccess(): bool
     {
-        return config('app.referral.enabled', false);
+        return (bool) config('funnel.features.referral') && (bool) config('app.referral.enabled', false);
     }
 
     public static function getNavigationLabel(): string

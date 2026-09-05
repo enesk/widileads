@@ -21,6 +21,11 @@ use Tests\Feature\FeatureTest;
 
 class ReferralServiceTest extends FeatureTest
 {
+    /**
+     * @var list<string>
+     */
+    protected array $enabledFunnelFeatures = ['referral'];
+
     private ReferralService $referralService;
 
     protected function setUp(): void

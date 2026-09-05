@@ -55,21 +55,25 @@ class GenerateSitemap extends Command implements Isolatable
             return route($route->getName());
         })->values()->toArray();
 
-        // go through all blog posts and add them to the sitemap (chunked to avoid memory issues)
+        // Blog-URLs nur aufnehmen, wenn das Blog-Feature aktiv ist - andernfalls
+        // sind die Blog-Routen gar nicht registriert (siehe config/funnel.php).
+        if (config('funnel.features.blog')) {
+            // go through all blog posts and add them to the sitemap (chunked to avoid memory issues)
 
-        $blogService->getAllPostsQuery()->chunk(100, function ($posts) use (&$routes) {
-            foreach ($posts as $post) {
-                $routes[] = route('blog.view', $post->slug);
+            $blogService->getAllPostsQuery()->chunk(100, function ($posts) use (&$routes) {
+                foreach ($posts as $post) {
+                    $routes[] = route('blog.view', $post->slug);
+                }
+            });
+
+            // add all blog categories to the sitemap (that have posts)
+            $categories = BlogPostCategory::whereHas('posts', function ($query) {
+                $query->where('is_published', true);
+            })->get();
+
+            foreach ($categories as $category) {
+                $routes[] = route('blog.category', $category->slug);
             }
-        });
-
-        // add all blog categories to the sitemap (that have posts)
-        $categories = BlogPostCategory::whereHas('posts', function ($query) {
-            $query->where('is_published', true);
-        })->get();
-
-        foreach ($categories as $category) {
-            $routes[] = route('blog.category', $category->slug);
         }
 
         $sitemap = Sitemap::create();

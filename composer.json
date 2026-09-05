@@ -89,7 +89,18 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
-        ]
+        ],
+        "check": [
+            "@check:pint",
+            "@check:phpstan",
+            "@check:test"
+        ],
+        "check:pint": "vendor/bin/pint --test",
+        "check:phpstan": "vendor/bin/phpstan analyse --no-progress",
+        "check:test": "@php artisan test --compact"
+    },
+    "scripts-descriptions": {
+        "check": "Runs the full quality gate: Pint (dry run), PHPStan and the PHPUnit test suite."
     },
     "extra": {
         "laravel": {

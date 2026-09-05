@@ -144,14 +144,16 @@ Route::get('/subscription/change-plan-thank-you', [
     'success',
 ])->name('subscription.change-plan.thank-you')->middleware('auth');
 
-// blog
-Route::controller(BlogController::class)
-    ->prefix('/blog')
-    ->group(function () {
-        Route::get('/', 'all')->name('blog')->middleware('sitemapped');
-        Route::get('/category/{slug}', 'category')->name('blog.category');
-        Route::get('/{slug}', 'view')->name('blog.view');
-    });
+// blog (nur registriert, wenn das Feature-Flag gesetzt ist - siehe config/funnel.php)
+if (config('funnel.features.blog')) {
+    Route::controller(BlogController::class)
+        ->prefix('/blog')
+        ->group(function () {
+            Route::get('/', 'all')->name('blog')->middleware('sitemapped');
+            Route::get('/category/{slug}', 'category')->name('blog.category');
+            Route::get('/{slug}', 'view')->name('blog.view');
+        });
+}
 
 Route::get('/terms-of-service', function () {
     return view('pages.terms-of-service');
@@ -178,15 +180,17 @@ Route::get('/checkout/product/success', [
     'productCheckoutSuccess',
 ])->name('checkout.product.success')->middleware('auth');
 
-// roadmap
+// roadmap (nur registriert, wenn das Feature-Flag gesetzt ist - siehe config/funnel.php)
 
-Route::controller(RoadmapController::class)
-    ->prefix('/roadmap')
-    ->group(function () {
-        Route::get('/', 'index')->name('roadmap');
-        Route::get('/i/{itemSlug}', 'viewItem')->name('roadmap.viewItem');
-        Route::get('/suggest', 'suggest')->name('roadmap.suggest')->middleware('auth');
-    });
+if (config('funnel.features.roadmap')) {
+    Route::controller(RoadmapController::class)
+        ->prefix('/roadmap')
+        ->group(function () {
+            Route::get('/', 'index')->name('roadmap');
+            Route::get('/i/{itemSlug}', 'viewItem')->name('roadmap.viewItem');
+            Route::get('/suggest', 'suggest')->name('roadmap.suggest')->middleware('auth');
+        });
+}
 
 // Invitations
 
