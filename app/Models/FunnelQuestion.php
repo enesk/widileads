@@ -132,6 +132,12 @@ class FunnelQuestion extends Model implements QuestionDefinition
     }
 
     /**
+     * Millisekundengenaue Zeitstempel: der Builder vergleicht updated_at, um
+     * gleichzeitige Bearbeitungen zu erkennen (FB-015).
+     */
+    protected $dateFormat = 'Y-m-d H:i:s.v';
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

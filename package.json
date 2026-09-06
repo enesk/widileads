@@ -22,6 +22,7 @@
         "@alpinejs/intersect": "^3.13.3",
         "alpinejs": "^3.13.3",
         "clipboard": "^2.0.11",
-        "highlight.js": "^11.9.0"
+        "highlight.js": "^11.9.0",
+        "sortablejs": "^1.15.7"
     }
 }

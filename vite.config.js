@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/blog.js',
                 'resources/js/components.js',
+                'resources/js/funnel-builder.js',
                 'resources/css/filament/admin/theme.css',
                 'resources/css/filament/dashboard/theme.css',
             ],
