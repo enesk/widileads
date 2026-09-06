@@ -14,6 +14,7 @@ use App\Models\Funnel;
 use App\Models\FunnelQuestion;
 use App\Models\FunnelResult;
 use App\Models\FunnelStep;
+use App\Models\Lead;
 use App\Models\PublicSession;
 use Livewire\Livewire;
 use stdClass;
@@ -139,16 +140,28 @@ class SpamDefenceTest extends FeatureTest
     {
         $funnel = $this->publishedFunnel();
 
-        // Die Spalten aus FB-031 gibt es noch nicht -- der Finder prueft
-        // deshalb nicht und bricht auch nicht ab.
+        // Seit FB-031 gibt es die Spalten, auf die der Finder angewiesen ist --
+        // er sucht jetzt wirklich und findet einen frueheren Lead desselben
+        // Funnels mit derselben Adresse.
         $finder = app(DuplicateLeadFinder::class);
 
-        $this->assertFalse($finder->leadsTableIsReady());
+        $this->assertTrue($finder->leadsTableIsReady());
         $this->assertNull($finder->findRecentDuplicate($funnel->id, ['email' => 'anna@example.com']));
 
-        // Sobald FB-031 die Spalten anlegt, liefert er eine ID. Genau dieser
-        // Fall wird hier gestellt: Die Einreichung muss trotzdem ankommen und
-        // den Verweis tragen -- verworfen wird nichts.
+        $earlier = Lead::factory()->create([
+            'tenant_id' => $funnel->tenant_id,
+            'funnel_id' => $funnel->id,
+            'email_normalized' => 'anna@example.com',
+        ]);
+
+        $this->assertSame(
+            $earlier->id,
+            $finder->findRecentDuplicate($funnel->id, ['email' => 'anna@example.com']),
+        );
+
+        // Entschieden wird trotzdem nichts: Die Einreichung muss ankommen und
+        // den Verweis tragen -- verworfen wird nichts. Der feste Wert haelt
+        // diesen Teil unabhaengig von der Suche.
         $this->app->bind(DuplicateLeadFinder::class, fn (): DuplicateLeadFinder => new class extends DuplicateLeadFinder
         {
             public function leadsTableIsReady(): bool
