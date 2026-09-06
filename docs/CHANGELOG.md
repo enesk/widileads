@@ -24,6 +24,37 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-010 — Datenmodell Funnel / Steps / Questions / Options
+
+**Was:** Sechs neue Tabellen (`funnels`, `funnel_steps`, `funnel_questions`,
+`funnel_options`, `funnel_conditions`, `funnel_results`) mit Models, Factories und einem
+Beispiel-Seeder. `funnel_conditions` und `funnel_results` bringen nur die Struktur mit —
+StepResolver (FB-012) und ResultResolver (FB-013) kommen später. Ein Funnel wird
+öffentlich ausschließlich über `public_token` (ULID, automatisch vergeben, zugleich
+Route-Key) adressiert, nie über die ID. Der Feldschlüssel einer Frage wird beim
+Speichern normalisiert („E-Mail" → `e_mail`) und ist je Funnel eindeutig — dafür trägt
+`funnel_questions` neben `step_id` auch `funnel_id`, sonst wäre ein Unique-Index über
+Schrittgrenzen hinweg nicht möglich. Neu sind außerdem das Enum `FunnelStatus`
+(`draft|published|archived`), das Enum `FunnelFieldKey` mit den sieben reservierten
+Kontakt-Feldschlüsseln und das Trait `BelongsToTenant`, das den Mandantenfilter setzt
+und `tenant_id` beim Anlegen automatisch füllt.
+
+**Warum:** Das Funnel-Schema ist die Grundlage für Builder (FB-011 ff.), öffentliche
+Runtime (FB-E2) und Lead-Erzeugung. Der Preis eines Leads hängt am Funnel
+(`lead_price`, ohne eigenen Wert greift `config('funnel.lead.default_price')`), damit
+die kaufmännische Vorgabe nicht im Code steht.
+
+**Neue Config-Keys:** keine.
+
+**Migrationen:** `2026_09_06_140000_create_funnel_tables` legt die sechs Tabellen an —
+additiv, mit `down()` in umgekehrter Reihenfolge. Fremdschlüssel kaskadieren
+(Funnel → Schritte → Fragen → Optionen).
+
+Der Beispiel-Funnel wird bewusst nicht vom `DatabaseSeeder` mitgezogen, sondern gezielt
+aufgerufen: `php artisan db:seed --class=FunnelExampleSeeder`. Die vollständige
+Pfotencheck-Vorlage bleibt FB-019. Zwei Beobachtungen außerhalb des Ticketumfangs
+stehen in [BACKLOG.md](BACKLOG.md).
+
 ### FB-006 — Sanctum-API-Tokens je Tenant
 
 **Was:** API-Tokens gehören dem Tenant (`Tenant` ist tokenable), nicht einem einzelnen

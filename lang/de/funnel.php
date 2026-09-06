@@ -101,4 +101,10 @@ return [
         ],
     ],
 
+    'status' => [
+        'draft' => 'Entwurf',
+        'published' => 'Veroeffentlicht',
+        'archived' => 'Archiviert',
+    ],
+
 ];
