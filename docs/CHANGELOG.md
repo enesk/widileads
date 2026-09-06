@@ -46,7 +46,16 @@ Runtime (FB-E2) und Lead-Erzeugung. Der Preis eines Leads hängt am Funnel
 (`lead_price`, ohne eigenen Wert greift `config('funnel.lead.default_price')`), damit
 die kaufmännische Vorgabe nicht im Code steht.
 
-**Neue Config-Keys:** keine.
+Der Feldschlüssel entsteht in zwei Schritten: `normalize()` vereinheitlicht die
+Schreibweise („E-Mail" → `e_mail`), `resolve()` bildet das Ergebnis anschließend über
+`config('funnel.field_key_aliases')` auf den reservierten Schlüssel ab (`e_mail` →
+`email`). Ohne den zweiten Schritt entstünde ein Lead, dessen Kontaktdaten `LeadContact`
+(FB-032) später nicht findet — siehe Abweichung 5 in
+[agent-prompt.md](funnel-builder/agent-prompt.md).
+
+**Neue Config-Keys:** `config/funnel.php` → `field_key_aliases` (Zuordnung
+gebräuchlicher Schreibweisen auf die reservierten Kontakt-Feldschlüssel, ohne
+env-Fallback — eine Tabelle, kein Schwellwert).
 
 **Migrationen:** `2026_09_06_140000_create_funnel_tables` legt die sechs Tabellen an —
 additiv, mit `down()` in umgekehrter Reihenfolge. Fremdschlüssel kaskadieren
