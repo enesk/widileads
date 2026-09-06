@@ -10,7 +10,7 @@ namespace App\Funnel\Snapshots;
 class StepSnapshot
 {
     /**
-     * @param  list<array<string, mixed>>  $questions  nach Position sortiert
+     * @param  list<QuestionSnapshot>  $questions  nach Position sortiert
      */
     public function __construct(
         public readonly int $position,
@@ -24,9 +24,12 @@ class StepSnapshot
      */
     public static function fromArray(array $step): self
     {
-        $questions = array_values((array) ($step['questions'] ?? []));
+        $questions = array_map(
+            static fn (array $question): QuestionSnapshot => QuestionSnapshot::fromArray($question),
+            array_values((array) ($step['questions'] ?? [])),
+        );
 
-        usort($questions, static fn (array $a, array $b): int => ((int) ($a['position'] ?? 0)) <=> ((int) ($b['position'] ?? 0)));
+        usort($questions, static fn (QuestionSnapshot $a, QuestionSnapshot $b): int => $a->position <=> $b->position);
 
         return new self(
             position: (int) ($step['position'] ?? 0),
@@ -44,7 +47,7 @@ class StepSnapshot
     public function fieldKeys(): array
     {
         return array_values(array_map(
-            static fn (array $question): string => (string) ($question['field_key'] ?? ''),
+            static fn (QuestionSnapshot $question): string => $question->fieldKey,
             $this->questions,
         ));
     }

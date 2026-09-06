@@ -218,4 +218,13 @@ return [
         ],
     ],
 
+    'result' => [
+        'errors' => [
+            'invalid_range' => 'The result range ":title" is invalid: the lower bound :min is above the upper bound :max.',
+            'overlap' => 'The result ranges ":first" (:first_range) and ":second" (:second_range) overlap.',
+            'gap_single' => 'There is no result for a score of :score.',
+            'gap_range' => 'There is no result for scores :from to :to.',
+        ],
+    ],
+
 ];

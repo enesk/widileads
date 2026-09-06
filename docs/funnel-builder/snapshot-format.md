@@ -85,8 +85,14 @@ sie unverändert mit echten Snapshots füttern.
   beliebiger Reihenfolge enthalten.
 - **Unbekannte Felder werden ignoriert.** Ein Snapshot aus einer späteren Version darf
   zusätzliche Schlüssel tragen, ohne dass das Lesen bricht.
-- **`results`** wird von FB-012 nicht ausgewertet; der `ResultResolver` kommt mit
-  FB-013. Der Abschnitt ist hier beschrieben, damit das Format vollständig ist.
+- **`results[]`** trägt die Ergebnis-Screens mit ihrem Punktebereich. `min_score` und
+  `max_score` sind **beidseitig einschließend**: 4 bis 7 deckt 4, 5, 6 und 7 ab.
+  Ausgewertet wird der Abschnitt seit FB-013 vom `ResultResolver`; die Bereiche prüft
+  der `ResultRangeValidator` auf Lücken und Überschneidungen.
+- **`questions[].options[].score`** trägt die Punkte einer Antwortoption. Bei einer
+  Mehrfachauswahl summieren sich die Punkte aller angekreuzten Optionen; Fragen ohne
+  Optionen (Freitext, Zahl, Kontaktfelder) tragen nichts bei. Eine Option ohne `score`
+  zählt null.
 
 ## Antworten
 
@@ -98,3 +104,16 @@ Die Antworten des Endkunden werden als flaches Array `field_key => Wert` überge
 
 Ein fehlender Schlüssel bedeutet „nicht beantwortet"; `null` und der leere String
 gelten ebenfalls als unbeantwortet.
+
+## Auswertung
+
+| Baustein | Aufgabe | Ticket |
+|---|---|---|
+| `StepResolver` | nächster Schritt aus Verzweigungsregeln und Priorität | FB-012 |
+| `ScoreCalculator` | Punktzahl aus den gewählten Optionen | FB-013 |
+| `ResultResolver` | Ergebnis-Screen zur Punktzahl | FB-013 |
+| `ResultRangeValidator` | Ergebnisbereiche lückenlos und überschneidungsfrei | FB-013 |
+
+Alle vier arbeiten ausschließlich auf den Value Objects dieses Formats — keine
+Datenbank, keine Eloquent-Modelle. Wo Punktzahl und Ergebnis einer Einreichung
+gespeichert werden (`leads.score`, `leads.result_id`), entscheidet FB-031.

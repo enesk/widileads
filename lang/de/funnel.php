@@ -218,4 +218,13 @@ return [
         ],
     ],
 
+    'result' => [
+        'errors' => [
+            'invalid_range' => 'Der Ergebnisbereich ":title" ist ungueltig: Die Untergrenze :min liegt ueber der Obergrenze :max.',
+            'overlap' => 'Die Ergebnisbereiche ":first" (:first_range) und ":second" (:second_range) ueberschneiden sich.',
+            'gap_single' => 'Fuer die Punktzahl :score gibt es kein Ergebnis.',
+            'gap_range' => 'Fuer die Punktzahlen :from bis :to gibt es kein Ergebnis.',
+        ],
+    ],
+
 ];
