@@ -408,4 +408,52 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pruefung neuer Leads (FB-033)
+    |--------------------------------------------------------------------------
+    |
+    | Der Pruefjob entscheidet nach dem Anlegen, ob ein Lead kaufbar wird oder
+    | als ungueltig aussortiert wird. Jede Regel ist einzeln abschaltbar: Ein zu
+    | scharfer Filter vernichtet Leads, fuer die jemand bezahlt haette.
+    |
+    */
+
+    'screening' => [
+
+        // Hauptschalter. Aus bedeutet: jeder neue Lead wird kaufbar.
+        'enabled' => (bool) env('FUNNEL_SCREENING_ENABLED', true),
+
+        // Leads mit Verweis auf einen frueheren Kontakt (FB-023) aussortieren.
+        'reject_duplicates' => (bool) env('FUNNEL_SCREENING_REJECT_DUPLICATES', true),
+
+        // Aussortieren, wenn WEDER eine brauchbare Telefonnummer vorliegt NOCH
+        // eine erreichbare E-Mail-Adresse. Bewusst als Und-Bedingung: eine
+        // Wegwerf-Adresse allein macht einen Lead nicht wertlos, solange die
+        // Telefonnummer stimmt.
+        'reject_implausible_contact' => (bool) env('FUNNEL_SCREENING_REJECT_IMPLAUSIBLE_CONTACT', true),
+
+        // Ab wie vielen gleichzeitig ausgeloesten Spam-Signalen (FB-023) ein
+        // Lead ungueltig wird. Zwei, weil jedes Signal fuer sich Fehlalarme
+        // kennt: Autofill und ein schneller Leser loesen die Zeitfalle aus.
+        'spam_signal_threshold' => (int) env('FUNNEL_SCREENING_SPAM_SIGNAL_THRESHOLD', 2),
+
+        // Signale, die allein schon genuegen. Das versteckte Feld fuellt kein
+        // Mensch aus -- dafuer braucht es keine zweite Bestaetigung.
+        'decisive_spam_signals' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('FUNNEL_SCREENING_DECISIVE_SPAM_SIGNALS', 'honeypot_tripped')),
+        ))),
+
+        // Domains von Wegwerf-Adressen. Erweiterbar ohne Deployment.
+        'disposable_email_domains' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'FUNNEL_SCREENING_DISPOSABLE_EMAIL_DOMAINS',
+                'mailinator.com,guerrillamail.com,guerrillamail.de,10minutemail.com,tempmail.com,temp-mail.org,trashmail.com,trashmail.de,wegwerfemail.de,yopmail.com,sharklasers.com,getnada.com,mailnesia.com,dispostable.com,fakeinbox.com',
+            )),
+        ))),
+
+    ],
+
 ];

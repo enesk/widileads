@@ -90,6 +90,9 @@ class CreateLeadFromSession implements SubmissionReceiver
                 'funnel_id' => $funnel->id,
                 'funnel_version_id' => $version->id,
                 'public_session_id' => $submission->publicSessionId,
+                // Nur der Verweis, keine Entscheidung: Ob daraus eine Dublette
+                // wird, klaert der Pruefjob (FB-033).
+                'duplicate_of_lead_id' => $submission->duplicateOfLeadId,
                 'score' => $submission->score,
                 'result_key' => $submission->resultKey,
                 // Der Preis wird beim Entstehen festgehalten: Aendert der

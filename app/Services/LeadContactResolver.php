@@ -39,6 +39,22 @@ class LeadContactResolver
         return $this->maySeeClearText($lead, $viewer) ? $contact : $contact->masked();
     }
 
+    /**
+     * Die unmaskierte Fassung fuer die serverseitige Auswertung (FB-033).
+     *
+     * Ausdruecklich NICHT fuer die Ausgabe: Was hier herauskommt, darf niemals
+     * an einen Betrachter gelangen. Gedacht ist die Methode fuer Pruefungen,
+     * die auf echten Werten arbeiten muessen -- ob eine Telefonnummer lesbar
+     * ist, ob eine Adresse zu einem Wegwerf-Anbieter gehoert.
+     *
+     * Es gibt sie, damit auch diese Zugriffe durch LeadContact laufen statt an
+     * den Rohspalten. Wer Kontaktdaten anzeigt, nimmt for().
+     */
+    public function internal(Lead $lead): LeadContact
+    {
+        return LeadContact::fromLead($lead);
+    }
+
     public function maySeeClearText(Lead $lead, ?User $viewer): bool
     {
         if (! $viewer instanceof User) {
