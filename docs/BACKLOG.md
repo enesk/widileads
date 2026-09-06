@@ -19,6 +19,21 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Feldschlüssel „E-Mail" trifft den reservierten Schlüssel „email" nicht** — die
+  Normalisierung aus FB-010 macht aus dem Label „E-Mail" den Schlüssel `e_mail`,
+  reserviert ist aber `email`. Ein Funnel, dessen Kontaktfeld „E-Mail" heißt, wird
+  damit nicht als Kontaktfeld erkannt, was spätestens bei der serverseitigen
+  Maskierung (FB-031/FB-032) auffällt. Beide Vorgaben stehen so im Ticket, deshalb
+  unverändert umgesetzt. Möglicher Ausweg: Alias-Tabelle (`e_mail` → `email`) oder
+  eine Zuordnung „Frage → Kontaktfeld" im Builder statt Namenskonvention.
+  Aufgefallen bei: FB-010. Datum: 2026-09-06.
+
+- **Test-Datenbank ist zwischen Sessions geteilt** — `.env.testing` zeigt fest auf
+  `saasykit_tenancy_test`. Laufen zwei Sessions gleichzeitig `php artisan test`, brechen
+  die Läufe gegenseitig ab („Table 'permissions' already exists"). Abhilfe wäre eine
+  DB je Arbeitskopie (z. B. Suffix aus `APP_ENV`/Worktree-Name) oder konsequent
+  `php artisan test --parallel`. Aufgefallen bei: FB-010. Datum: 2026-09-06.
+
 - **Horizon: `horizon:snapshot` ist nicht eingeplant** — ohne
   `Schedule::command('horizon:snapshot')->everyFiveMinutes()` in `routes/console.php`
   bleibt die Metrics-Seite von Horizon dauerhaft leer. Bewusst nicht in FB-001
