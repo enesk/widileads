@@ -178,7 +178,7 @@ class FunnelRunnerTest extends FeatureTest
         $funnel->forceFill(['status' => FunnelStatus::ARCHIVED])->save();
 
         Livewire::test(FunnelRunner::class, ['token' => $funnel->public_token])
-            ->assertSee(__('funnel.runtime.archived_title'))
+            ->assertSee(__('runtime.archived_title'))
             ->assertDontSee('Welches Tier?');
 
         // Ohne Hinweisseite bleibt nur 404.

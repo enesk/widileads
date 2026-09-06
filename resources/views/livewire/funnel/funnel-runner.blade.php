@@ -3,8 +3,8 @@
 <div class="flex w-full flex-1 flex-col gap-6">
     @if ($this->isArchived())
         <div class="rounded-box bg-base-100 p-6 text-center shadow">
-            <h1 class="text-xl font-semibold">{{ __('funnel.runtime.archived_title') }}</h1>
-            <p class="mt-2 text-base-content/70">{{ __('funnel.runtime.archived_body') }}</p>
+            <h1 class="text-xl font-semibold">{{ __('runtime.archived_title') }}</h1>
+            <p class="mt-2 text-base-content/70">{{ __('runtime.archived_body') }}</p>
         </div>
     @else
         <header class="flex flex-col gap-3">
@@ -13,7 +13,7 @@
             @if ($phase !== 'done')
                 <div class="h-2 w-full overflow-hidden rounded-full bg-base-300" role="progressbar"
                      aria-valuenow="{{ $progress }}" aria-valuemin="0" aria-valuemax="100"
-                     aria-label="{{ __('funnel.runtime.progress') }}">
+                     aria-label="{{ __('runtime.progress') }}">
                     <div class="h-full bg-primary transition-all" style="width: {{ $progress }}%"></div>
                 </div>
             @endif
@@ -29,13 +29,13 @@
 
                 <button type="button" wire:click="continueAfterResult"
                         class="btn btn-primary mt-6 min-h-[44px] w-full">
-                    {{ $result->ctaLabel ?: __('funnel.runtime.continue') }}
+                    {{ $result->ctaLabel ?: __('runtime.continue') }}
                 </button>
             </section>
         @elseif ($phase === 'done')
             <section class="rounded-box bg-base-100 p-6 text-center shadow">
-                <h2 class="text-xl font-semibold">{{ __('funnel.runtime.thanks_title') }}</h2>
-                <p class="mt-3 text-base-content/80">{{ __('funnel.runtime.thanks_body') }}</p>
+                <h2 class="text-xl font-semibold">{{ __('runtime.thanks_title') }}</h2>
+                <p class="mt-3 text-base-content/80">{{ __('runtime.thanks_body') }}</p>
             </section>
         @elseif ($step !== null)
             <form wire:submit="{{ $phase === 'contact' ? 'submitContact' : 'submitStep' }}"
@@ -57,7 +57,7 @@
                 </section>
 
                 <button type="submit" class="btn btn-primary min-h-[44px] w-full">
-                    {{ $phase === 'contact' ? __('funnel.runtime.submit') : __('funnel.runtime.next') }}
+                    {{ $phase === 'contact' ? __('runtime.submit') : __('runtime.next') }}
                 </button>
             </form>
         @endif
