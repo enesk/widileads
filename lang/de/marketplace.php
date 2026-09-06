@@ -92,4 +92,55 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kaufkriterien (FB-051)
+    |--------------------------------------------------------------------------
+    */
+
+    'profile' => [
+
+        'heading' => 'Kaufkriterien',
+        'nav_label' => 'Kaufkriterien',
+        'description' => 'Lege fest, welche Leads du sehen willst. Ein leeres Feld schraenkt nicht ein - ohne Angabe siehst du alles.',
+        'saved' => 'Kaufkriterien wurden gespeichert.',
+        'submit' => 'Speichern',
+
+        'funnels' => 'Fragebogen',
+        'funnels_helper' => 'Ohne Auswahl siehst du Leads aus allen Fragebogen.',
+        'no_funnels' => 'Zurzeit ist kein Fragebogen veroeffentlicht.',
+
+        'postal_prefixes' => 'Regionen',
+        'postal_prefixes_helper' => 'Anfaenge von Postleitzahlen, mit Komma getrennt. "76" deckt alles von 76001 bis 76999 ab.',
+
+        'answer_filters' => 'Antwortfilter',
+        'answer_filters_helper' => 'Je Zeile ein Feldschluessel und die Antworten, die du akzeptierst. Bei einer Mehrfachauswahl genuegt eine Uebereinstimmung.',
+        'field_key_placeholder' => 'z. B. tierart',
+        'values_placeholder' => 'z. B. hund, katze',
+        'add_filter' => 'Filter hinzufuegen',
+        'remove_filter' => 'Entfernen',
+        'no_answer_filters' => 'Noch kein Antwortfilter - du siehst Leads mit beliebigen Antworten.',
+
+        'min_score' => 'Mindestpunktzahl',
+        'min_score_helper' => 'Leer: keine Untergrenze. Leads ohne Punktzahl fallen raus, sobald hier ein Wert steht.',
+
+        'daily_limit' => 'Tageslimit',
+        'daily_limit_helper' => 'Hoechstzahl automatischer Kaeufe je Tag. Leer oder 0: keine Begrenzung.',
+
+        'auto_buy' => 'Passende Leads automatisch kaufen',
+        'auto_buy_helper' => 'Ist der Autokauf aus, siehst du passende Leads im Marktplatz und entscheidest selbst.',
+
+        'notify_email' => 'Benachrichtigung an',
+        'notify_email_helper' => 'Ohne Angabe verwenden wir die Adresse aus deiner Registrierung.',
+
+        'validation' => [
+            'too_many_prefixes' => 'Es sind hoechstens :max Regionen moeglich.',
+            'prefix_format' => '":prefix" ist keine Region: erlaubt sind Ziffern, hoechstens :max Stellen.',
+            'notify_email' => 'Bitte gib eine gueltige E-Mail-Adresse an.',
+            'min_score' => 'Die Mindestpunktzahl muss eine ganze Zahl sein.',
+            'daily_limit' => 'Das Tageslimit muss eine ganze Zahl ab 0 sein.',
+        ],
+
+    ],
+
 ];

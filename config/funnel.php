@@ -355,4 +355,32 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Lead-Marktplatz (FB-051)
+    |--------------------------------------------------------------------------
+    */
+
+    'marketplace' => [
+
+        'profile' => [
+
+            // Hoechstzahl automatischer Kaeufe je Kalendertag, mit der ein neu
+            // angelegtes Kaufprofil startet. 0 bedeutet: keine Begrenzung.
+            // Ausgewertet wird das Limit erst vom Autokauf in FB-056.
+            'default_daily_limit' => (int) env('FUNNEL_MARKETPLACE_DEFAULT_DAILY_LIMIT', 0),
+
+            // Hoechstzahl an Postleitzahl-Praefixen je Profil. Begrenzt die
+            // Groesse des JSON-Felds und die Laenge der spaeteren Abfrage.
+            'max_postal_prefixes' => (int) env('FUNNEL_MARKETPLACE_MAX_POSTAL_PREFIXES', 50),
+
+            // Hoechstlaenge eines Postleitzahl-Praefixes. Fuenf Stellen sind in
+            // Deutschland die vollstaendige Postleitzahl -- laenger waere kein
+            // Praefix mehr.
+            'postal_prefix_max_length' => (int) env('FUNNEL_MARKETPLACE_POSTAL_PREFIX_MAX_LENGTH', 5),
+
+        ],
+
+    ],
+
 ];

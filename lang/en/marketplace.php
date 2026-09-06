@@ -92,4 +92,55 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Purchase criteria (FB-051)
+    |--------------------------------------------------------------------------
+    */
+
+    'profile' => [
+
+        'heading' => 'Purchase criteria',
+        'nav_label' => 'Purchase criteria',
+        'description' => 'Define which leads you want to see. An empty field does not restrict anything -- without a setting you see everything.',
+        'saved' => 'Purchase criteria saved.',
+        'submit' => 'Save',
+
+        'funnels' => 'Questionnaires',
+        'funnels_helper' => 'Without a selection you see leads from every questionnaire.',
+        'no_funnels' => 'No questionnaire is published at the moment.',
+
+        'postal_prefixes' => 'Regions',
+        'postal_prefixes_helper' => 'Beginnings of postal codes, separated by commas. "76" covers everything from 76001 to 76999.',
+
+        'answer_filters' => 'Answer filters',
+        'answer_filters_helper' => 'One field key per row plus the answers you accept. For a multiple choice question one match is enough.',
+        'field_key_placeholder' => 'e.g. tierart',
+        'values_placeholder' => 'e.g. hund, katze',
+        'add_filter' => 'Add filter',
+        'remove_filter' => 'Remove',
+        'no_answer_filters' => 'No answer filter yet -- you see leads with any answers.',
+
+        'min_score' => 'Minimum score',
+        'min_score_helper' => 'Empty: no lower bound. Leads without a score drop out as soon as a value is set here.',
+
+        'daily_limit' => 'Daily limit',
+        'daily_limit_helper' => 'Maximum number of automatic purchases per day. Empty or 0: no limit.',
+
+        'auto_buy' => 'Buy matching leads automatically',
+        'auto_buy_helper' => 'With automatic buying off you see matching leads in the marketplace and decide yourself.',
+
+        'notify_email' => 'Send notifications to',
+        'notify_email_helper' => 'Without a value we use the address from your registration.',
+
+        'validation' => [
+            'too_many_prefixes' => 'At most :max regions are allowed.',
+            'prefix_format' => '":prefix" is not a region: digits only, at most :max characters.',
+            'notify_email' => 'Please provide a valid email address.',
+            'min_score' => 'The minimum score must be a whole number.',
+            'daily_limit' => 'The daily limit must be a whole number of 0 or more.',
+        ],
+
+    ],
+
 ];
