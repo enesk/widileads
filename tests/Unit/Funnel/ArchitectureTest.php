@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Funnel;
 
+use App\Dto\LeadContact;
+use App\Services\LeadContactResolver;
 use App\Services\LeadStateService;
 use ReflectionClass;
 use SplFileInfo;
@@ -13,10 +15,8 @@ use Tests\TestCase;
 /**
  * FB-042: Architekturregeln, die sich am Quelltext pruefen lassen.
  *
- * Zwei der drei Regeln aus dem Ticket stehen hier. Die dritte -- keine
- * Klartext-Kontaktausgabe ausser ueber `LeadContact` -- laesst sich noch nicht
- * pruefen, weil `LeadContact` erst in FB-032 entsteht; sie wird dort
- * nachgeruestet.
+ * Alle drei Regeln aus dem Ticket stehen hier. Die dritte kam mit FB-032 dazu,
+ * als `LeadContact` entstanden ist.
  *
  * Gepruefte Regeln:
  *
@@ -25,6 +25,8 @@ use Tests\TestCase;
  *    schreibt derselbe Dienst, sonst niemand.
  * 2. Architekturleitsatz 8: Schwellwerte (Fristen, Preise, Limits) stehen in
  *    config/funnel.php, nicht als Zahl im Code.
+ * 3. Architekturleitsatz 5: Klartext-Kontaktdaten entstehen nur in LeadContact
+ *    und werden nur ueber den LeadContactResolver herausgegeben.
  *
  * Gelesen wird ueber den PHP-Tokenizer statt per Textsuche: Kommentare und
  * Zeichenketten sollen nicht mitzaehlen. Ein Docblock, der `update(['lead_state'
@@ -122,6 +124,51 @@ class ArchitectureTest extends TestCase
         )));
     }
 
+    public function test_clear_text_contact_data_is_only_reachable_through_lead_contact(): void
+    {
+        $contactBuilder = (string) (new ReflectionClass(LeadContact::class))->getFileName();
+        $resolver = (string) (new ReflectionClass(LeadContactResolver::class))->getFileName();
+
+        $violations = [];
+
+        foreach ($this->phpFilesIn(app_path()) as $file) {
+            $path = (string) $file->getRealPath();
+            $code = $this->codeWithoutComments($path);
+            $relative = $this->relativePath($path);
+
+            // Eine unmaskierte Fassung entsteht nur an einer Stelle. Wer sie
+            // selbst baut, umgeht die Entscheidung darueber, wer sie sehen darf.
+            if ($path !== $resolver && $path !== $contactBuilder) {
+                foreach ($this->fromLeadCalls($code) as $line) {
+                    $violations[] = $relative.':'.$line.' -- LeadContact::fromLead() ausserhalb des LeadContactResolver';
+                }
+            }
+
+            // Und die Rohspalten liest ausschliesslich LeadContact selbst.
+            if ($path !== $contactBuilder) {
+                foreach ($this->rawContactReads($code) as $line) {
+                    $violations[] = $relative.':'.$line.' -- direkter Zugriff auf eine Kontaktspalte';
+                }
+            }
+        }
+
+        // Views geben nur aus, was der LeadPresenter herausgibt -- sie kennen
+        // die Kontaktspalten gar nicht.
+        foreach ($this->phpFilesIn(resource_path('views')) as $file) {
+            $path = (string) $file->getRealPath();
+            $template = $this->withoutBladeComments((string) file_get_contents($path));
+
+            if (preg_match('/(?:email_normalized|phone_e164)/', $template) === 1) {
+                $violations[] = $this->relativePath($path).' -- Kontaktspalte in einem Template';
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", array_merge(
+            ['Klartext-Kontaktdaten gibt es nur ueber LeadContact (Architekturleitsatz 5):', ''],
+            $violations,
+        )));
+    }
+
     /**
      * Ein Architektur-Test, der nichts findet, ist von einem kaputten Test nicht
      * zu unterscheiden. Diese Probe stellt sicher, dass beide Regeln auf
@@ -163,6 +210,27 @@ class ArchitectureTest extends TestCase
         $this->assertSame([], $this->writeSites($cleanCode, 'lead_state'), 'Cast-Deklaration, Kommentar und where() sind keine Schreibzugriffe.');
         $this->assertSame([], $this->writeSites($cleanCode, 'settled_price'));
         $this->assertSame([], $this->thresholdLiterals($cleanCode), 'Werte aus der Konfiguration sind keine Literale.');
+
+        $leakingCode = $this->stripComments(<<<'PHP'
+        <?php
+        $contact = LeadContact::fromLead($lead);
+        $mail = $lead->email_normalized;
+        $number = $lead->phone_e164;
+        PHP);
+
+        $this->assertNotSame([], $this->fromLeadCalls($leakingCode), 'Eine selbst gebaute Kontaktfassung muss auffallen.');
+        $this->assertNotSame([], $this->rawContactReads($leakingCode), 'Ein direkter Zugriff auf die Kontaktspalten muss auffallen.');
+
+        $presenterCode = $this->stripComments(<<<'PHP'
+        <?php
+        $contact = $lead->contactFor($viewer);
+        $mail = $presenter->email();
+        PHP);
+
+        $this->assertSame([], $this->fromLeadCalls($presenterCode), 'Der Weg ueber contactFor() ist kein Verstoss.');
+        $this->assertSame([], $this->rawContactReads($presenterCode));
+
+        $this->assertSame('', trim($this->withoutBladeComments('{{-- email_normalized --}}')), 'Blade-Kommentare geben nichts aus.');
     }
 
     /**
@@ -335,6 +403,35 @@ class ArchitectureTest extends TestCase
             Finder::create()->files()->in($directory)->name('*.php'),
             false,
         ));
+    }
+
+    /**
+     * Stellen, an denen eine unmaskierte Kontaktfassung gebaut wird.
+     *
+     * @return list<int>
+     */
+    private function fromLeadCalls(string $code): array
+    {
+        return $this->matchLines($code, '/LeadContact::fromLead\s*\(/');
+    }
+
+    /**
+     * Direkte Lesezugriffe auf die Kontaktspalten eines Leads.
+     *
+     * @return list<int>
+     */
+    private function rawContactReads(string $code): array
+    {
+        return $this->matchLines($code, '/->\s*(?:email_normalized|phone_e164)\b/');
+    }
+
+    /**
+     * Blade-Kommentare entfernen -- ein Kommentar, der eine Kontaktspalte nennt,
+     * gibt nichts aus.
+     */
+    private function withoutBladeComments(string $template): string
+    {
+        return (string) preg_replace('/\{\{--.*?--\}\}/s', '', $template);
     }
 
     private function relativePath(string $path): string
