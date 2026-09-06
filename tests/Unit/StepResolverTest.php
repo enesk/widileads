@@ -140,6 +140,60 @@ class StepResolverTest extends TestCase
         $this->assertNull($this->resolver()->next($snapshot, ['tierart' => 'hund'], 4));
     }
 
+    /**
+     * Der reale Fall aus dem Referenzfunnel: Die Tierart steht in Schritt 1,
+     * Rasse und Groesse in Schritt 3, dazwischen das Alter. "Anderes Tier"
+     * soll Rasse und Groesse ueberspringen -- aber nicht das Alter.
+     *
+     * @return array<string, array{int, string, int}>
+     */
+    public static function evaluationStepProvider(): array
+    {
+        return [
+            'greift nicht beim Verlassen von Schritt 1' => [1, 'anderes', 2],
+            'greift beim Verlassen von Schritt 2' => [2, 'anderes', 4],
+            'trifft dort inhaltlich nicht zu' => [2, 'hund', 3],
+            'ohne Bezug zur Regel bleibt die Reihenfolge' => [3, 'anderes', 4],
+        ];
+    }
+
+    #[DataProvider('evaluationStepProvider')]
+    public function test_a_rule_is_evaluated_at_its_own_step_not_at_the_step_of_its_question(
+        int $currentStep,
+        string $answer,
+        int $expectedNext,
+    ): void {
+        $snapshot = $this->snapshot([[
+            // Ausgangsfrage steht in Schritt 1 ...
+            'source_field_key' => 'tierart',
+            'operator' => 'equals',
+            'value' => ['anderes'],
+            'target_step_position' => 4,
+            // ... ausgewertet wird sie aber erst beim Verlassen von Schritt 2.
+            'evaluate_at_step_position' => 2,
+            'priority' => 10,
+        ]], stepCount: 4);
+
+        $this->assertSame($expectedNext, $this->resolver()->next($snapshot, ['tierart' => $answer], $currentStep));
+    }
+
+    public function test_without_the_field_a_rule_keeps_working_at_the_step_of_its_question(): void
+    {
+        // Snapshot, wie ihn ein vor FB-012a veroeffentlichter Funnel traegt:
+        // ohne evaluate_at_step_position.
+        $snapshot = $this->snapshot([[
+            'source_field_key' => 'tierart',
+            'operator' => 'equals',
+            'value' => ['anderes'],
+            'target_step_position' => 4,
+            'priority' => 10,
+        ]], stepCount: 4);
+
+        // Alte Semantik: Die Regel greift dort, wo ihre Ausgangsfrage steht.
+        $this->assertSame(4, $this->resolver()->next($snapshot, ['tierart' => 'anderes'], 1));
+        $this->assertSame(3, $this->resolver()->next($snapshot, ['tierart' => 'anderes'], 2));
+    }
+
     public function test_a_rule_pointing_at_a_missing_step_is_skipped(): void
     {
         $snapshot = $this->snapshot([[

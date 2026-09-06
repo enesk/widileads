@@ -17,12 +17,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Treffern gewinnt die hoechste `priority`. Ausgewertet wird sie erst vom
  * StepResolver in FB-012 -- hier steht ausschliesslich die Struktur.
  *
+ * `source_question_id` sagt, WAS geprueft wird, `evaluate_at_step_position`
+ * sagt, WANN (FB-012a). Beides zu trennen ist noetig, damit sich eine Regel auf
+ * eine frueher gegebene Antwort beziehen kann: "anderes Tier ueberspringt Rasse
+ * und Groesse" wird erst zwei Schritte spaeter wirksam. Ohne eigenen Wert gilt
+ * der Schritt der Ausgangsfrage.
+ *
  * @property int $id
  * @property int $funnel_id
  * @property int $source_question_id
  * @property ConditionOperator $operator
  * @property array<array-key, mixed>|string|int|float|bool|null $value
  * @property int $target_step_id
+ * @property int|null $evaluate_at_step_position
  * @property int $priority
  */
 class FunnelCondition extends Model
@@ -36,6 +43,7 @@ class FunnelCondition extends Model
         'operator',
         'value',
         'target_step_id',
+        'evaluate_at_step_position',
         'priority',
     ];
 
@@ -68,6 +76,15 @@ class FunnelCondition extends Model
     }
 
     /**
+     * Schritt, an dem diese Regel greift -- ohne eigenen Wert der Schritt der
+     * Ausgangsfrage.
+     */
+    public function evaluationStepPosition(): ?int
+    {
+        return $this->evaluate_at_step_position ?? $this->sourceQuestion?->step?->position;
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -75,7 +92,26 @@ class FunnelCondition extends Model
         return [
             'operator' => ConditionOperator::class,
             'value' => 'array',
+            'evaluate_at_step_position' => 'integer',
             'priority' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Vorgabe: Die Regel greift dort, wo ihre Ausgangsfrage steht. Damit
+        // verhalten sich bestehende Funnels unveraendert; wer eine spaetere
+        // Auswertung will, setzt die Position ausdruecklich.
+        static::saving(function (self $condition): void {
+            if ($condition->evaluate_at_step_position !== null || $condition->source_question_id === null) {
+                return;
+            }
+
+            $condition->evaluate_at_step_position = FunnelStep::query()
+                ->whereKey(
+                    FunnelQuestion::query()->whereKey($condition->source_question_id)->value('step_id')
+                )
+                ->value('position');
+        });
     }
 }

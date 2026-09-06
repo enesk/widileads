@@ -55,6 +55,7 @@ sie unverändert mit echten Snapshots füttern.
       "operator": "equals",
       "value": ["anderes"],
       "target_step_position": 3,
+      "evaluate_at_step_position": 2,
       "priority": 10
     }
   ],
@@ -85,6 +86,14 @@ Schlüssel steht schon hier, damit die Runtime ihn ab dann ohne Formatänderung 
   fremde Zeilen zeigen.
 - **`conditions[].source_field_key`** verweist auf die Frage, deren Antwort geprüft
   wird, **`target_step_position`** auf den Schritt, zu dem gesprungen wird.
+- **`conditions[].evaluate_at_step_position`** sagt, **wann** die Regel greift — beim
+  Verlassen dieses Schritts. Das ist bewusst getrennt von der Ausgangsfrage: Im
+  Referenzfunnel steht die Tierart in Schritt 1, Rasse und Größe in Schritt 3, dazwischen
+  das Alter. „Anderes Tier überspringt Rasse und Größe" muss sich also auf eine früher
+  gegebene Antwort beziehen und trotzdem erst später wirken. Fehlt das Feld — etwa in
+  einem vor FB-012a veröffentlichten Snapshot —, setzt `FunnelSnapshot` beim Lesen den
+  Schritt der Ausgangsfrage ein; bereits veröffentlichte Funnels verhalten sich
+  unverändert.
 - **`conditions[].value`** ist der Vergleichswert. Für `in` eine Liste, für `answered`
   ohne Bedeutung (darf `null` sein), für `score_gte` eine Zahl.
 - **Sortierung ist nicht garantiert.** Schritte, Fragen, Optionen und Regeln werden

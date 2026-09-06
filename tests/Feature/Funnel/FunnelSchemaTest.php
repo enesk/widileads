@@ -256,6 +256,12 @@ class FunnelSchemaTest extends FeatureTest
         $this->assertSame(ConditionOperator::EQUALS, $condition->operator);
         $this->assertSame(['ja'], $condition->value);
         $this->assertSame(10, $condition->priority);
+        // FB-012a: Ohne eigene Angabe greift die Regel dort, wo ihre
+        // Ausgangsfrage steht.
+        $this->assertSame(
+            $condition->sourceQuestion->step->position,
+            $condition->evaluate_at_step_position,
+        );
         $this->assertSame([$condition->id], $condition->funnel->conditions()->pluck('id')->all());
     }
 
