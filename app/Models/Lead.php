@@ -9,6 +9,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -35,7 +36,25 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $tenant_id
+ * @property int|null $funnel_id
+ * @property int|null $funnel_version_id
+ * @property int|null $public_session_id
  * @property LeadState $lead_state
+ * @property int $score
+ * @property string|null $result_key
+ * @property-read string|null $price_at_creation
+ * @property-write float|string|null $price_at_creation
+ * @property string|null $phone_e164
+ * @property string|null $email_normalized
+ * @property string|null $utm_source
+ * @property string|null $utm_medium
+ * @property string|null $utm_campaign
+ * @property string|null $utm_term
+ * @property string|null $utm_content
+ * @property string|null $referrer
+ * @property string|null $embed_origin
+ * @property string|null $ip_hash
+ * @property string|null $user_agent
  * @property-read string|null $settled_price Der Cast decimal:2 liefert beim Lesen einen String,
  *                                            beim Schreiben ist jeder numerische Wert erlaubt.
  * @property-write float|string|null $settled_price
@@ -62,6 +81,46 @@ class Lead extends Model
         'settled_price',
         'settled_at',
     ];
+
+    /**
+     * @return BelongsTo<Funnel, $this>
+     */
+    public function funnel(): BelongsTo
+    {
+        return $this->belongsTo(Funnel::class);
+    }
+
+    /**
+     * Die Fassung, die der Endkunde gesehen hat -- nicht der aktuelle Stand des
+     * Funnels. Zusammen mit result_key ist der Lead damit dauerhaft erklaerbar.
+     *
+     * @return BelongsTo<FunnelVersion, $this>
+     */
+    public function funnelVersion(): BelongsTo
+    {
+        return $this->belongsTo(FunnelVersion::class);
+    }
+
+    /**
+     * Die Sitzung, aus der der Lead entstanden ist. Sie ist die alleinige Quelle
+     * fuer Verlauf und Zeitstempel (FB-021) -- der Lead fuehrt sie nicht doppelt.
+     *
+     * @return BelongsTo<PublicSession, $this>
+     */
+    public function publicSession(): BelongsTo
+    {
+        return $this->belongsTo(PublicSession::class);
+    }
+
+    /**
+     * Rohantworten, Feldschluessel je einmal.
+     *
+     * @return HasMany<LeadAnswer, $this>
+     */
+    public function answers(): HasMany
+    {
+        return $this->hasMany(LeadAnswer::class);
+    }
 
     /**
      * Unveraenderliches Protokoll aller Zustandswechsel, aeltester Eintrag zuerst.
@@ -96,6 +155,8 @@ class Lead extends Model
     {
         return [
             'lead_state' => LeadState::class,
+            'score' => 'integer',
+            'price_at_creation' => 'decimal:2',
             'settled_price' => 'decimal:2',
             'settled_at' => 'datetime',
             'anonymized_at' => 'datetime',

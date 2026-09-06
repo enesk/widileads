@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\FunnelFieldKey;
 use App\Models\Lead;
-use Illuminate\Support\Facades\Schema;
+use App\Models\LeadAnswer;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Entfernt den Personenbezug eines Leads (FB-037).
+ * Entfernt den Personenbezug eines Leads (FB-037, vervollstaendigt in FB-031).
  *
  * Die einzige Stelle, an der ein Lead anonymisiert wird -- auch das
  * Loeschersuchen aus FB-038 kommt hier durch. Was verschwindet, sind die
@@ -16,19 +18,24 @@ use Illuminate\Support\Facades\Schema;
  * (`lead_state`, `settled_price`, `settled_at`, `created_at`), damit
  * Auswertungen und Abrechnungen der Vergangenheit stimmig bleiben.
  *
- * Erweiterung durch FB-031: Sobald `leads.phone_e164` und
- * `leads.email_normalized` existieren, werden sie automatisch geleert -- sie
- * stehen bereits in PERSONAL_COLUMNS und werden nur uebersprungen, solange die
- * Spalten fehlen. Die Antworten (`lead_answers`) legt FB-031 ebenfalls erst an;
- * ihr Ueberschreiben gehoert dann hierher, weil dieses Ticket die endgueltige
- * Form der Tabelle kennt. Der Aufbewahrungslauf selbst muss dafuer nicht
- * angefasst werden.
+ * Anonymisiert wird an zwei Stellen:
+ *
+ * 1. Die Kontaktspalten des Leads (`phone_e164`, `email_normalized`).
+ * 2. Die Rohantworten: Der Wert jeder Antwort auf einen reservierten
+ *    Kontakt-Feldschluessel (Vorname, Nachname, Name, E-Mail, Telefon, PLZ,
+ *    Einwilligung) wird auf null gesetzt. Die Zeile bleibt stehen -- wer
+ *    spaeter zaehlt, wie viele Anfragen eine Telefonnummer enthielten, soll
+ *    weiterhin zaehlen koennen; nur die Nummer selbst ist weg.
+ *
+ * Fachliche Antworten (Tierart, Alter, Vorerkrankungen) bleiben unangetastet:
+ * Sie sind nach der Anonymisierung keiner Person mehr zuzuordnen und tragen die
+ * Auswertung des Funnels.
  */
 class LeadAnonymizer
 {
     /**
      * Spalten auf `leads`, die Personenbezug tragen und beim Anonymisieren
-     * geleert werden. Noch nicht existierende Spalten werden uebersprungen.
+     * geleert werden.
      *
      * @var list<string>
      */
@@ -36,12 +43,6 @@ class LeadAnonymizer
         'phone_e164',
         'email_normalized',
     ];
-
-    /**
-     * @var list<string>|null Einmal je Instanz aufgeloest, damit ein Lauf ueber
-     *                        viele Leads nicht je Lead das Schema abfragt.
-     */
-    private ?array $resolvedColumns = null;
 
     /**
      * Anonymisiert einen Lead, sofern er es nicht schon ist.
@@ -54,31 +55,30 @@ class LeadAnonymizer
             return false;
         }
 
-        $values = ['anonymized_at' => now()];
+        return DB::transaction(function () use ($lead): bool {
+            $values = ['anonymized_at' => now()];
 
-        foreach ($this->personalColumns() as $column) {
-            $values[$column] = null;
-        }
+            foreach (self::PERSONAL_COLUMNS as $column) {
+                $values[$column] = null;
+            }
 
-        $lead->forceFill($values)->save();
+            $lead->forceFill($values)->save();
 
-        return true;
+            $this->clearPersonalAnswers($lead);
+
+            return true;
+        });
     }
 
     /**
-     * Die personenbezogenen Spalten, die es aktuell wirklich gibt.
-     *
-     * @return list<string>
+     * Leert die Werte aller Antworten mit Personenbezug -- ohne die Zeilen zu
+     * loeschen.
      */
-    private function personalColumns(): array
+    private function clearPersonalAnswers(Lead $lead): void
     {
-        if ($this->resolvedColumns !== null) {
-            return $this->resolvedColumns;
-        }
-
-        return $this->resolvedColumns = array_values(array_filter(
-            self::PERSONAL_COLUMNS,
-            static fn (string $column): bool => Schema::hasColumn('leads', $column),
-        ));
+        LeadAnswer::query()
+            ->where('lead_id', $lead->getKey())
+            ->whereIn('field_key', FunnelFieldKey::values())
+            ->update(['value' => null]);
     }
 }

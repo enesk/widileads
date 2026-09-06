@@ -11,6 +11,7 @@ use App\Models\Funnel;
 use App\Models\FunnelQuestion;
 use App\Models\FunnelResult;
 use App\Models\FunnelStep;
+use App\Models\Lead;
 use App\Models\PublicSession;
 use App\Services\IpHasher;
 use Illuminate\Log\Events\MessageLogged;
@@ -80,8 +81,7 @@ class SessionOriginTest extends FeatureTest
     {
         $funnel = $this->publishedFunnel();
 
-        // Jede Logzeile mitschneiden -- auch die des PendingSubmissionReceiver,
-        // der die Einreichung protokolliert.
+        // Jede Logzeile mitschneiden, die auf dem Weg entsteht.
         $logLines = [];
         Log::listen(static function (MessageLogged $message) use (&$logLines): void {
             $logLines[] = $message->message.' '.json_encode($message->context);
@@ -94,7 +94,7 @@ class SessionOriginTest extends FeatureTest
         $session = PublicSession::query()->sole();
 
         // Die Strecke bis zum Absenden gehen, damit auch die Uebergabe an
-        // FB-031 protokolliert wird.
+        // FB-031 durchlaeuft und ein Lead entsteht.
         Livewire::withCookie('funnel_session_'.$funnel->public_token, $session->token)
             ->test(FunnelRunner::class, ['token' => $funnel->public_token])
             ->set('answers.email', 'anna@example.com')
@@ -117,8 +117,18 @@ class SessionOriginTest extends FeatureTest
             'Die Roh-IP darf in keiner Spalte der Sitzung stehen.',
         );
 
-        // Und auch keine Logzeile.
-        $this->assertNotEmpty($logLines, 'Ohne mitgeschnittene Logzeilen sagt der Test nichts aus.');
+        // Seit FB-031 entsteht aus der Einreichung ein Lead. Dass er da ist,
+        // belegt zugleich, dass die Strecke wirklich bis zum Ende gelaufen ist --
+        // sonst pruefte der Rest dieses Tests ins Leere.
+        $lead = Lead::query()->withoutGlobalScopes()->sole();
+
+        $this->assertStringNotContainsString(
+            self::IP_ADDRESS,
+            (string) json_encode((array) DB::table('leads')->where('id', $lead->id)->first()),
+            'Die Roh-IP darf in keiner Spalte des Leads stehen.',
+        );
+
+        // Und in keiner Logzeile.
 
         foreach ($logLines as $line) {
             $this->assertStringNotContainsString(

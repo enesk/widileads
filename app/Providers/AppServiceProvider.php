@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Funnel\Runtime\PendingSubmissionReceiver;
+use App\Actions\CreateLeadFromSession;
 use App\Funnel\Runtime\SubmissionReceiver;
 use App\Services\PaymentProviders\Creem\CreemProvider;
 use App\Services\PaymentProviders\LemonSqueezy\LemonSqueezyProvider;
@@ -30,9 +30,9 @@ class AppServiceProvider extends ServiceProvider
             $this->app->register(TelescopeServiceProvider::class);
         }
 
-        // Bis FB-031 den Lead anlegt, nimmt ein Platzhalter die Einreichungen
-        // entgegen (FB-020). FB-031 tauscht nur diese Bindung aus.
-        $this->app->bind(SubmissionReceiver::class, PendingSubmissionReceiver::class);
+        // Jede abgeschlossene Funnel-Einreichung wird zu einem Lead (FB-031).
+        // Die Runtime kennt nur das Interface -- ausgetauscht wird hier.
+        $this->app->bind(SubmissionReceiver::class, CreateLeadFromSession::class);
 
         // PhoneNumberUtil hat einen privaten Konstruktor und laesst sich deshalb
         // nicht automatisch aufloesen (FB-011, E.164-Normalisierung).

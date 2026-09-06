@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Marketplace;
 
+use App\Constants\FunnelFieldKey;
+use App\Models\Lead;
+use App\Models\LeadAnswer;
+
 /**
  * Die Eigenschaften eines Leads, an denen ein Kaufkriterium ansetzt (FB-051).
  *
@@ -25,8 +29,7 @@ namespace App\Marketplace;
  *               (docs/funnel-builder/snapshot-format.md, Abschnitt "Antworten").
  *               Mehrfachauswahlen stehen als Liste.
  *
- * Sinnvollerweise entsteht sie als `MatchableLead::fromLead(Lead $lead)` neben
- * dem Lead-Modell, sobald dessen Spalten existieren.
+ * Seit FB-031 gibt es diese Abbildung als `MatchableLead::fromLead()`.
  */
 final class MatchableLead
 {
@@ -39,6 +42,31 @@ final class MatchableLead
         public readonly ?string $postalCode = null,
         public readonly array $answers = [],
     ) {}
+
+    /**
+     * Die Uebergabestelle aus FB-031: ein Lead samt seiner Rohantworten.
+     *
+     * Die Postleitzahl kommt im Klartext aus der Antwort auf den reservierten
+     * Feldschluessel `plz` -- nicht aus einer maskierten Fassung. Der Marktplatz
+     * zeigt dem Kaeufer vor dem Kauf nur `76…`, gefiltert wird aber
+     * serverseitig auf dem echten Wert: Ein Kaufkriterium auf gekuerzten
+     * Postleitzahlen waere entweder zu grob oder schlicht falsch.
+     */
+    public static function fromLead(Lead $lead): self
+    {
+        $answers = $lead->answers
+            ->mapWithKeys(static fn (LeadAnswer $answer): array => [$answer->field_key => $answer->value])
+            ->all();
+
+        $postalCode = $answers[FunnelFieldKey::PLZ->value] ?? null;
+
+        return new self(
+            funnelId: $lead->funnel_id,
+            score: $lead->score,
+            postalCode: is_scalar($postalCode) ? trim((string) $postalCode) : null,
+            answers: $answers,
+        );
+    }
 
     /**
      * @param  array{funnel_id?: int|string|null, score?: int|string|null, postal_code?: string|null, answers?: array<string, mixed>}  $lead
