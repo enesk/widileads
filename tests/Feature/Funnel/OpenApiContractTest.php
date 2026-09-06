@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Constants\ConditionOperator;
+use App\Constants\FunnelFieldKey;
+use App\Constants\FunnelStatus;
+use App\Constants\LeadState;
+use App\Constants\QuestionType;
 use App\Constants\TenantApiAbility;
+use App\Constants\TenantType;
 use App\Http\Controllers\ApiDocsController;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +30,10 @@ use Tests\TestCase;
  *     und umgekehrt ist jede registrierte Route dort auch beschrieben. Geplante
  *     Endpunkte (FB-030b ff.) sind ausdruecklich erlaubt und werden
  *     nachvollziehbar uebersprungen.
- *  3. Die dokumentierten Berechtigungen sind exakt die aus TenantApiAbility.
+ *  3. Kein Wertevorrat laeuft auseinander: jede Aufzaehlung der Spezifikation
+ *     fuehrt exakt die Werte ihres Enums in app/Constants. Genau hier entsteht
+ *     die Drift sonst unbemerkt -- ein umbenannter Enum-Wert bricht keinen Test,
+ *     macht die Dokumentation aber falsch.
  *
  * Der Test braucht keine Datenbank -- er liest eine Datei und Laravels
  * Routenliste.
@@ -148,41 +157,84 @@ class OpenApiContractTest extends TestCase
         }
     }
 
-    public function test_documented_abilities_are_exactly_the_ones_the_application_knows(): void
+    public function test_documented_enumerations_match_the_ones_the_application_knows(): void
     {
-        $known = TenantApiAbility::values();
+        $abilities = $this->valuesOf(TenantApiAbility::class);
 
         /** @var array<string, string> $listed */
         $listed = $this->spec['x-abilities'] ?? [];
-
-        sort($known);
         $documented = array_keys($listed);
         sort($documented);
 
         $this->assertSame(
-            $known,
+            $abilities,
             $documented,
             'Die Liste unter x-abilities und App\Constants\TenantApiAbility muessen deckungsgleich sein.',
         );
 
-        $enum = $this->spec['components']['schemas']['Ability']['enum'] ?? [];
-        sort($enum);
+        // Jede Aufzaehlung der Spezifikation gegen ihr Enum. Der Wertevorrat ist
+        // der Teil des Vertrags, der sich am leisesten aendert: ein
+        // umbenannter Case faellt sonst erst dem Nutzer der Doku auf.
+        $enums = [
+            'Ability' => TenantApiAbility::class,
+            'FunnelStatus' => FunnelStatus::class,
+            'ConditionOperator' => ConditionOperator::class,
+            'QuestionType' => QuestionType::class,
+            'ReservedFieldKey' => FunnelFieldKey::class,
+            'LeadState' => LeadState::class,
+        ];
+
+        foreach ($enums as $schema => $enum) {
+            $documented = $this->spec['components']['schemas'][$schema]['enum'] ?? null;
+
+            $this->assertIsArray($documented, "Das Schema \"{$schema}\" fuehrt keine Aufzaehlung.");
+
+            sort($documented);
+
+            $this->assertSame(
+                $this->valuesOf($enum),
+                $documented,
+                "Das Schema \"{$schema}\" und {$enum} muessen dieselben Werte fuehren.",
+            );
+        }
+
+        $documented = $this->spec['components']['schemas']['Tenant']['properties']['type']['enum'] ?? null;
+
+        $this->assertIsArray($documented);
+        sort($documented);
 
         $this->assertSame(
-            $known,
-            $enum,
-            'Das Schema "Ability" muss genau die Werte aus TenantApiAbility fuehren.',
+            $this->valuesOf(TenantType::class),
+            $documented,
+            'Der Workspace-Typ muss genau die Werte aus App\Constants\TenantType fuehren.',
         );
 
         foreach ($this->eachOperation() as $operation => $definition) {
             foreach ($definition['x-required-abilities'] as $ability) {
                 $this->assertContains(
                     $ability,
-                    $known,
+                    $abilities,
                     "Die Operation \"{$operation}\" verlangt die unbekannte Berechtigung \"{$ability}\".",
                 );
             }
         }
+    }
+
+    /**
+     * Die Werte eines Enums, sortiert -- damit der Vergleich nicht an der
+     * Reihenfolge haengt, in der jemand die Cases notiert hat.
+     *
+     * @param  class-string<\BackedEnum>  $enum
+     * @return list<string>
+     */
+    private function valuesOf(string $enum): array
+    {
+        /** @var list<string> $values */
+        $values = array_column($enum::cases(), 'value');
+
+        sort($values);
+
+        return $values;
     }
 
     /**

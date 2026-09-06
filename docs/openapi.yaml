@@ -104,7 +104,7 @@ info:
     identifier: LicenseRef-Proprietary
 
 externalDocs:
-  description: Ticketset, Datenmodell und Architekturleitsaetze
+  description: Ticketset, Datenmodell, Snapshot-Format und Architekturleitsaetze
   url: https://github.com/enesk/widileads/tree/main/docs/funnel-builder
 
 servers:
@@ -2643,12 +2643,39 @@ components:
         (FB-014) und als Seed-Vorlage (FB-019). Wer es an einer Stelle liest,
         kann es an jeder anderen schreiben.
 
-        Verweise innerhalb der Struktur laufen ueber fachliche Merkmale, nicht
-        ueber Datenbank-IDs: eine Verzweigungsregel nennt den `field_key` ihrer
-        Frage und die `position` ihres Ziel-Schritts. Damit bleibt eine
-        exportierte Struktur in einem anderen Funnel einspielbar.
+        Massgeblich ist `docs/funnel-builder/snapshot-format.md`; gelesen wird es
+        von `App\Funnel\Snapshots\FunnelSnapshot::fromArray()`. Daraus folgen
+        drei Eigenschaften, die hier nicht verhandelbar sind:
+
+        - **Positionen statt IDs.** Schritte werden ueber `position` adressiert,
+          Fragen ueber `field_key`. Datenbank-IDs stehen bewusst nicht in der
+          Struktur - sie soll ohne die Live-Tabellen lesbar bleiben und beim
+          Duplizieren nicht auf fremde Zeilen zeigen.
+        - **Sortierung ist nicht garantiert.** Schritte, Fragen, Optionen und
+          Regeln werden beim Lesen nach `position` bzw. `priority` sortiert; die
+          Struktur darf sie in beliebiger Reihenfolge enthalten.
+        - **Unbekannte Schluessel werden ignoriert.** Eine Struktur aus einer
+          spaeteren Fassung darf zusaetzliche Felder tragen, ohne dass das Lesen
+          bricht. Deshalb ist dieses Schema als einziges offen.
       required: [steps, results]
       properties:
+        funnel:
+          type: object
+          description: |
+            Kopfdaten der Strecke. In einem Snapshot immer enthalten; beim
+            Schreiben ueber `PUT /structure` werden sie ignoriert - die
+            Stammdaten aendert `PATCH /funnels/{funnel}`.
+          properties:
+            public_token:
+              $ref: '#/components/schemas/PublicToken'
+            name:
+              type: string
+            lead_price:
+              type: [number, 'null']
+              description: Verkaufspreis in EUR, wie in der Spalte `funnels.lead_price`.
+            contact_step_position:
+              type: [integer, 'null']
+              minimum: 1
         steps:
           type: array
           minItems: 1
@@ -2663,10 +2690,7 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/FunnelResult'
-        settings:
-          type: [object, 'null']
-          additionalProperties: true
-      additionalProperties: false
+      additionalProperties: true
 
     FunnelStep:
       type: object
@@ -2675,7 +2699,13 @@ components:
       required: [position, title]
       properties:
         id:
-          $ref: '#/components/schemas/ResourceId'
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
         position:
           type: integer
           minimum: 1
@@ -2719,9 +2749,9 @@ components:
         nach E.164, `postal_code` erwartet eine fuenfstellige deutsche
         Postleitzahl, `info` ist ein reiner Textschritt ohne Eingabe.
 
-        Die Spalte `funnel_questions.type` ist eine Zeichenkette; das zugehoerige
-        Enum samt Validierungsregeln liefert FB-011.
-      x-ticket: FB-011
+        Entspricht `App\Constants\QuestionType`. Die Spalte
+        `funnel_questions.type` bleibt eine Zeichenkette; die gueltigen Werte und
+        die Validierungsregeln je Typ stehen im Enum und seinen Handler-Klassen.
       enum:
         - single_choice
         - multi_choice
@@ -2757,7 +2787,13 @@ components:
       required: [position, type, field_key, label, required]
       properties:
         id:
-          $ref: '#/components/schemas/ResourceId'
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
         position:
           type: integer
           minimum: 1
@@ -2832,7 +2868,13 @@ components:
       required: [position, label, value]
       properties:
         id:
-          $ref: '#/components/schemas/ResourceId'
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
         position:
           type: integer
           minimum: 1
@@ -2993,7 +3035,13 @@ components:
       required: [min_score, max_score, title, show_contact_form]
       properties:
         id:
-          $ref: '#/components/schemas/ResourceId'
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
         min_score:
           type: integer
           description: Untere Grenze des Punktebereichs, einschliesslich.
@@ -3199,7 +3247,7 @@ components:
         Die Felder, die `LeadMasked` und `LeadFull` gemeinsam haben. Dieses
         Schema wird nie allein ausgeliefert - es sorgt dafuer, dass die beiden
         Auspraegungen nicht auseinanderlaufen.
-      required: [uuid, lead_state, settled_price, settled_at, created_at]
+      required: [uuid, lead_state, settled_price, settled_at, anonymized_at, created_at]
       properties:
         uuid:
           type: string
@@ -3223,6 +3271,15 @@ components:
           type: [string, 'null']
           format: date-time
           description: Zeitpunkt, zu dem der Preis festgeschrieben wurde.
+        anonymized_at:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Gesetzt heisst: der Personenbezug wurde nach Ablauf der
+            Aufbewahrungsfrist entfernt (FB-037). Die Kontaktfelder tragen dann
+            keine Person mehr, waehrend Zustand, Preis und Eingangsdatum
+            erhalten bleiben. Ein Client, der Kontaktdaten erwartet, prueft
+            dieses Feld zuerst.
         funnel:
           description: Der Funnel, aus dem der Lead stammt.
           x-ticket: FB-031
