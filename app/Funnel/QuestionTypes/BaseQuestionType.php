@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Funnel\QuestionTypes;
 
 use App\Constants\QuestionType;
-use App\Models\FunnelQuestion;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Str;
 
 /**
@@ -24,18 +24,21 @@ abstract class BaseQuestionType implements QuestionTypeHandler
         return QuestionType::from(Str::snake(Str::beforeLast(class_basename($this), 'Type')));
     }
 
-    public function rules(FunnelQuestion $question): array
+    /**
+     * @return list<string|ValidationRule>
+     */
+    public function rules(QuestionDefinition $question): array
     {
-        $rules = [$question->required && $this->expectsAnswer() ? 'required' : 'nullable'];
+        $rules = [$question->isAnswerRequired() && $this->expectsAnswer() ? 'required' : 'nullable'];
 
         return array_values(array_unique([
             ...$rules,
             ...$this->typeRules($question),
             ...$this->configuredRules($question),
-        ]));
+        ], SORT_REGULAR));
     }
 
-    public function normalize(mixed $value, FunnelQuestion $question): mixed
+    public function normalize(mixed $value, QuestionDefinition $question): mixed
     {
         if (is_string($value)) {
             $value = trim($value);
@@ -59,9 +62,9 @@ abstract class BaseQuestionType implements QuestionTypeHandler
     /**
      * Regeln, die sich allein aus dem Fragetyp ergeben.
      *
-     * @return list<string>
+     * @return list<string|ValidationRule>
      */
-    abstract protected function typeRules(FunnelQuestion $question): array;
+    abstract protected function typeRules(QuestionDefinition $question): array;
 
     /**
      * Zusatzregeln, die am Funnel gepflegt sind (funnel_questions.validation),
@@ -69,11 +72,11 @@ abstract class BaseQuestionType implements QuestionTypeHandler
      *
      * @return list<string>
      */
-    protected function configuredRules(FunnelQuestion $question): array
+    protected function configuredRules(QuestionDefinition $question): array
     {
         $rules = [];
 
-        foreach ($question->validation ?? [] as $rule => $parameter) {
+        foreach ($question->configuredValidation() as $rule => $parameter) {
             if (is_int($rule)) {
                 $rules[] = (string) $parameter;
 
@@ -93,8 +96,8 @@ abstract class BaseQuestionType implements QuestionTypeHandler
      *
      * @return list<string>
      */
-    protected function optionValues(FunnelQuestion $question): array
+    protected function optionValues(QuestionDefinition $question): array
     {
-        return $question->options()->pluck('value')->map(fn (mixed $value): string => (string) $value)->all();
+        return $question->answerOptionValues();
     }
 }

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Funnel\Snapshots;
 
+use App\Constants\QuestionType;
+use App\Funnel\QuestionTypes\QuestionDefinition;
+
 /**
  * Eine Frage aus dem Funnel-Snapshot (FB-013).
  */
-class QuestionSnapshot
+class QuestionSnapshot implements QuestionDefinition
 {
     /**
      * @param  list<OptionSnapshot>  $options  nach Position sortiert
@@ -49,6 +52,45 @@ class QuestionSnapshot
             validation: (array) ($question['validation'] ?? []),
             meta: (array) ($question['meta'] ?? []),
         );
+    }
+
+    public function questionType(): QuestionType
+    {
+        return QuestionType::from($this->type);
+    }
+
+    public function questionFieldKey(): string
+    {
+        return $this->fieldKey;
+    }
+
+    public function questionLabel(): string
+    {
+        return $this->label;
+    }
+
+    public function isAnswerRequired(): bool
+    {
+        return $this->required;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function configuredValidation(): array
+    {
+        return $this->validation;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function answerOptionValues(): array
+    {
+        return array_values(array_map(
+            static fn (OptionSnapshot $option): string => $option->value,
+            $this->options,
+        ));
     }
 
     /**

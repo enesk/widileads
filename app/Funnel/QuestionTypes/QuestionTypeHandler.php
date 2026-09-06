@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Funnel\QuestionTypes;
 
 use App\Constants\QuestionType;
-use App\Models\FunnelQuestion;
+use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
  * Verhalten eines Fragetyps (FB-011).
@@ -24,14 +24,14 @@ interface QuestionTypeHandler
     /**
      * Laravel-Validierungsregeln fuer die Antwort auf diese Frage.
      *
-     * @return list<string>
+     * @return list<string|ValidationRule>
      */
-    public function rules(FunnelQuestion $question): array;
+    public function rules(QuestionDefinition $question): array;
 
     /**
      * Vereinheitlicht die eingegebene Antwort, bevor sie gespeichert wird.
      */
-    public function normalize(mixed $value, FunnelQuestion $question): mixed;
+    public function normalize(mixed $value, QuestionDefinition $question): mixed;
 
     /**
      * Name der Blade-Komponente, die die Frage darstellt.

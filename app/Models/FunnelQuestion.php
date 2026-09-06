@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Constants\FunnelFieldKey;
 use App\Constants\QuestionType;
+use App\Funnel\QuestionTypes\QuestionDefinition;
 use Database\Factories\FunnelQuestionFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -33,7 +34,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed>|null $validation
  * @property array<string, mixed>|null $meta
  */
-class FunnelQuestion extends Model
+class FunnelQuestion extends Model implements QuestionDefinition
 {
     /** @use HasFactory<FunnelQuestionFactory> */
     use HasFactory;
@@ -73,6 +74,42 @@ class FunnelQuestion extends Model
     public function options(): HasMany
     {
         return $this->hasMany(FunnelOption::class, 'question_id')->orderBy('position');
+    }
+
+    public function questionType(): QuestionType
+    {
+        return $this->type;
+    }
+
+    public function questionFieldKey(): string
+    {
+        return $this->field_key;
+    }
+
+    public function questionLabel(): string
+    {
+        return $this->label;
+    }
+
+    public function isAnswerRequired(): bool
+    {
+        return $this->required;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function configuredValidation(): array
+    {
+        return $this->validation ?? [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function answerOptionValues(): array
+    {
+        return $this->options()->pluck('value')->map(static fn (mixed $value): string => (string) $value)->all();
     }
 
     /**

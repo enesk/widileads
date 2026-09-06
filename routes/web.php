@@ -10,6 +10,7 @@ use App\Http\Controllers\ProductCheckoutController;
 use App\Http\Controllers\RoadmapController;
 use App\Http\Controllers\SubscriptionCheckoutController;
 use App\Http\Controllers\SubscriptionController;
+use App\Livewire\Funnel\FunnelRunner;
 use App\Services\PlanService;
 use App\Services\SessionService;
 use App\Services\TenantCreationService;
@@ -31,6 +32,12 @@ use Illuminate\Support\Facades\Route;
 | If you want the URL to be added to the sitemap, add a "sitemapped" middleware to the route (it has to GET route)
 |
 */
+
+// FB-020: Oeffentliche Funnel-Strecke. Adressiert wird ausschliesslich ueber den
+// nicht erratbaren Token der veroeffentlichten Fassung, nie ueber eine ID.
+Route::get('/f/{token}', FunnelRunner::class)
+    ->name('funnel.run')
+    ->where('token', '[0-9A-Za-z]{26}');
 
 Route::get('/', function () {
     return view('home');

@@ -317,4 +317,19 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Oeffentliche Strecke (FB-020)
+    |--------------------------------------------------------------------------
+    */
+
+    'runtime_public' => [
+
+        // Zeigt ein archivierter Funnel eine Hinweisseite statt 404? Ein Funnel,
+        // der auf fremden Seiten eingebettet war, soll nicht kommentarlos
+        // verschwinden. Der Vollausbau der Hinweisseite ist FB-018.
+        'show_notice_for_archived' => (bool) env('FUNNEL_RUNTIME_SHOW_NOTICE_FOR_ARCHIVED', true),
+
+    ],
+
 ];
