@@ -10,6 +10,7 @@ use App\Dto\FunnelSubmissionData;
 use App\Funnel\Conditions\StepResolver;
 use App\Funnel\QuestionTypes\QuestionTypeRegistry;
 use App\Funnel\Results\ResultResolver;
+use App\Funnel\Runtime\EmbedOriginPolicy;
 use App\Funnel\Runtime\OriginCollector;
 use App\Funnel\Runtime\SpamAssessment;
 use App\Funnel\Runtime\SpamGuard;
@@ -69,6 +70,12 @@ class FunnelRunner extends Component
     /** Meldung, wenn die Einreichung nicht angenommen wurde (Rate-Limit). */
     public ?string $submissionBlockedReason = null;
 
+    /** Laeuft die Strecke im iFrame einer fremden Seite? (FB-024) */
+    public bool $embedded = false;
+
+    /** Origin der einbettenden Seite -- Ziel der postMessage-Nachrichten. */
+    public ?string $embedOrigin = null;
+
     /** questions | result | contact | done */
     public string $phase = 'questions';
 
@@ -90,6 +97,9 @@ class FunnelRunner extends Component
         if ($funnel->currentVersion === null || $this->snapshot()->steps === []) {
             abort(Response::HTTP_NOT_FOUND);
         }
+
+        $this->embedded = request()->boolean('embed');
+        $this->embedOrigin = app(EmbedOriginPolicy::class)->normalize(request()->query('origin'));
 
         $sessions = app(PublicSessionService::class);
         $session = $sessions->startOrResume(
@@ -120,6 +130,9 @@ class FunnelRunner extends Component
             'progress' => $this->progress(),
         ])->layout('components.layouts.funnel', [
             'title' => (string) ($this->snapshot()->funnel['name'] ?? ''),
+            'embedded' => $this->embedded,
+            'embedOrigin' => $this->embedOrigin,
+            'funnelToken' => $this->token,
         ]);
     }
 

@@ -16,6 +16,7 @@ use App\Models\FunnelResult;
 use App\Models\FunnelStep;
 use App\Models\Lead;
 use App\Models\PublicSession;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use stdClass;
 use Tests\Feature\FeatureTest;
@@ -192,5 +193,34 @@ class SpamDefenceTest extends FeatureTest
 
         $this->assertNotNull($session->completed_at);
         $this->assertSame(4711, $session->spam_signals['duplicate_of_lead_id']);
+    }
+
+    public function test_the_duplicate_window_and_the_funnel_limit_the_search(): void
+    {
+        $funnel = $this->publishedFunnel();
+        $otherFunnel = $this->publishedFunnel();
+        $finder = app(DuplicateLeadFinder::class);
+
+        $earlier = Lead::factory()->create([
+            'tenant_id' => $funnel->tenant_id,
+            'funnel_id' => $funnel->id,
+            'email_normalized' => 'anna@example.com',
+        ]);
+
+        $this->assertSame($earlier->id, $finder->findRecentDuplicate($funnel->id, ['email' => 'anna@example.com']));
+
+        // Ein anderer Funnel ist eine eigene Anfrage, keine Dublette.
+        $this->assertNull($finder->findRecentDuplicate($otherFunnel->id, ['email' => 'anna@example.com']));
+
+        // Eine fremde Adresse trifft ohnehin nichts.
+        $this->assertNull($finder->findRecentDuplicate($funnel->id, ['email' => 'jemand@example.com']));
+
+        // Und ausserhalb des Fensters ist es keine Dublette mehr: Wer nach
+        // Monaten erneut anfragt, meint es ernst.
+        DB::table('leads')->where('id', $earlier->id)->update([
+            'created_at' => now()->subDays((int) config('funnel.public.duplicate_window_days') + 1),
+        ]);
+
+        $this->assertNull($finder->findRecentDuplicate($funnel->id, ['email' => 'anna@example.com']));
     }
 }

@@ -13,6 +13,7 @@ use App\Http\Controllers\RoadmapController;
 use App\Http\Controllers\SubscriptionCheckoutController;
 use App\Http\Controllers\SubscriptionController;
 use App\Livewire\Funnel\FunnelRunner;
+use App\Models\Funnel;
 use App\Services\PlanService;
 use App\Services\SessionService;
 use App\Services\TenantCreationService;
@@ -34,6 +35,24 @@ use Illuminate\Support\Facades\Route;
 | If you want the URL to be added to the sitemap, add a "sitemapped" middleware to the route (it has to GET route)
 |
 */
+
+// FB-024: Testseite fuer das Embed-Snippet -- simuliert eine fremde Webseite.
+// Nur lokal, sie gehoert nicht in eine oeffentliche Umgebung.
+if (app()->environment('local', 'testing')) {
+    Route::get('/dev/embed-test', function () {
+        $funnel = Funnel::query()
+            ->withoutGlobalScopes()
+            ->when(request()->filled('token'), fn ($query) => $query->where('public_token', request()->string('token')))
+            ->whereNotNull('current_version_id')
+            ->latest('id')
+            ->first();
+
+        return view('dev.embed-test', [
+            'token' => $funnel?->public_token,
+            'scriptUrl' => url('/embed/v1.js'),
+        ]);
+    })->name('dev.embed-test');
+}
 
 // FB-020: Oeffentliche Funnel-Strecke. Adressiert wird ausschliesslich ueber den
 // nicht erratbaren Token der veroeffentlichten Fassung, nie ueber eine ID.
