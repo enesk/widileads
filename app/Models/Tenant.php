@@ -2,24 +2,74 @@
 
 namespace App\Models;
 
+use App\Constants\TenantType;
 use App\Services\SubscriptionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property TenantType $type
+ */
 class Tenant extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'name',
+        'type',
         'uuid',
         'is_name_auto_generated',
         'created_by',
         'domain',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'type' => TenantType::class,
+        ];
+    }
+
+    /**
+     * Betreiber-Tenant: baut und veroeffentlicht Funnels.
+     */
+    public function isOperator(): bool
+    {
+        return $this->type === TenantType::OPERATOR;
+    }
+
+    /**
+     * Kaeufer-Tenant: kauft Leads ueber den Marktplatz.
+     */
+    public function isBuyer(): bool
+    {
+        return $this->type === TenantType::BUYER;
+    }
+
+    /**
+     * @param  Builder<Tenant>  $query
+     * @return Builder<Tenant>
+     */
+    public function scopeOperators(Builder $query): Builder
+    {
+        return $query->where('type', TenantType::OPERATOR);
+    }
+
+    /**
+     * @param  Builder<Tenant>  $query
+     * @return Builder<Tenant>
+     */
+    public function scopeBuyers(Builder $query): Builder
+    {
+        return $query->where('type', TenantType::BUYER);
+    }
 
     public function invitations(): HasMany
     {

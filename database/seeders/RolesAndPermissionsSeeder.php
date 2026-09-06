@@ -146,5 +146,14 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // assign any permissions that the user role should have here
+
+        // Kaeufer-Rolle (FB-002): Nutzer eines Kaeufer-Tenants. Die
+        // marktplatzspezifischen Berechtigungen kommen mit FB-E5 dazu.
+        Role::query()->firstOrCreate([
+            'name' => TenancyPermissionConstants::ROLE_BUYER,
+            'is_tenant_role' => true,
+        ], [
+            'guard_name' => 'web',
+        ]);
     }
 }

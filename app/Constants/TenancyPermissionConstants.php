@@ -10,6 +10,12 @@ class TenancyPermissionConstants
 
     public const ROLE_USER = 'user';
 
+    /**
+     * Rolle eines Nutzers in einem Kaeufer-Tenant (FB-002). Kaeufer verwalten
+     * keine Funnels, sondern kaufen Leads ueber den Marktplatz.
+     */
+    public const ROLE_BUYER = 'buyer';
+
     public const TENANT_CREATOR_ROLE = self::ROLE_ADMIN;
 
     public const PERMISSION_CREATE_SUBSCRIPTIONS = 'tenancy: create subscriptions';
