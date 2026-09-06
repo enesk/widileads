@@ -2,12 +2,15 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
 use App\Models\Role;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Policies\RolePolicy;
+use App\Services\TenantTypeService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -25,6 +28,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerTenantTypeGates();
+
         VerifyEmail::toMailUsing(function ($notifiable, $url) {
             return (new \App\Mail\User\VerifyEmail($url))
                 ->to($notifiable->email);
@@ -38,6 +43,27 @@ class AuthServiceProvider extends ServiceProvider
 
             return (new \App\Mail\User\ResetPassword($url))
                 ->to($notifiable->email);
+        });
+    }
+
+    /**
+     * Gates aus dem Tenant-Typ (FB-002).
+     *
+     * Kaeufer-Tenants sehen keine Funnel-Verwaltung, Betreiber-Tenants keinen
+     * Marktplatz. Ohne uebergebenen Tenant gilt der aktive Tenant.
+     */
+    private function registerTenantTypeGates(): void
+    {
+        Gate::define('funnels.manage', function (User $user, ?Tenant $tenant = null): bool {
+            $service = app(TenantTypeService::class);
+
+            return $service->canManageFunnels($tenant ?? $service->currentTenant());
+        });
+
+        Gate::define('marketplace.access', function (User $user, ?Tenant $tenant = null): bool {
+            $service = app(TenantTypeService::class);
+
+            return $service->canAccessMarketplace($tenant ?? $service->currentTenant());
         });
     }
 }

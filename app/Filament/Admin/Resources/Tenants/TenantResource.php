@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Tenants;
 
+use App\Constants\TenantType;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
@@ -17,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -52,6 +54,13 @@ class TenantResource extends Resource
                     ->required()
                     ->label(__('Name'))
                     ->maxLength(255),
+                Select::make('type')
+                    ->label(__('funnel.tenant_type.label'))
+                    ->helperText(__('funnel.tenant_type.helper'))
+                    ->options(TenantType::options())
+                    ->default(TenantType::OPERATOR->value)
+                    ->disabledOn('edit')
+                    ->required(),
                 Select::make('created_by')
                     ->getSearchResultsUsing(fn (string $search): array => User::where('name', 'like', "%{$search}%")->limit(20)->pluck('name', 'id')->toArray())
                     ->getOptionLabelUsing(fn ($value): ?string => User::find($value)?->name)
@@ -68,6 +77,12 @@ class TenantResource extends Resource
                 TextColumn::make('name')
                     ->label(__('Name'))
                     ->searchable(),
+                TextColumn::make('type')
+                    ->label(__('funnel.tenant_type.label'))
+                    ->badge()
+                    ->formatStateUsing(fn (TenantType $state): string => $state->label())
+                    ->color(fn (TenantType $state): string => $state === TenantType::OPERATOR ? 'info' : 'warning')
+                    ->sortable(),
                 TextColumn::make('subscriptions_count')
                     ->counts('subscriptions')
                     ->label(__('Subscriptions'))
@@ -97,6 +112,9 @@ class TenantResource extends Resource
             ])
             ->defaultSort('updated_at', 'desc')
             ->filters([
+                SelectFilter::make('type')
+                    ->label(__('funnel.tenant_type.label'))
+                    ->options(TenantType::options()),
                 //
             ])
             ->recordActions([

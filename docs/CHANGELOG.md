@@ -24,6 +24,27 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-002 — Rolle `buyer` und Tenant-Typ
+
+**Was:** `tenants.type` ist ein Enum (`operator` | `buyer`, Default `operator`).
+Betreiber-Tenants verwalten Funnels, Käufer-Tenants nutzen den Marktplatz — die
+Entscheidung fällt ausschließlich über den Typ. Dazu: Tenant-Rolle `buyer`, die Gates
+`funnels.manage` und `marketplace.access`, die Middleware `EnsureTenantType`
+(Alias `tenant.type:operator|buyer`) und die Typ-Anzeige im Admin-Panel.
+
+**Warum:** Beide Tenant-Arten teilen sich dieselbe Anwendung, dürfen aber
+unterschiedliche Bereiche sehen. Ein einziges Feld als Quelle verhindert, dass die
+Sichtbarkeitsregel später an mehreren Stellen unterschiedlich implementiert wird.
+
+**Neue Config-Keys:** keine.
+
+**Migrationen:** `add_type_to_tenants_table` — additiv, `type` mit Default `operator`
+und Index; bestehende Tenants bleiben Betreiber. Mit `down()`.
+
+Die Funnel-Verwaltung (FB-E1) und der Marktplatz (FB-E5) existieren noch nicht. Die
+Zugriffsregel ist deshalb über Testrouten belegt, die dieselbe Middleware und dieselben
+Gates verwenden; die echten Seiten hängen sich in FB-E1/FB-E5 dort ein.
+
 ### FB-001 — Projekt-Setup
 
 **Was:** Blog, Roadmap, Announcements und Referral sind per Feature-Flag abschaltbar

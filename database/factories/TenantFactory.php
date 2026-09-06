@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Constants\TenantType;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,6 +21,23 @@ class TenantFactory extends Factory
         return [
             'name' => fake()->name(),
             'uuid' => fake()->uuid(),
+            'type' => TenantType::OPERATOR,
         ];
+    }
+
+    /**
+     * Betreiber-Tenant: baut und veroeffentlicht Funnels.
+     */
+    public function operator(): static
+    {
+        return $this->state(fn (): array => ['type' => TenantType::OPERATOR]);
+    }
+
+    /**
+     * Kaeufer-Tenant: kauft Leads ueber den Marktplatz.
+     */
+    public function buyer(): static
+    {
+        return $this->state(fn (): array => ['type' => TenantType::BUYER]);
     }
 }
