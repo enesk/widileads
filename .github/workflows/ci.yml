@@ -26,7 +26,10 @@ jobs:
         image: mysql:8
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: saasykit_tenancy_test
+        # Bewusst ohne MYSQL_DATABASE: Die Testsuite leitet ihren Datenbanknamen
+        # aus dem Pfad der Arbeitskopie ab und legt die Datenbank selbst an
+        # (FB-040). Ein hier vorgegebener Name bliebe ungenutzt und wuerde nur
+        # den falschen Eindruck erwecken, er sei massgeblich.
         ports:
           - 3306:3306
         options: >-
@@ -40,6 +43,10 @@ jobs:
       # ueber 127.0.0.1, weil localhost dort auf einen Socket aufloest.
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
+      # DB_DATABASE wird absichtlich NICHT gesetzt: Dann greift die Ableitung
+      # aus FB-040. Im Runner ist der Pfad der Arbeitskopie konstant, der Name
+      # also bei jedem Lauf derselbe -- und da hier nur ein Lauf gleichzeitig
+      # arbeitet, kann sich nichts ueberschneiden.
 
     steps:
       - uses: actions/checkout@v4
