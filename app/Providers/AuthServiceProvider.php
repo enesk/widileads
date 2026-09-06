@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Lead;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
@@ -29,6 +30,7 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerTenantTypeGates();
+        $this->registerLeadGates();
 
         VerifyEmail::toMailUsing(function ($notifiable, $url) {
             return (new \App\Mail\User\VerifyEmail($url))
@@ -64,6 +66,22 @@ class AuthServiceProvider extends ServiceProvider
             $service = app(TenantTypeService::class);
 
             return $service->canAccessMarketplace($tenant ?? $service->currentTenant());
+        });
+    }
+
+    /**
+     * Wer darf den Zustand eines Leads von Hand setzen (FB-036)?
+     *
+     * Heute ist das der Plattform-Admin: Leads sind ausschliesslich im
+     * Filament-Admin-Panel sichtbar, und dorthin kommt nur, wer `is_admin`
+     * ist. Sobald FB-034 die Lead-Ansicht im Betreiber-Dashboard baut, kommt
+     * hier der Admin des besitzenden Betreiber-Mandanten dazu -- der Aufrufer
+     * in ManualLeadStateService muss dafuer nicht angefasst werden.
+     */
+    private function registerLeadGates(): void
+    {
+        Gate::define('leads.force-state', function (User $user, Lead $lead): bool {
+            return (bool) $user->is_admin;
         });
     }
 }

@@ -156,6 +156,37 @@ return [
             'concurrent_transition' => 'Der Lead war beim Wechsel nach ":to" nicht mehr im erwarteten Zustand ":expected", sondern in ":actual". Ein anderer Vorgang war schneller.',
             'log_not_updatable' => 'Ein Eintrag im Zustandsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
             'log_not_deletable' => 'Ein Eintrag im Zustandsprotokoll kann nicht geloescht werden.',
+            'justification_too_short' => 'Die Begruendung muss mindestens :min Zeichen lang sein.',
+            'force_state_forbidden' => 'Nur Betreiber-Administratoren duerfen den Zustand eines Leads von Hand setzen.',
+        ],
+
+        // Lead-Uebersicht im Admin-Panel (FB-036).
+        'resource' => [
+            'label' => 'Lead',
+            'plural_label' => 'Leads',
+            'empty_heading' => 'Noch keine Leads',
+            'empty_description' => 'Leads entstehen aus abgeschlossenen Funnel-Anfragen.',
+        ],
+
+        'fields' => [
+            'id' => 'Kennung',
+            'tenant' => 'Mandant',
+            'lead_state' => 'Zustand',
+            'settled_price' => 'Festgeschriebener Preis',
+            'created_at' => 'Eingegangen am',
+            'anonymized_at' => 'Anonymisiert am',
+        ],
+
+        // Manuelle Statussetzung (FB-036).
+        'force_state' => [
+            'action' => 'Status setzen',
+            'heading' => 'Zustand von Hand setzen',
+            'description' => 'Der Wechsel wird im Zustandsprotokoll und im Audit-Log festgehalten. Angeboten werden nur Zustaende, die vom aktuellen Zustand aus erlaubt sind.',
+            'target' => 'Neuer Zustand',
+            'justification' => 'Begruendung',
+            'justification_helper' => 'Mindestens :min Zeichen. Wer den Vorgang spaeter nachvollzieht, liest genau diesen Text.',
+            'submit' => 'Zustand setzen',
+            'done' => 'Der Lead steht jetzt auf ":state".',
         ],
 
         // Aufbewahrungsfrist (FB-037).

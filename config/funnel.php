@@ -135,6 +135,11 @@ return [
         // schreibt Zustandswechsel und anonymisiert.
         'retention_run_at' => (string) env('FUNNEL_LEAD_RETENTION_RUN_AT', '03:15'),
 
+        // Mindestlaenge der Pflichtbegruendung, wenn ein Operator-Admin den
+        // Zustand eines Leads von Hand setzt (FB-036). Zu kurze Begruendungen
+        // sind wertlos, sobald jemand den Vorgang spaeter nachvollziehen will.
+        'manual_state_min_justification_length' => (int) env('FUNNEL_LEAD_MANUAL_STATE_MIN_JUSTIFICATION', 10),
+
         // Anzahl Leads, die der Aufbewahrungslauf je Durchgang aus der
         // Datenbank holt. Begrenzt den Speicherbedarf, nicht die Gesamtmenge:
         // der Lauf arbeitet so viele Durchgaenge, wie noetig sind.

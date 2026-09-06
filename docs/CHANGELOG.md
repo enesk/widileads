@@ -24,6 +24,49 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-036 — Manuelle Statussetzung durch Operator-Admins
+
+**Was:** `App\Services\ManualLeadStateService::force()` setzt den Zustand eines Leads von
+Hand — als Notausgang, wenn der fachliche Ablauf einen Lead nicht dorthin bringt, wo er
+hingehört. Der Dienst umgeht dabei nichts: er prüft das Gate `leads.force-state`,
+verlangt eine Begründung von mindestens
+`config('funnel.lead.manual_state_min_justification_length')` Zeichen (führende und
+folgende Leerzeichen zählen nicht mit) und schreibt über
+`LeadStateService::transition()` — erlaubt ist also weiterhin nur, was in
+`LeadTransitions::TABLE` steht. Der Grund im `lead_state_log` ist `manual_override`, die
+Begründung liegt dort als `meta.justification`. Zusätzlich schreibt jeder Vorgang einen
+Audit-Eintrag mit der bereits in FB-005 vorbereiteten Aktion
+`AuditAction::LEAD_STATE_FORCED` (`from`, `to`, `justification`).
+
+Als Oberfläche gibt es eine schlanke, lesende `LeadResource` im Filament-Admin-Panel mit
+genau einer Aktion („Status setzen"). Sie bietet nur Zustände an, die vom aktuellen
+Zustand aus erreichbar sind, und verschwindet, sobald es keine gibt (Endzustand). Anlegen,
+Bearbeiten und Löschen sind abgeschaltet.
+
+**Warum:** Ein Zwangsstatuswechsel ist ein Eingriff eines Menschen in einen automatischen
+Ablauf. Er ist nur dann vertretbar, wenn hinterher nachvollziehbar ist, wer ihn wann und
+warum vorgenommen hat — deshalb Pflichtbegründung, Protokolleintrag und Audit-Eintrag,
+und deshalb keine Abkürzung an der Zustandsmaschine vorbei. Die Prüfung in der
+Oberfläche ist Bequemlichkeit; die Absicherung sitzt im Dienst.
+
+**Neue Config-Keys:** `config/funnel.php` → `lead.manual_state_min_justification_length`
+(10, `FUNNEL_LEAD_MANUAL_STATE_MIN_JUSTIFICATION`).
+
+**Migrationen:** keine.
+
+Zwei bewusste Entscheidungen:
+
+- **Die Oberfläche liegt im Admin-Panel, nicht im Tenant-Dashboard.** Die Lead-Liste des
+  Betreibers gehört zu FB-034 und hängt über FB-032 an FB-031; hier wird ihr nichts
+  vorweggenommen. Das Gate `leads.force-state` erlaubt deshalb heute Plattform-Admins —
+  nur die kommen überhaupt an Leads heran. Sobald FB-034 die Dashboard-Ansicht baut,
+  kommt der Admin des besitzenden Betreiber-Mandanten im Gate dazu; der Dienst muss dafür
+  nicht angefasst werden.
+- **Die Ausnahme für Leads mit `call_attempts` entfällt ersatzlos.** Das Ticket nimmt
+  Leads mit Anrufprotokoll von der manuellen Statussetzung aus, aber `call_attempts`
+  gehört zu FB-E7, und FB-E7 wird nicht gebaut. Es gibt also nichts zu prüfen — wer die
+  Regel im Ticket liest, findet sie hier bewusst nicht wieder.
+
 ### FB-012 — Verzweigungslogik mit Priorität und Evaluator
 
 **Was:** `App\Funnel\Conditions\StepResolver` bestimmt den nächsten Schritt einer
