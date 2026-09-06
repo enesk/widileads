@@ -48,6 +48,25 @@ class FunnelSnapshot
         // Snapshots erhalten, damit dieselben Antworten immer denselben Weg nehmen.
         usort($conditions, static fn (ConditionSnapshot $a, ConditionSnapshot $b): int => $b->priority <=> $a->priority);
 
+        // Snapshots von vor FB-012a kennen den Auswertungsschritt nicht. Fuer sie
+        // gilt die alte Regel: Sie greifen dort, wo ihre Ausgangsfrage steht.
+        $conditions = array_map(
+            static function (ConditionSnapshot $condition) use ($steps): ConditionSnapshot {
+                if ($condition->evaluateAtStepPosition !== null) {
+                    return $condition;
+                }
+
+                foreach ($steps as $step) {
+                    if (in_array($condition->sourceFieldKey, $step->fieldKeys(), true)) {
+                        return $condition->evaluatedAt($step->position);
+                    }
+                }
+
+                return $condition;
+            },
+            $conditions,
+        );
+
         $results = array_map(
             static fn (array $result): ResultSnapshot => ResultSnapshot::fromArray($result),
             array_values((array) ($snapshot['results'] ?? [])),
@@ -96,18 +115,19 @@ class FunnelSnapshot
     }
 
     /**
-     * Regeln, die an einem bestimmten Schritt haengen -- also solche, deren
-     * Quellfrage in diesem Schritt steht.
+     * Regeln, die beim Verlassen eines Schritts ausgewertet werden.
+     *
+     * Massgeblich ist der Auswertungsschritt der Regel, nicht der Schritt ihrer
+     * Ausgangsfrage (FB-012a): Eine Regel darf sich auf eine frueher gegebene
+     * Antwort beziehen und trotzdem erst spaeter greifen.
      *
      * @return list<ConditionSnapshot>
      */
     public function conditionsForStep(int $position): array
     {
-        $fieldKeys = $this->fieldKeysOfStep($position);
-
         return array_values(array_filter(
             $this->conditions,
-            static fn (ConditionSnapshot $condition): bool => in_array($condition->sourceFieldKey, $fieldKeys, true),
+            static fn (ConditionSnapshot $condition): bool => $condition->evaluateAtStepPosition === $position,
         ));
     }
 
@@ -127,19 +147,5 @@ class FunnelSnapshot
         }
 
         return $questions;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function fieldKeysOfStep(int $position): array
-    {
-        foreach ($this->steps as $step) {
-            if ($step->position === $position) {
-                return $step->fieldKeys();
-            }
-        }
-
-        return [];
     }
 }

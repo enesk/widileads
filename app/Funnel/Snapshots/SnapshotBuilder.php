@@ -125,6 +125,9 @@ class SnapshotBuilder
             'operator' => $condition->operator->value,
             'value' => $condition->value,
             'target_step_position' => $targetStepPosition,
+            // Wann die Regel greift -- ohne eigenen Wert der Schritt der
+            // Ausgangsfrage (FB-012a).
+            'evaluate_at_step_position' => $condition->evaluationStepPosition(),
             'priority' => $condition->priority,
         ];
     }
