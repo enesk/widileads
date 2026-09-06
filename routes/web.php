@@ -4,6 +4,7 @@ use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Funnel\FunnelPreviewController;
+use App\Http\Controllers\Funnel\ThemePreviewController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
@@ -46,6 +47,13 @@ Route::get('/f/{token}/vorschau', FunnelPreviewController::class)
     ->name('funnel.preview')
     ->middleware('signed')
     ->where('token', '[0-9A-Za-z]{26}');
+
+// FB-017: Live-Vorschau des Theme-Editors, eingebettet als iFrame. Sie zeigt
+// den Stand im Formular, nicht den gespeicherten - die Werte kommen deshalb
+// aus der Adresse. Zugriff nur fuer angemeldete Nutzer mit Tenant-Kontext.
+Route::get('/dashboard/funnels/{funnel}/theme-vorschau', [ThemePreviewController::class, 'show'])
+    ->name('funnel.theme-preview')
+    ->middleware('auth');
 
 Route::get('/', function () {
     return view('home');

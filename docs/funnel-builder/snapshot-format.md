@@ -71,12 +71,40 @@ sie unverändert mit echten Snapshots füttern.
       "show_contact_form": true
     }
   ],
-  "theme": null
+  "theme": {
+    "primary_color": "#2563eb",
+    "secondary_color": "#64748b",
+    "background_color": "#ffffff",
+    "text_color": "#0f172a",
+    "font": "inter",
+    "font_family": "\"Inter\", ui-sans-serif, system-ui, sans-serif",
+    "logo_path": "logos/pfotencheck.svg",
+    "progress_style": "bar",
+    "border_radius": 8,
+    "button_next_label": "Weiter",
+    "button_back_label": "Zurück",
+    "button_submit_label": "Absenden"
+  }
 }
 ```
 
-`theme` ist reserviert und bleibt `null`, bis FB-017 den Theme-Editor bringt — der
-Schlüssel steht schon hier, damit die Runtime ihn ab dann ohne Formatänderung findet.
+`theme` trägt das Erscheinungsbild aus FB-017, oder `null`, wenn für den Funnel keines
+gepflegt ist. Gelesen wird es über `FunnelSnapshot::$theme` als `ThemeSnapshot`;
+`cssVariables()` liefert die Werte fertig als CSS-Custom-Properties.
+
+Drei Eigenheiten, die für die Runtime zählen:
+
+- **`font` und `font_family` stehen beide drin.** `font` ist der Enum-Wert aus
+  `App\Constants\FunnelThemeFont` (Whitelist: `system`, `inter`, `roboto`, `open_sans`),
+  `font_family` die daraus abgeleitete CSS-Angabe. Die Runtime kann `font_family` direkt
+  setzen und muss das Enum nicht kennen; fehlt sie in einem älteren Snapshot, leitet
+  `ThemeSnapshot` sie aus `font` ab.
+- **Die Button-Texte stehen aufgelöst da**, nie leer und nie als Übersetzungsschlüssel.
+  Ein Betreiber, der kein eigenes Wort gesetzt hat, bekommt beim Veröffentlichen die
+  deutsche Vorgabe eingesetzt — der Snapshot muss ohne die Sprachdateien lesbar sein.
+- **Unbekannte Werte fallen auf die Vorgabe zurück.** Ein `progress_style` oder `font`,
+  das eine spätere Version nicht mehr kennt, ergibt `bar` bzw. `system`, statt die
+  Auslieferung scheitern zu lassen.
 
 ## Regeln
 
