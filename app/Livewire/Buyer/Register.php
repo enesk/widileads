@@ -69,7 +69,7 @@ class Register extends Component
         // Kaeufer-Mandant mit denselben Daten -- und der Plattform-Admin haette
         // zwei Vorgaenge zu entscheiden.
         if ($this->existingRegistration() !== null) {
-            $this->addError('companyName', __('funnel.buyer.form.already_registered'));
+            $this->addError('companyName', __('marketplace.buyer.form.already_registered'));
 
             return;
         }
@@ -121,11 +121,11 @@ class Register extends Component
     protected function messages(): array
     {
         return [
-            'required' => __('funnel.buyer.validation.required'),
-            'accepted' => __('funnel.buyer.validation.av_accepted'),
-            'email' => __('funnel.buyer.validation.email'),
-            'max' => __('funnel.buyer.validation.max'),
-            'vatId.regex' => __('funnel.buyer.validation.vat_id'),
+            'required' => __('marketplace.buyer.validation.required'),
+            'accepted' => __('marketplace.buyer.validation.av_accepted'),
+            'email' => __('marketplace.buyer.validation.email'),
+            'max' => __('marketplace.buyer.validation.max'),
+            'vatId.regex' => __('marketplace.buyer.validation.vat_id'),
         ];
     }
 
@@ -135,13 +135,13 @@ class Register extends Component
     protected function validationAttributes(): array
     {
         return [
-            'companyName' => __('funnel.buyer.form.company_name'),
-            'contactName' => __('funnel.buyer.form.contact_name'),
-            'contactEmail' => __('funnel.buyer.form.contact_email'),
-            'contactPhone' => __('funnel.buyer.form.contact_phone'),
-            'brokerRegisterNumber' => __('funnel.buyer.form.broker_register_number'),
-            'vatId' => __('funnel.buyer.form.vat_id'),
-            'avAccepted' => __('funnel.buyer.form.av_accepted'),
+            'companyName' => __('marketplace.buyer.form.company_name'),
+            'contactName' => __('marketplace.buyer.form.contact_name'),
+            'contactEmail' => __('marketplace.buyer.form.contact_email'),
+            'contactPhone' => __('marketplace.buyer.form.contact_phone'),
+            'brokerRegisterNumber' => __('marketplace.buyer.form.broker_register_number'),
+            'vatId' => __('marketplace.buyer.form.vat_id'),
+            'avAccepted' => __('marketplace.buyer.form.av_accepted'),
         ];
     }
 
