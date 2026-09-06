@@ -130,6 +130,16 @@ return [
         // und nicht mehr zum vollen Preis verkauft wird.
         'stale_after_days' => (int) env('FUNNEL_LEAD_STALE_AFTER_DAYS', 3),
 
+        // Uhrzeit (HH:MM), zu der der taegliche Aufbewahrungslauf startet
+        // (app:apply-lead-retention, FB-037). Bewusst nachts: der Lauf
+        // schreibt Zustandswechsel und anonymisiert.
+        'retention_run_at' => (string) env('FUNNEL_LEAD_RETENTION_RUN_AT', '03:15'),
+
+        // Anzahl Leads, die der Aufbewahrungslauf je Durchgang aus der
+        // Datenbank holt. Begrenzt den Speicherbedarf, nicht die Gesamtmenge:
+        // der Lauf arbeitet so viele Durchgaenge, wie noetig sind.
+        'retention_chunk_size' => (int) env('FUNNEL_LEAD_RETENTION_CHUNK_SIZE', 500),
+
     ],
 
     /*

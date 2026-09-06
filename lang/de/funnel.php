@@ -157,6 +157,12 @@ return [
             'log_not_updatable' => 'Ein Eintrag im Zustandsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
             'log_not_deletable' => 'Ein Eintrag im Zustandsprotokoll kann nicht geloescht werden.',
         ],
+
+        // Aufbewahrungsfrist (FB-037).
+        'retention' => [
+            'summary' => 'Aufbewahrungslauf (:days Tage): :expired Lead(s) abgelaufen, :anonymized Lead(s) anonymisiert.',
+        ],
+
     ],
 
     'question_type' => [

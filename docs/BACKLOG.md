@@ -19,6 +19,13 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Leads in `neu` oder `reserviert` erreichen die Aufbewahrungsfrist nie** — FB-037
+  lässt nur `verfuegbar` ablaufen und anonymisiert nur Endzustände. Bleibt ein Lead
+  hängen (Prüfjob aus FB-033 fehlgeschlagen, Reservierung nicht aufgeräumt), wird er
+  nie anonymisiert und hält personenbezogene Daten unbegrenzt. Beide Übergänge wären
+  laut `LeadTransitions` erlaubt; das Ticket nennt sie nicht, deshalb unverändert
+  umgesetzt. Aufgefallen bei: FB-037. Datum: 2026-09-06.
+
 - **Tests je Fragetyp fehlen** — FB-011 fordert als Akzeptanz „Unit-Test je Typ für
   gültige/ungültige Eingaben". Abgesichert ist bisher nur die E.164-Normalisierung
   (Testumfang vom Auftraggeber bewusst darauf begrenzt). Ungetestet sind damit die
