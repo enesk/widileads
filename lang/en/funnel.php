@@ -181,4 +181,10 @@ return [
         'info' => 'Info text (no input)',
     ],
 
+    'condition' => [
+        'errors' => [
+            'cycle_detected' => 'The branching rules of this funnel form a loop: step :step was reached again after :max steps.',
+        ],
+    ],
+
 ];

@@ -181,4 +181,10 @@ return [
         'info' => 'Hinweistext (ohne Eingabe)',
     ],
 
+    'condition' => [
+        'errors' => [
+            'cycle_detected' => 'Die Verzweigungsregeln dieses Funnels fuehren im Kreis: Schritt :step wurde nach :max Schritten erneut erreicht.',
+        ],
+    ],
+
 ];
