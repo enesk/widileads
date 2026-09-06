@@ -156,6 +156,37 @@ return [
             'concurrent_transition' => 'When moving to ":to" the lead was no longer in the expected state ":expected" but in ":actual". Another process was faster.',
             'log_not_updatable' => 'An entry in the state log cannot be changed after it has been created.',
             'log_not_deletable' => 'An entry in the state log cannot be deleted.',
+            'justification_too_short' => 'The justification must be at least :min characters long.',
+            'force_state_forbidden' => 'Only operator administrators may set the state of a lead manually.',
+        ],
+
+        // Lead overview in the admin panel (FB-036).
+        'resource' => [
+            'label' => 'Lead',
+            'plural_label' => 'Leads',
+            'empty_heading' => 'No leads yet',
+            'empty_description' => 'Leads are created from completed funnel submissions.',
+        ],
+
+        'fields' => [
+            'id' => 'ID',
+            'tenant' => 'Tenant',
+            'lead_state' => 'State',
+            'settled_price' => 'Settled price',
+            'created_at' => 'Received at',
+            'anonymized_at' => 'Anonymised at',
+        ],
+
+        // Manual state override (FB-036).
+        'force_state' => [
+            'action' => 'Set state',
+            'heading' => 'Set the state manually',
+            'description' => 'The change is recorded in the state log and in the audit log. Only states that are allowed from the current one are offered.',
+            'target' => 'New state',
+            'justification' => 'Justification',
+            'justification_helper' => 'At least :min characters. Whoever reviews this later reads exactly this text.',
+            'submit' => 'Set state',
+            'done' => 'The lead is now in state ":state".',
         ],
 
         // Retention period (FB-037).
