@@ -13,6 +13,7 @@ return [
     |
     */
 
+    'honeypot_label' => 'Please leave this field empty.',
     'progress' => 'Progress',
     'next' => 'Continue',
     'submit' => 'Send request',
@@ -23,6 +24,7 @@ return [
     'archived_body' => 'The funnel has been archived and can no longer be filled in.',
 
     'errors' => [
+        'rate_limited' => 'We received a lot of requests from here just now. Please try again in an hour.',
         'phone_not_dialable' => 'We could not read this phone number. Please include the area code.',
         'event_not_updatable' => 'An entry in the session log cannot be changed once it has been created.',
         'event_not_deletable' => 'An entry in the session log cannot be deleted.',

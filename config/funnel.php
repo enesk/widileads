@@ -172,6 +172,12 @@ return [
         // (Rate-Limiting gegen Bots und Massen-Einreichungen).
         'rate_limit_per_hour' => (int) env('FUNNEL_PUBLIC_RATE_LIMIT_PER_HOUR', 20),
 
+        // Tage, innerhalb derer eine Anfrage mit derselben E-Mail-Adresse oder
+        // Telefonnummer im selben Funnel als moegliche Dublette gilt. Der Lead
+        // entsteht trotzdem und traegt nur einen Verweis -- ueber Dublette oder
+        // ernst gemeinte Neuanfrage entscheidet der Pruefjob (FB-033).
+        'duplicate_window_days' => (int) env('FUNNEL_PUBLIC_DUPLICATE_WINDOW_DAYS', 30),
+
         // Mindestdauer in Sekunden zwischen Funnel-Start und Absenden. Wird
         // schneller abgeschickt, gilt die Einreichung als Bot (Zeit-Honeypot).
         'min_seconds_before_submit' => (int) env('FUNNEL_PUBLIC_MIN_SECONDS_BEFORE_SUBMIT', 30),

@@ -13,6 +13,7 @@ return [
     |
     */
 
+    'honeypot_label' => 'Dieses Feld bitte frei lassen.',
     'progress' => 'Fortschritt',
     'next' => 'Weiter',
     'submit' => 'Anfrage absenden',
@@ -23,6 +24,7 @@ return [
     'archived_body' => 'Der Fragebogen wurde archiviert und kann nicht mehr ausgefuellt werden.',
 
     'errors' => [
+        'rate_limited' => 'Wir haben von hier gerade sehr viele Anfragen erhalten. Bitte versuche es in einer Stunde noch einmal.',
         'phone_not_dialable' => 'Diese Telefonnummer konnten wir nicht lesen. Bitte gib sie mit Vorwahl an.',
         'event_not_updatable' => 'Ein Ereignis im Sitzungsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
         'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht geloescht werden.',

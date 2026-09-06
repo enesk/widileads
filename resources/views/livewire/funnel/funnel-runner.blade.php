@@ -56,6 +56,18 @@
                     </div>
                 </section>
 
+                {{-- FB-023: Honigtopf. Fuer Menschen unsichtbar und aus der
+                     Tabulatorreihenfolge genommen; Bots fuellen es trotzdem. --}}
+                <div class="hidden" aria-hidden="true">
+                    <label for="website">{{ __('runtime.honeypot_label') }}</label>
+                    <input type="text" id="website" name="website" tabindex="-1"
+                           autocomplete="off" wire:model="website">
+                </div>
+
+                @if ($submissionBlockedReason !== null)
+                    <p class="rounded-box bg-warning/20 p-4 text-sm">{{ $submissionBlockedReason }}</p>
+                @endif
+
                 <button type="submit" class="btn btn-primary min-h-[44px] w-full">
                     {{ $phase === 'contact' ? __('runtime.submit') : __('runtime.next') }}
                 </button>
