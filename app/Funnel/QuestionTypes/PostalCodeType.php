@@ -4,19 +4,17 @@ declare(strict_types=1);
 
 namespace App\Funnel\QuestionTypes;
 
-use App\Models\FunnelQuestion;
-
 /**
  * Deutsche Postleitzahl (FB-011): genau fuenf Ziffern.
  */
 class PostalCodeType extends BaseQuestionType
 {
-    protected function typeRules(FunnelQuestion $question): array
+    protected function typeRules(QuestionDefinition $question): array
     {
         return ['string', 'regex:'.config('funnel.question.postal_code_pattern')];
     }
 
-    public function normalize(mixed $value, FunnelQuestion $question): mixed
+    public function normalize(mixed $value, QuestionDefinition $question): mixed
     {
         $value = parent::normalize($value, $question);
 

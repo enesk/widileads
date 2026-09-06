@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Funnel\QuestionTypes;
 
 use App\Constants\QuestionType;
-use App\Models\FunnelQuestion;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -32,9 +31,9 @@ class QuestionTypeRegistry
         return $this->handlers[$type->value] ??= $this->resolve($type);
     }
 
-    public function forQuestion(FunnelQuestion $question): QuestionTypeHandler
+    public function forQuestion(QuestionDefinition $question): QuestionTypeHandler
     {
-        return $this->for($question->type);
+        return $this->for($question->questionType());
     }
 
     /**

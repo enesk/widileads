@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Funnel\QuestionTypes;
 
-use App\Models\FunnelQuestion;
+use App\Rules\DialablePhoneNumber;
 use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\PhoneNumberUtil;
@@ -24,12 +24,12 @@ class PhoneType extends BaseQuestionType
 {
     public function __construct(private readonly PhoneNumberUtil $phoneNumberUtil) {}
 
-    protected function typeRules(FunnelQuestion $question): array
+    protected function typeRules(QuestionDefinition $question): array
     {
-        return ['string', 'max:'.config('funnel.question.text_max_length')];
+        return ['string', 'max:'.config('funnel.question.text_max_length'), new DialablePhoneNumber($this)];
     }
 
-    public function normalize(mixed $value, FunnelQuestion $question): mixed
+    public function normalize(mixed $value, QuestionDefinition $question): mixed
     {
         $value = parent::normalize($value, $question);
 

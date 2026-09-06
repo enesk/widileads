@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace App\Funnel\QuestionTypes;
 
-use App\Models\FunnelQuestion;
-
 /**
  * Einwilligung (FB-011). Eine Pflicht-Einwilligung muss angenommen werden --
  * "nein" ist dann keine gueltige Antwort, sondern ein Validierungsfehler.
  */
 class ConsentType extends BaseQuestionType
 {
-    protected function typeRules(FunnelQuestion $question): array
+    protected function typeRules(QuestionDefinition $question): array
     {
-        return $question->required ? ['accepted'] : ['boolean'];
+        return $question->isAnswerRequired() ? ['accepted'] : ['boolean'];
     }
 
-    public function normalize(mixed $value, FunnelQuestion $question): mixed
+    public function normalize(mixed $value, QuestionDefinition $question): mixed
     {
         if ($value === null || $value === '') {
             return null;
