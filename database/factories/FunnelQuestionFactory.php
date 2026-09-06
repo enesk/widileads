@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Constants\QuestionType;
 use App\Models\FunnelQuestion;
 use App\Models\FunnelStep;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -26,8 +27,7 @@ class FunnelQuestionFactory extends Factory
             'funnel_id' => null,
             'step_id' => FunnelStep::factory(),
             'position' => 0,
-            // Fragetypen kommen als Enum mit FB-011; bis dahin ein einfacher Textwert.
-            'type' => 'text',
+            'type' => QuestionType::TEXT,
             'field_key' => fake()->unique()->word(),
             'label' => Str::ucfirst(fake()->words(3, true)),
             'help_text' => null,
@@ -35,6 +35,11 @@ class FunnelQuestionFactory extends Factory
             'validation' => null,
             'meta' => null,
         ];
+    }
+
+    public function ofType(QuestionType $type): static
+    {
+        return $this->state(fn (): array => ['type' => $type]);
     }
 
     public function optional(): static

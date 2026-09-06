@@ -24,6 +24,39 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-011 — Fragetypen und Validierungsregeln
+
+**Was:** Enum `QuestionType` mit den dreizehn Fragetypen und je Typ eine Handler-Klasse
+in `app/Funnel/QuestionTypes` mit `rules()`, `normalize()`, `render()` und
+`expectsAnswer()`. Aufgelöst wird über die `QuestionTypeRegistry` nach
+Namenskonvention (`single_choice` → `SingleChoiceType`) — es gibt bewusst keine
+Zuordnungstabelle und keinen `match`-Block, den ein neuer Typ anfassen müsste.
+`funnel_questions.type` trägt jetzt den Enum-Cast. Telefonnummern werden über
+libphonenumber nach E.164 normalisiert, Postleitzahlen gegen ein konfigurierbares
+Muster geprüft (Vorgabe: fünf Ziffern).
+
+**Warum:** Ohne E.164 sind Telefonnummern weder vergleichbar (Dublettenprüfung) noch
+zuverlässig wählbar (Anrufnachweis in Phase 2) — „0151 1234-5678", „+4915112345678" und
+„004915112345678" wären drei verschiedene Leads. Die Handler-Klassen halten
+Validierung und Normalisierung an einer Stelle, statt sie über Runtime, API und
+Builder zu verteilen.
+
+**Neue Abhängigkeit:** `giggsey/libphonenumber-for-php` (^9.0), vom Ticket vorgegeben
+und vom Auftraggeber freigegeben. Eine eigene Regex-Lösung für internationale
+Rufnummern wäre der klassische Fall von „funktioniert bis zur ersten Auslandsnummer".
+
+**Neue Config-Keys:** `config/funnel.php` → `question.default_phone_region` (`DE`,
+`FUNNEL_QUESTION_DEFAULT_PHONE_REGION`), `question.postal_code_pattern`
+(`/^[0-9]{5}$/`, `FUNNEL_QUESTION_POSTAL_CODE_PATTERN`), `question.text_max_length`
+(255), `question.textarea_max_length` (2000).
+
+**Migrationen:** keine — `funnel_questions.type` ist bereits `string(32)`, alle
+Enum-Werte passen hinein; es ändert sich nur der Cast.
+
+Der Testumfang wurde vom Auftraggeber auf die E.164-Normalisierung begrenzt; die im
+Ticket geforderten Tests je Fragetyp stehen als offener Punkt in
+[BACKLOG.md](BACKLOG.md).
+
 ### FB-030 — LeadState-Zustandsmaschine
 
 **Was:** Der Zustand eines Leads liegt in genau einer Spalte (`leads.lead_state`) und

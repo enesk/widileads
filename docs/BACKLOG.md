@@ -19,6 +19,13 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Tests je Fragetyp fehlen** — FB-011 fordert als Akzeptanz „Unit-Test je Typ für
+  gültige/ungültige Eingaben". Abgesichert ist bisher nur die E.164-Normalisierung
+  (Testumfang vom Auftraggeber bewusst darauf begrenzt). Ungetestet sind damit die
+  Regeln und Normalisierungen der übrigen zwölf Typen — etwa dass eine Pflicht-
+  Einwilligung `accepted` verlangt, `multi_choice` immer eine Liste liefert oder
+  `date` auf ISO-8601 vereinheitlicht. Aufgefallen bei: FB-011. Datum: 2026-09-06.
+
 - **Test-Datenbank ist zwischen Sessions geteilt** — `.env.testing` zeigt fest auf
   `saasykit_tenancy_test`. Laufen zwei Sessions gleichzeitig `php artisan test`, brechen
   die Läufe gegenseitig ab („Table 'permissions' already exists"). Abhilfe wäre eine
