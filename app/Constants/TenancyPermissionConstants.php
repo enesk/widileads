@@ -49,4 +49,9 @@ class TenancyPermissionConstants
     public const PERMISSION_UPDATE_ROLES = 'tenancy: update roles';
 
     public const PERMISSION_DELETE_ROLES = 'tenancy: delete roles';
+
+    /**
+     * Erlaubt das Anlegen und Widerrufen von API-Tokens des Tenants (FB-006).
+     */
+    public const PERMISSION_MANAGE_API_TOKENS = 'tenancy: manage api tokens';
 }

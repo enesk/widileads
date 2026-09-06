@@ -69,4 +69,34 @@ return [
 
     ],
 
+    'api_token' => [
+        'heading' => 'API-Zugaenge',
+        'nav_label' => 'API-Zugaenge',
+        'description' => 'Tokens gehoeren diesem Workspace und erreichen ausschliesslich dessen Daten.',
+        'empty' => 'Noch keine API-Zugaenge angelegt.',
+        'name' => 'Bezeichnung',
+        'name_helper' => 'Wofuer wird das Token verwendet? Zum Beispiel "Website-Einbettung" oder "CRM-Anbindung".',
+        'abilities' => 'Berechtigungen',
+        'abilities_helper' => 'Nur die hier gewaehlten Berechtigungen sind mit diesem Token moeglich.',
+        'last_used_at' => 'Zuletzt verwendet',
+        'never_used' => 'Noch nie verwendet',
+        'created_at' => 'Erstellt am',
+        'create' => 'Token erstellen',
+        'created' => 'Token wurde erstellt.',
+        'revoke' => 'Widerrufen',
+        'revoke_confirm' => 'Das Token wird sofort ungueltig. Anwendungen, die es verwenden, verlieren den Zugriff.',
+        'revoked' => 'Token wurde widerrufen.',
+        'revoke_failed' => 'Token konnte nicht widerrufen werden.',
+        'plain_text_heading' => 'Token nur jetzt sichtbar',
+        'plain_text_hint' => 'Kopiere das Token jetzt. Es wird nur als Hash gespeichert und laesst sich spaeter nicht erneut anzeigen.',
+        'plain_text_dismiss' => 'Verstanden, ausblenden',
+        'no_tenant_token' => 'Das verwendete Token gehoert zu keinem Workspace.',
+        'ability' => [
+            'funnels_read' => 'Funnels lesen',
+            'funnels_write' => 'Funnels schreiben',
+            'leads_read' => 'Leads lesen',
+            'webhooks_manage' => 'Webhooks verwalten',
+        ],
+    ],
+
 ];
