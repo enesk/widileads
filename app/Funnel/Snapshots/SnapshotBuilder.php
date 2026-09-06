@@ -32,6 +32,7 @@ class SnapshotBuilder
             'conditions.sourceQuestion',
             'conditions.targetStep',
             'results',
+            'theme',
         ]);
 
         return [
@@ -54,10 +55,21 @@ class SnapshotBuilder
                 ->map(fn (FunnelResult $result): array => $this->result($result))
                 ->values()
                 ->all(),
-            // Das Theme kommt mit FB-017; der Schluessel steht bereits hier,
-            // damit die Runtime ihn ab dann ohne Formataenderung findet.
-            'theme' => null,
+            // Das Theme muss mit in den Snapshot: Die oeffentliche Strecke liest
+            // ausschliesslich Snapshots, ein Theme nur in der Live-Tabelle waere
+            // dort unsichtbar (FB-017).
+            'theme' => $this->theme($funnel),
         ];
+    }
+
+    /**
+     * Erscheinungsbild des Funnels, oder null wenn keines gepflegt ist.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function theme(Funnel $funnel): ?array
+    {
+        return $funnel->theme?->toSnapshotArray();
     }
 
     /**

@@ -19,12 +19,14 @@ class FunnelSnapshot
      * @param  list<StepSnapshot>  $steps  nach Position sortiert
      * @param  list<ConditionSnapshot>  $conditions  nach Prioritaet sortiert, hoechste zuerst
      * @param  list<ResultSnapshot>  $results  nach Mindestpunktzahl sortiert
+     * @param  ThemeSnapshot|null  $theme  Erscheinungsbild, oder null ohne gepflegtes Theme
      */
     public function __construct(
         public readonly array $funnel,
         public readonly array $steps,
         public readonly array $conditions,
         public readonly array $results = [],
+        public readonly ?ThemeSnapshot $theme = null,
     ) {}
 
     /**
@@ -74,11 +76,14 @@ class FunnelSnapshot
 
         usort($results, static fn (ResultSnapshot $a, ResultSnapshot $b): int => $a->minScore <=> $b->minScore);
 
+        $theme = $snapshot['theme'] ?? null;
+
         return new self(
             funnel: (array) ($snapshot['funnel'] ?? []),
             steps: $steps,
             conditions: $conditions,
             results: $results,
+            theme: is_array($theme) ? ThemeSnapshot::fromArray($theme) : null,
         );
     }
 

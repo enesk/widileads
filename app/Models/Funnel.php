@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 /**
@@ -88,6 +89,17 @@ class Funnel extends Model
     public function results(): HasMany
     {
         return $this->hasMany(FunnelResult::class);
+    }
+
+    /**
+     * Erscheinungsbild des Funnels (FB-017). Ohne eigenes Theme gelten die
+     * Vorgabewerte aus der Migration.
+     *
+     * @return HasOne<FunnelTheme, $this>
+     */
+    public function theme(): HasOne
+    {
+        return $this->hasOne(FunnelTheme::class);
     }
 
     /**
