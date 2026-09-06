@@ -227,4 +227,14 @@ return [
         ],
     ],
 
+    'version' => [
+        'errors' => [
+            'not_publishable' => 'This funnel cannot be published. :reasons',
+            'no_steps' => 'The funnel does not have a single step.',
+            'no_contact_field' => 'The funnel is missing a contact field - at least one of: :fields.',
+            'not_updatable' => 'A published funnel version cannot be changed.',
+            'not_deletable' => 'A published funnel version cannot be deleted.',
+        ],
+    ],
+
 ];

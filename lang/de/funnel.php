@@ -234,4 +234,14 @@ return [
         ],
     ],
 
+    'version' => [
+        'errors' => [
+            'not_publishable' => 'Dieser Funnel kann nicht veroeffentlicht werden. :reasons',
+            'no_steps' => 'Der Funnel hat keinen einzigen Schritt.',
+            'no_contact_field' => 'Dem Funnel fehlt ein Kontaktfeld - mindestens eines von: :fields.',
+            'not_updatable' => 'Eine veroeffentlichte Funnel-Version kann nicht mehr geaendert werden.',
+            'not_deletable' => 'Eine veroeffentlichte Funnel-Version kann nicht geloescht werden.',
+        ],
+    ],
+
 ];

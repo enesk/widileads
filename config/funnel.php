@@ -299,4 +299,22 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Veroeffentlichung eines Funnels (FB-014)
+    |--------------------------------------------------------------------------
+    */
+
+    'publish' => [
+
+        // Kontakt-Feldschluessel, von denen mindestens einer im Funnel stehen
+        // muss, damit er veroeffentlicht werden darf. Ohne erreichbaren
+        // Kontaktweg entstuenden Leads, die kein Kaeufer erreichen kann.
+        'required_contact_field_keys' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('FUNNEL_PUBLISH_REQUIRED_CONTACT_FIELD_KEYS', 'email,telefon')),
+        ))),
+
+    ],
+
 ];
