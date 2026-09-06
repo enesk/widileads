@@ -294,7 +294,7 @@ drei Läufe mit unterschiedlichen Seeds, gleiches Ergebnis — statt durch Wäch
 Unberührt bleibt: Wo Infrastrukturarbeit einen **fachlichen** Fehler behebt oder
 Fachcode ändert, gehört der Test dorthin, wo die Fachlogik liegt.
 
-### 9. Sammeldateien: anhängen statt einsortieren (2026-09-06)
+### 9. Sammeldateien vermeiden: eine Datei je Zuständigkeit (2026-09-06)
 
 **Anlass:** Vier PRs in Folge mussten allein wegen derselben Sammeldateien rebasen. Die
 Ursache ist mechanisch, nicht inhaltlich: Wenn jedes Ticket seinen Abschnitt **oben** in
@@ -309,8 +309,17 @@ das ein Dauerzustand.
   ausgeschlossen. Format und Konventionen stehen in
   [`docs/changelog.d/README.md`](../changelog.d/README.md). Die vorhandenen Einträge in
   `docs/CHANGELOG.md` bleiben als Archiv stehen.
-- **`lang/de/funnel.php` und `lang/en/funnel.php`:** neue Blöcke ans **Dateiende**
-  anhängen, nicht thematisch einsortieren.
+- **Übersetzungen:** neue Blöcke kommen **nicht** mehr in `lang/*/funnel.php`, sondern in
+  eine eigene Themendatei je Zuständigkeit — `lang/de/<thema>.php` und
+  `lang/en/<thema>.php`, angesprochen als `__('<thema>.schluessel')`. Zum Beispiel
+  `builder.php` für den Funnel-Builder, `marketplace.php` für den Marktplatz,
+  `runtime.php` für die öffentliche Strecke. Bestehende Schlüssel in `funnel.php` bleiben,
+  wo sie sind; die Regel gilt nur für neue Blöcke.
+
+  Anhängen ans Dateiende — die erste Fassung dieser Regel — hat das Problem nur
+  verschoben: zwei Sessions hängen an dieselbe Stelle an und kollidieren genauso
+  (passiert zwischen FB-014 und FB-038). Eine Datei je Zuständigkeit schließt es aus,
+  gleiches Prinzip wie bei `docs/changelog.d/FB-###.md`.
 - **`config/funnel.php`:** neue Keys als eigener Block ans **Ende der jeweiligen
   Sektion**. Bestehende Zeilen werden nie umformatiert, auch nicht „nur schnell"
   ausgerichtet — jede Umformatierung erzeugt einen Konflikt für jeden offenen PR.
