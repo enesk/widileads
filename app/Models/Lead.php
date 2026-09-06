@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\LeadState;
+use App\Dto\LeadContact;
 use App\Models\Concerns\BelongsToTenant;
+use App\Services\LeadContactResolver;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -130,6 +132,20 @@ class Lead extends Model
     public function stateLog(): HasMany
     {
         return $this->hasMany(LeadStateLog::class)->oldest('id');
+    }
+
+    /**
+     * Kontaktdaten dieses Leads aus Sicht eines Betrachters -- im Klartext
+     * oder verdeckt (FB-032).
+     *
+     * Der einzige Weg, an Kontaktdaten eines Leads zu kommen. Views und
+     * API-Resources rufen ausschliesslich das auf; wer stattdessen
+     * `email_normalized` oder eine Antwort direkt ausgibt, umgeht die
+     * Maskierung -- der Architektur-Test aus FB-042 schlaegt darauf an.
+     */
+    public function contactFor(?User $viewer): LeadContact
+    {
+        return app(LeadContactResolver::class)->for($this, $viewer);
     }
 
     /**

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Actions\CreateLeadFromSession;
 use App\Funnel\Runtime\SubmissionReceiver;
+use App\Services\LeadPurchaseLookup;
+use App\Services\NoLeadPurchases;
 use App\Services\PaymentProviders\Creem\CreemProvider;
 use App\Services\PaymentProviders\LemonSqueezy\LemonSqueezyProvider;
 use App\Services\PaymentProviders\Offline\OfflineProvider;
@@ -33,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
         // Jede abgeschlossene Funnel-Einreichung wird zu einem Lead (FB-031).
         // Die Runtime kennt nur das Interface -- ausgetauscht wird hier.
         $this->app->bind(SubmissionReceiver::class, CreateLeadFromSession::class);
+
+        // Bis FB-054 den Kaufvorgang baut, hat niemand einen Lead gekauft --
+        // und damit sieht auch niemand Klartext-Kontaktdaten (FB-032). FB-054
+        // tauscht nur diese Bindung aus.
+        $this->app->bind(LeadPurchaseLookup::class, NoLeadPurchases::class);
 
         // PhoneNumberUtil hat einen privaten Konstruktor und laesst sich deshalb
         // nicht automatisch aufloesen (FB-011, E.164-Normalisierung).
