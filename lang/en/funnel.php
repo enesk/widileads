@@ -58,6 +58,7 @@ return [
             'api_token_created' => 'API token created',
             'api_token_deleted' => 'API token deleted',
             'data_exported' => 'Data exported',
+            'data_erased' => 'Data anonymised (erasure request)',
             'lead_purchased' => 'Lead purchased',
             'lead_state_forced' => 'Lead state forced',
         ],
@@ -234,6 +235,33 @@ return [
             'no_contact_field' => 'The funnel is missing a contact field - at least one of: :fields.',
             'not_updatable' => 'A published funnel version cannot be changed.',
             'not_deletable' => 'A published funnel version cannot be deleted.',
+        ],
+    ],
+
+    // GDPR access and erasure requests (FB-038).
+    'gdpr' => [
+        'nav_label' => 'Data protection requests',
+        'heading' => 'Access and erasure requests',
+        'section_heading' => 'Requests by data subjects',
+        'section_body' => 'Access requests (Art. 15 GDPR) and erasure requests (Art. 17 GDPR) are handled here. The search runs on the email address the person entered in the funnel.',
+        'section_hint' => 'An erasure removes the personal reference, not the record: state, settled price and timestamps remain so that past billing stays consistent.',
+        'email' => 'Email address',
+        'email_helper' => 'The address the person entered in the funnel. Case does not matter.',
+        'export' => [
+            'action' => 'Provide access',
+            'heading' => 'Download the access report as JSON',
+            'description' => 'Contains everything stored for this address: the leads with all their fields, their state log and their answers. The action is recorded in the audit log.',
+            'submit' => 'Download',
+            'done' => 'Access report created for :count lead(s).',
+            'empty' => 'No data is stored for this address.',
+        ],
+        'erase' => [
+            'action' => 'Erase data',
+            'heading' => 'Execute erasure request',
+            'description' => 'The personal reference of every lead for this address is removed. This cannot be undone. The action is recorded in the audit log.',
+            'submit' => 'Remove personal data',
+            'done' => 'Personal data removed from :count lead(s).',
+            'empty' => 'No data is stored for this address.',
         ],
     ],
 

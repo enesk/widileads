@@ -39,6 +39,9 @@ enum AuditAction: string
     /** Datenexport angestossen -- wird von FB-073 (CSV/XLSX-Export) aufgerufen. */
     case DATA_EXPORTED = 'data.exported';
 
+    /** Personenbezug eines Leads auf Loeschersuchen hin entfernt (FB-038). */
+    case DATA_ERASED = 'data.erased';
+
     /** Lead durch einen Kaeufer gekauft -- wird von FB-054 (Kaufvorgang) aufgerufen. */
     case LEAD_PURCHASED = 'lead.purchased';
 

@@ -58,6 +58,7 @@ return [
             'api_token_created' => 'API-Token erstellt',
             'api_token_deleted' => 'API-Token geloescht',
             'data_exported' => 'Daten exportiert',
+            'data_erased' => 'Daten anonymisiert (Loeschersuchen)',
             'lead_purchased' => 'Lead gekauft',
             'lead_state_forced' => 'Lead-Status zwangsweise gesetzt',
         ],
@@ -241,6 +242,33 @@ return [
             'no_contact_field' => 'Dem Funnel fehlt ein Kontaktfeld - mindestens eines von: :fields.',
             'not_updatable' => 'Eine veroeffentlichte Funnel-Version kann nicht mehr geaendert werden.',
             'not_deletable' => 'Eine veroeffentlichte Funnel-Version kann nicht geloescht werden.',
+        ],
+    ],
+
+    // DSGVO-Auskunft und Loeschersuchen (FB-038).
+    'gdpr' => [
+        'nav_label' => 'Datenschutz-Anfragen',
+        'heading' => 'Auskunft und Loeschersuchen',
+        'section_heading' => 'Anfragen betroffener Personen',
+        'section_body' => 'Hier werden Auskunftsersuchen (Art. 15 DSGVO) und Loeschersuchen (Art. 17 DSGVO) bearbeitet. Gesucht wird ueber die E-Mail-Adresse, die die Person im Funnel angegeben hat.',
+        'section_hint' => 'Eine Loeschung entfernt den Personenbezug, nicht den Datensatz: Zustand, festgeschriebener Preis und Zeitstempel bleiben erhalten, damit Abrechnungen der Vergangenheit stimmig bleiben.',
+        'email' => 'E-Mail-Adresse',
+        'email_helper' => 'Die Adresse, die die Person im Funnel angegeben hat. Gross- und Kleinschreibung spielt keine Rolle.',
+        'export' => [
+            'action' => 'Auskunft erteilen',
+            'heading' => 'Auskunft als JSON herunterladen',
+            'description' => 'Ausgegeben wird alles, was zu dieser Adresse gespeichert ist: die Leads mit allen Feldern, ihr Zustandsprotokoll und ihre Antworten. Der Vorgang wird im Audit-Log festgehalten.',
+            'submit' => 'Herunterladen',
+            'done' => 'Auskunft zu :count Lead(s) erstellt.',
+            'empty' => 'Zu dieser Adresse sind keine Daten gespeichert.',
+        ],
+        'erase' => [
+            'action' => 'Daten loeschen',
+            'heading' => 'Loeschersuchen ausfuehren',
+            'description' => 'Der Personenbezug aller Leads dieser Adresse wird entfernt. Das laesst sich nicht rueckgaengig machen. Der Vorgang wird im Audit-Log festgehalten.',
+            'submit' => 'Personenbezug entfernen',
+            'done' => 'Personenbezug von :count Lead(s) entfernt.',
+            'empty' => 'Zu dieser Adresse sind keine Daten gespeichert.',
         ],
     ],
 
