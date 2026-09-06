@@ -107,6 +107,13 @@ return [
         'archived' => 'Archiviert',
     ],
 
+    'api_docs' => [
+        'title' => 'API-Dokumentation',
+        'noscript' => 'Fuer die Darstellung der API-Dokumentation wird JavaScript benoetigt.',
+        'download' => 'OpenAPI-Spezifikation herunterladen',
+        'spec_missing' => 'Die OpenAPI-Spezifikation wurde nicht gefunden.',
+    ],
+
     'condition_operator' => [
         'equals' => 'ist gleich',
         'not_equals' => 'ist ungleich',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\InvitationController;
@@ -207,3 +208,24 @@ Route::controller(InvoiceController::class)
         Route::get('/generate/{transactionUuid}', 'generate')->name('invoice.generate');
         Route::get('/preview', 'preview')->name('invoice.preview');
     });
+
+/*
+|--------------------------------------------------------------------------
+| API-Dokumentation (FB-030a)
+|--------------------------------------------------------------------------
+|
+| docs/openapi.yaml ist die Single Source of Truth der Management-API. Diese
+| beiden Routen zeigen sie an und liefern sie aus -- erzeugt wird hier nichts.
+| Der Contract-Test prueft, dass die Spezifikation und die tatsaechlich
+| registrierten Routen unter /api/v1 nicht auseinanderlaufen.
+|
+*/
+
+if (config('funnel.api.docs_enabled')) {
+    Route::controller(ApiDocsController::class)
+        ->prefix('/docs/api')
+        ->group(function () {
+            Route::get('/', 'index')->name('api-docs');
+            Route::get('/openapi.yaml', 'spec')->name('api-docs.spec');
+        });
+}

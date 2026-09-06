@@ -136,6 +136,58 @@ Der Testumfang wurde vom Auftraggeber auf die E.164-Normalisierung begrenzt; die
 Ticket geforderten Tests je Fragetyp stehen als offener Punkt in
 [BACKLOG.md](BACKLOG.md).
 
+### FB-030a — OpenAPI-3.1-Spezifikation als Single Source of Truth
+
+**Was:** `docs/openapi.yaml` beschreibt die komplette Management-API v1: den heute
+umgesetzten Teil aus FB-006 (`GET /me`, `GET /ping/leads`) und die geplanten Endpunkte
+aus FB-030b bis FB-030f — Funnel-CRUD samt verschachtelter Schritte, Fragen, Optionen,
+Verzweigungsregeln und Ergebnis-Screens, `PUT /funnels/{funnel}/structure`, Publish,
+Duplicate, Archive, Versionshistorie, Leads und Webhook-Verwaltung. Fehler folgen
+RFC 9457 (Problem Details). Unter `/docs/api` zeigt eine schlanke Blade-Seite die Datei
+über einen CDN-Betrachter an, `/docs/api/openapi.yaml` liefert sie unverändert aus.
+`tests/Feature/Funnel/OpenApiContractTest.php` prüft die Datei und hält sie mit der
+Anwendung zusammen.
+
+**Warum:** Spezifikation zuerst, Code danach. Ohne verbindlichen Vertrag entscheidet
+jedes der fünf Folgetickets für sich, wie eine Antwort aussieht — und die API zerfällt
+in fünf Handschriften. Der Contract-Test macht aus dem Dokument eine Zusicherung: jede
+als umgesetzt markierte Operation muss als Route existieren, und **jede** registrierte
+Route unter `/api/v1` muss beschrieben sein. Ein undokumentierter Endpunkt lässt den
+Test fehlschlagen. Geplante Endpunkte sind ausdrücklich erlaubt (`x-status: planned`)
+und werden übersprungen, solange FB-030b ff. offen sind.
+
+Zwei Festlegungen, an die sich die Umsetzung zu halten hat:
+
+- **Maskierung als Vertrag.** Ein Lead erscheint als `LeadMasked` oder als `LeadFull` —
+  zwei getrennte Schemas, unterschieden über `contact_visibility`, nicht ein Schema mit
+  optionalen Kontaktfeldern. Beide verlangen dieselben Kontaktfelder; die maskierte
+  Fassung schreibt ihre Kürzung als Muster fest (`a…@example.com`, `+49 30 …`, `76…`).
+  Ein unmaskierter Wert an dieser Stelle ist damit vertragswidrig und nicht bloß ein
+  Versehen. Der Contract-Test prüft diese Struktur mit.
+- **Adressierung.** Ein Funnel wird über seinen `public_token` (ULID) angesprochen, nie
+  über die fortlaufende ID; Leads über eine UUID. Die Bausteine eines Funnels (Schritte,
+  Fragen, Optionen, Regeln, Ergebnisse) tragen im Schema aus FB-010 keinen eigenen
+  öffentlichen Schlüssel und werden über ihre ID adressiert — sie sind nur innerhalb
+  eines Funnels erreichbar, den das Token ohnehin besitzt.
+
+Schemas und Enums sind gegen den Ist-Stand modelliert: `FunnelStatus`
+(`draft|published|archived`), `ConditionOperator`, `FunnelFieldKey` samt
+`einwilligung`, `LeadState`. Felder, deren Tabelle noch fehlt, tragen `x-ticket` mit dem
+Ticket, das sie liefert (FB-011, FB-014, FB-031, FB-055) — so muss keines dieser Tickets
+die Spezifikation aufreißen. Das schließt `sale_mode`, `max_buyers` und `shared_price`
+aus Entscheidung 2 ein.
+
+Keine neue Composer-Abhängigkeit: die Spezifikation wird mit `symfony/yaml` gelesen (über
+Laravel ohnehin vorhanden), der Betrachter kommt per CDN. Ein Spec-Validator als
+Dev-Abhängigkeit hätte für ein einziges Dokument mehr Wartung als Nutzen gebracht.
+
+**Neue Config-Keys:** `config/funnel.php` → `api.docs_enabled` (`true`,
+`FUNNEL_API_DOCS_ENABLED`) und `api.docs_viewer_url` (Scalar über jsDelivr,
+`FUNNEL_API_DOCS_VIEWER_URL`). Ist `api.docs_enabled` aus, werden beide Routen nicht
+registriert.
+
+**Migrationen:** keine.
+
 ### FB-000 — Offene Entscheidungen festschreiben
 
 **Was:** Die fünf offenen Punkte aus Teil 5 der Roadmap sind entschieden, ein sechster
