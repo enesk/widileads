@@ -6,6 +6,7 @@ namespace App\Funnel\Conditions\Comparisons;
 
 use App\Constants\ConditionOperator;
 use App\Funnel\Conditions\ConditionComparison;
+use App\Funnel\Support\LooseValueComparison;
 use Illuminate\Support\Str;
 
 /**
@@ -27,29 +28,13 @@ abstract class BaseComparison implements ConditionComparison
      * "hund" auch. Ein Funnel-Ersteller pflegt Werte von Hand, ein Browser
      * liefert alles als String -- ein strikter Vergleich wuerde hier reihenweise
      * richtige Antworten verwerfen.
+     *
+     * Die Regel selbst steht in LooseValueComparison, weil der Lead-Marktplatz
+     * (FB-051) dieselbe Frage stellt und beide dieselbe Antwort geben muessen.
      */
     protected function looselyEquals(mixed $answer, mixed $expected): bool
     {
-        if ($answer === null || $expected === null) {
-            return $answer === $expected;
-        }
-
-        if (is_bool($answer) || is_bool($expected)) {
-            return filter_var($answer, FILTER_VALIDATE_BOOLEAN) === filter_var($expected, FILTER_VALIDATE_BOOLEAN);
-        }
-
-        if (! is_scalar($answer) || ! is_scalar($expected)) {
-            return $answer == $expected;
-        }
-
-        $answerNumber = $this->toNumber($answer);
-        $expectedNumber = $this->toNumber($expected);
-
-        if ($answerNumber !== null && $expectedNumber !== null) {
-            return abs($answerNumber - $expectedNumber) < PHP_FLOAT_EPSILON;
-        }
-
-        return mb_strtolower(trim((string) $answer)) === mb_strtolower(trim((string) $expected));
+        return LooseValueComparison::equals($answer, $expected);
     }
 
     /**
@@ -58,16 +43,6 @@ abstract class BaseComparison implements ConditionComparison
      */
     protected function toNumber(mixed $value): ?float
     {
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = str_replace(',', '.', trim($value));
-
-        return is_numeric($value) ? (float) $value : null;
+        return LooseValueComparison::toNumber($value);
     }
 }
