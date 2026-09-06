@@ -109,7 +109,7 @@ class FunnelBuilder extends Component
 
     public function addStep(): void
     {
-        $step = $this->builder()->addStep($this->funnel, __('funnel.builder.new_step'));
+        $step = $this->builder()->addStep($this->funnel, __('builder.new_step'));
 
         $this->selectStep($step->id);
     }
@@ -240,7 +240,7 @@ class FunnelBuilder extends Component
 
         $this->builder()->addOption(
             $question,
-            __('funnel.builder.new_option', ['position' => $position]),
+            __('builder.new_option', ['position' => $position]),
             'option_'.$position,
         );
     }
