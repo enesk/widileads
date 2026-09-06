@@ -143,4 +143,55 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Credits (FB-052)
+    |--------------------------------------------------------------------------
+    */
+
+    'credit' => [
+
+        'type' => [
+            'purchase' => 'Purchase',
+            'debit' => 'Debit',
+            'refund' => 'Refund',
+            'adjustment' => 'Adjustment',
+        ],
+
+        'resource' => [
+            'label' => 'Credit entry',
+            'plural_label' => 'Credit ledger',
+            'empty_heading' => 'No entries yet',
+            'empty_description' => 'Entries appear here as soon as a buyer purchases or spends credits.',
+            'read_only' => 'Entries are immutable. A wrong entry is corrected with a counter entry, not by overwriting it.',
+        ],
+
+        'fields' => [
+            'created_at' => 'Time',
+            'tenant' => 'Buyer',
+            'type' => 'Type',
+            'credits' => 'Credits',
+            'amount_cents' => 'Amount in cents',
+            'reference' => 'Reference',
+        ],
+
+        'hints' => [
+            'credits' => 'A positive value credits, a negative one debits. Zero is not allowed -- an entry without effect does not belong in a ledger.',
+            'amount_cents' => 'Only fill this in when actual money is behind the entry, for example for credits paid by invoice.',
+        ],
+
+        'actions' => [
+            'adjust' => 'Book credits',
+            'adjust_description' => 'Manual adjustment of the balance. This is also the route for credits paid by invoice: the agreed amount is booked here by hand.',
+            'adjusted' => 'Entry created.',
+        ],
+
+        'errors' => [
+            'not_updatable' => 'A credit entry cannot be changed once it has been created.',
+            'not_deletable' => 'A credit entry cannot be deleted.',
+            'insufficient' => 'Not enough credits: :balance available, :requested required.',
+        ],
+
+    ],
+
 ];

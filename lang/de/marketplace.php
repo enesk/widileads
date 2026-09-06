@@ -143,4 +143,55 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Guthaben (FB-052)
+    |--------------------------------------------------------------------------
+    */
+
+    'credit' => [
+
+        'type' => [
+            'purchase' => 'Kauf',
+            'debit' => 'Abbuchung',
+            'refund' => 'Gutschrift',
+            'adjustment' => 'Korrektur',
+        ],
+
+        'resource' => [
+            'label' => 'Guthabenbuchung',
+            'plural_label' => 'Guthabenkonto',
+            'empty_heading' => 'Noch keine Buchungen',
+            'empty_description' => 'Buchungen erscheinen hier, sobald ein Kaeufer Guthaben kauft oder verbraucht.',
+            'read_only' => 'Buchungen sind unveraenderlich. Eine Fehlbuchung wird durch eine Gegenbuchung korrigiert, nicht durch Ueberschreiben.',
+        ],
+
+        'fields' => [
+            'created_at' => 'Zeitpunkt',
+            'tenant' => 'Kaeufer',
+            'type' => 'Art',
+            'credits' => 'Guthaben',
+            'amount_cents' => 'Betrag in Cent',
+            'reference' => 'Beleg',
+        ],
+
+        'hints' => [
+            'credits' => 'Positiv schreibt gut, negativ bucht ab. Null ist nicht zulaessig - eine Buchung ohne Wirkung gehoert nicht ins Journal.',
+            'amount_cents' => 'Nur ausfuellen, wenn hinter der Buchung tatsaechlich Geld steht, etwa bei Guthaben auf Rechnung.',
+        ],
+
+        'actions' => [
+            'adjust' => 'Guthaben buchen',
+            'adjust_description' => 'Manuelle Korrektur des Guthabens. Auch der Weg fuer Guthaben auf Rechnung: Der vereinbarte Betrag wird hier von Hand gebucht.',
+            'adjusted' => 'Buchung wurde angelegt.',
+        ],
+
+        'errors' => [
+            'not_updatable' => 'Eine Guthabenbuchung kann nach dem Anlegen nicht mehr geaendert werden.',
+            'not_deletable' => 'Eine Guthabenbuchung kann nicht geloescht werden.',
+            'insufficient' => 'Das Guthaben reicht nicht: verfuegbar sind :balance, benoetigt werden :requested.',
+        ],
+
+    ],
+
 ];
