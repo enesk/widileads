@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\Funnel\FunnelPreviewController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
@@ -37,6 +38,13 @@ use Illuminate\Support\Facades\Route;
 // nicht erratbaren Token der veroeffentlichten Fassung, nie ueber eine ID.
 Route::get('/f/{token}', FunnelRunner::class)
     ->name('funnel.run')
+    ->where('token', '[0-9A-Za-z]{26}');
+
+// FB-018: Vorschau des Entwurfsstands. Der signierte, befristete Link ist die
+// Zugangskontrolle - deshalb keine Auth-Middleware.
+Route::get('/f/{token}/vorschau', FunnelPreviewController::class)
+    ->name('funnel.preview')
+    ->middleware('signed')
     ->where('token', '[0-9A-Za-z]{26}');
 
 Route::get('/', function () {

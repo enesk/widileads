@@ -337,4 +337,22 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Vorschau eines Funnels (FB-018)
+    |--------------------------------------------------------------------------
+    |
+    | Der Vorschau-Link ist signiert und befristet. Er zeigt auch Entwuerfe, die
+    | noch nie veroeffentlicht wurden -- der Link selbst ist die Zugangskontrolle,
+    | deshalb soll er nicht lange gelten.
+    |
+    */
+
+    'preview' => [
+
+        // Gueltigkeitsdauer eines Vorschau-Links in Minuten.
+        'link_ttl_minutes' => (int) env('FUNNEL_PREVIEW_LINK_TTL_MINUTES', 30),
+
+    ],
+
 ];
