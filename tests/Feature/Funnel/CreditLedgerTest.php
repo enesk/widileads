@@ -127,6 +127,34 @@ class CreditLedgerTest extends FeatureTest
         $this->assertSame(10, $entry->fresh()->credits);
     }
 
+    public function test_every_entry_carries_its_currency(): void
+    {
+        $tenant = $this->buyer();
+        $service = app(CreditLedgerService::class);
+
+        // Ohne Angabe die Standardwaehrung der Installation -- und zwar an
+        // jeder Buchung, auch an einer, die selbst kein Geld bewegt: Ein
+        // Guthabenkonto ist in einer Waehrung gefuehrt.
+        $purchase = $service->purchase($tenant, 10, 15000);
+        $debit = $service->debit($tenant, 1);
+
+        $default = strtoupper((string) config('app.default_currency'));
+
+        $this->assertSame($default, $purchase->currency);
+        $this->assertSame($default, $debit->currency);
+
+        // Ein Guthabenkauf nennt die Waehrung, in der tatsaechlich bezahlt
+        // wurde. Sie unter der Standardwaehrung abzulegen waere genau der
+        // Fehler, den die Spalte verhindern soll.
+        $inChf = $service->adjust($tenant, 5, 4500, null, 'chf');
+
+        $this->assertSame('CHF', $inChf->currency, 'Der Code wird normalisiert gespeichert.');
+
+        // Was kein Waehrungscode sein kann, wird nicht gebucht.
+        $this->expectException(InvalidArgumentException::class);
+        $service->adjust($tenant, 5, 4500, null, 'Euro');
+    }
+
     public function test_a_repeated_payment_event_books_the_credits_only_once(): void
     {
         $tenant = $this->buyer();
@@ -172,6 +200,9 @@ class CreditLedgerTest extends FeatureTest
         // Zwei Pakete zu je 50 Guthaben.
         $this->assertSame(100, $entries->first()->credits);
         $this->assertSame(49900, $entries->first()->amount_cents);
+
+        // Der Betrag stammt aus der Bestellung -- also auch die Waehrung.
+        $this->assertSame('USD', $entries->first()->currency);
         $this->assertSame($order->getMorphClass(), $entries->first()->reference_type);
         $this->assertSame($order->getKey(), $entries->first()->reference_id);
 

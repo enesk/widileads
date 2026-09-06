@@ -27,6 +27,7 @@ class CreditLedgerEntryFactory extends Factory
             'type' => CreditLedgerType::PURCHASE,
             'credits' => 10,
             'amount_cents' => 15000,
+            'currency' => strtoupper((string) config('app.default_currency', 'EUR')),
             'reference_type' => null,
             'reference_id' => null,
         ];
