@@ -19,6 +19,6 @@ class FunnelConcurrentlyModified extends Exception
 {
     public function __construct(public readonly string $subject)
     {
-        parent::__construct(__('funnel.builder.concurrent_edit'));
+        parent::__construct(__('builder.concurrent_edit'));
     }
 }

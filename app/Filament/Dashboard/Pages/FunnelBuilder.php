@@ -57,7 +57,7 @@ class FunnelBuilder extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return __('funnel.builder.title', ['funnel' => $this->funnel->name]);
+        return __('builder.title', ['funnel' => $this->funnel->name]);
     }
 
     public static function canAccess(): bool
