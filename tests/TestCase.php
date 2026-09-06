@@ -121,6 +121,13 @@ abstract class TestCase extends BaseTestCase
      *
      * Ohne diesen Schritt scheitert der erste Lauf in einer frischen
      * Arbeitskopie an einer Datenbank, die es noch nicht gibt.
+     *
+     * Zur DDL-Regel (kein Schema-Befehl im Testkoerper, weil MySQL dabei die
+     * laufende Transaktion committet und RefreshDatabase aushebelt): Diese
+     * Stelle faellt formal darunter, ist aber unkritisch. Sie laeuft auf einer
+     * eigenen PDO-Verbindung - der implizite Commit wirkt nur in derselben
+     * Sitzung -, genau einmal je Prozess, und vor der ersten Transaktion.
+     * Geprueft in FB-027; bitte nicht erneut nachrechnen.
      */
     private static function ensureTestDatabaseExists(Application $app): void
     {

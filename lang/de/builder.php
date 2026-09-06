@@ -65,6 +65,13 @@ return [
         'default_next' => 'Weiter',
         'default_back' => 'Zurueck',
         'default_submit' => 'Absenden',
+        'pick_colour' => ':label auswaehlen',
+        'contrast_heading' => 'Kontrast pruefen',
+        'contrast_warning' => ':label erreicht nur :ratio:1, empfohlen sind mindestens :required:1.',
+        'contrast_hint' => 'Das ist eine Warnung, keine Sperre - du kannst trotzdem speichern. Zu geringer Kontrast macht den Funnel fuer Menschen mit Sehschwaeche schwer lesbar, und auf hellen Bildschirmen sieht er oft besser aus, als er ist.',
+        'contrast_text' => 'Text auf dem Hintergrund',
+        'contrast_button' => 'Schrift auf den Schaltflaechen',
+        'contrast_controls' => 'Rahmen und Fortschrittsanzeige',
         'font' => [
             'system' => 'Systemschrift',
             'inter' => 'Inter',
@@ -113,5 +120,11 @@ return [
         'range_problems' => 'Die Punktebereiche haben noch Maengel:',
         'delete' => 'Loeschen',
     ],
+
+    // FB-027: Barrierefreiheit
+    'move_up' => ':name eine Position nach oben',
+    'move_down' => ':name eine Position nach unten',
+    'delete_step_named' => 'Schritt :name loeschen',
+    'delete_question_named' => 'Frage :name loeschen',
 
 ];

@@ -75,6 +75,7 @@ entstehenden Leads an Käufer (zunächst Versicherungsagenturen) verkauft werden
 - Keine neuen Zustandsspalten, keine direkten Zustands-Updates, keine Klartext-
   Kontaktdaten in Views/Responses vor Kauf.
 - Kurze Notiz in docs/CHANGELOG.md: was, warum, welche Config-Keys neu sind.
+- Vor dem Melden auf aktuelles main rebasen und `composer check` erneut laufen lassen.
 
 ## Arbeitsweise
 - Lies das Ticket vollständig. Prüfe die „Abhängigkeiten" — existiert der referenzierte
@@ -371,3 +372,21 @@ ausgedrückt, die Kollisionsfreiheit über die Minute.
 Testdatenbanken bereits gelaufen; ein nachträglicher Namenswechsel ließe sie überall ein
 zweites Mal laufen. Die Regel gilt für neue Migrationen.
 
+### 11. Vor dem Melden gegen aktuelles main pruefen (2026-09-07)
+
+**Anlass:** Zwei Fehlerbilder, die wir an einem Tag beide hatten. Beim ersten macht eine
+Aenderung ihre Nachbarn kaputt (DDL im Testkoerper committet die Transaktion, siehe die
+Warnung aus FB-023). Beim zweiten ist eine Aenderung gegen einen Zwischenstand
+geschrieben, der beim Mergen schon ueberholt ist — FB-023 sicherte zu, dass es die
+FB-031-Spalten *nicht* gibt, und war grün, bis FB-031 landete.
+
+Beide Male ist der PR in seinem eigenen Lauf gruen, und beim Merge faellt nichts auf.
+
+**Verbindlich:** Vor dem Melden eines PR auf aktuelles `main` rebasen und `composer check`
+erneut laufen lassen. Der Determinismus-Lauf (`composer check:determinism`) faengt das
+erste Fehlerbild zuverlaessig, weil er die Reihenfolge wuerfelt — gegen das zweite hilft
+nur, gegen den aktuellen Stand zu pruefen.
+
+`.github/workflows/ci.yml` faehrt `composer check` bei jedem PR. Die Regel gilt trotzdem:
+Die CI greift erst nach dem Pushen, und ein Rebase davor spart die Runde aus rotem Lauf,
+Nachbessern und erneutem Pushen.

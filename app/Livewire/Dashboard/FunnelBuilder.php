@@ -131,6 +131,20 @@ class FunnelBuilder extends Component
         $this->builder()->reorderSteps($this->funnel, $this->toIds($orderedIds));
     }
 
+    /**
+     * Verschiebt einen Schritt um eine Position (FB-027).
+     *
+     * Ziehen mit der Maus ist fuer Tastatur- und Screenreader-Nutzer nicht
+     * bedienbar. Diese Schaltflaechen sind der gleichwertige Weg, nicht ein
+     * Zusatz - ohne sie waere die Sortierung fuer sie schlicht unerreichbar.
+     */
+    public function moveStep(int $stepId, int $offset): void
+    {
+        $order = $this->steps()->pluck('id')->all();
+
+        $this->builder()->reorderSteps($this->funnel, $this->shift($order, $stepId, $offset));
+    }
+
     public function saveStep(): void
     {
         $step = $this->selectedStep();
@@ -191,6 +205,22 @@ class FunnelBuilder extends Component
         }
 
         $this->builder()->reorderQuestions($step, $this->toIds($orderedIds));
+    }
+
+    /**
+     * Verschiebt eine Frage um eine Position - der Tastaturweg zum Ziehen.
+     */
+    public function moveQuestion(int $questionId, int $offset): void
+    {
+        $step = $this->selectedStep();
+
+        if ($step === null) {
+            return;
+        }
+
+        $order = $step->questions()->pluck('id')->all();
+
+        $this->builder()->reorderQuestions($step, $this->shift($order, $questionId, $offset));
     }
 
     /**
@@ -314,6 +344,32 @@ class FunnelBuilder extends Component
         }
 
         return $candidate;
+    }
+
+    /**
+     * Tauscht ein Element mit seinem Nachbarn. Am Rand bleibt die Reihenfolge
+     * unveraendert, statt umzubrechen.
+     *
+     * @param  list<int>  $order
+     * @return list<int>
+     */
+    private function shift(array $order, int $id, int $offset): array
+    {
+        $position = array_search($id, $order, true);
+
+        if ($position === false) {
+            return $order;
+        }
+
+        $target = $position + $offset;
+
+        if ($target < 0 || $target >= count($order)) {
+            return $order;
+        }
+
+        [$order[$position], $order[$target]] = [$order[$target], $order[$position]];
+
+        return array_values($order);
     }
 
     /**

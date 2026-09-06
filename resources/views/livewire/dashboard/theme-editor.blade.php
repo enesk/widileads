@@ -14,11 +14,15 @@
                         <label for="t-{{ $field }}" class="block text-xs font-medium text-gray-700">{{ $label }}</label>
                         <div class="mt-1 flex items-center gap-2">
                             <input type="color" class="h-8 w-10 cursor-pointer rounded border border-gray-300"
+                                   aria-label="{{ __('builder.theme.pick_colour', ['label' => $label]) }}"
                                    wire:model.live.debounce.400ms="{{ $field }}" />
                             <input id="t-{{ $field }}" type="text" class="input input-bordered input-sm w-full font-mono"
+                                   @error($field) aria-invalid="true" aria-describedby="t-{{ $field }}-error" @enderror
                                    wire:model.live.debounce.600ms="{{ $field }}" />
                         </div>
-                        @error($field) <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        @error($field)
+                            <p id="t-{{ $field }}-error" class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
                 @endforeach
             </div>
@@ -76,6 +80,24 @@
                 @endforeach
                 <p class="col-span-3 text-xs text-gray-500">{{ __('builder.theme.buttons_hint') }}</p>
             </fieldset>
+
+            @if ($contrastWarnings !== [])
+                <div class="rounded-lg border border-amber-300 bg-amber-50 p-3" role="status" data-testid="contrast">
+                    <p class="text-sm font-medium text-amber-900">{{ __('builder.theme.contrast_heading') }}</p>
+                    <ul class="mt-1 list-inside list-disc text-sm text-amber-900">
+                        @foreach ($contrastWarnings as $warning)
+                            <li>
+                                {{ __('builder.theme.contrast_warning', [
+                                    'label' => $warning['label'],
+                                    'ratio' => number_format($warning['ratio'], 2, ',', '.'),
+                                    'required' => number_format($warning['required'], 1, ',', '.'),
+                                ]) }}
+                            </li>
+                        @endforeach
+                    </ul>
+                    <p class="mt-1 text-xs text-amber-800">{{ __('builder.theme.contrast_hint') }}</p>
+                </div>
+            @endif
 
             <div class="flex items-center gap-3">
                 <button type="submit" class="btn btn-primary btn-sm">{{ __('builder.theme.save') }}</button>
