@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Actions\PublishFunnel;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
+use App\Constants\QuestionType;
 use App\Events\Lead\LeadCreated;
+use App\Livewire\Funnel\FunnelRunner;
+use App\Models\Funnel;
+use App\Models\FunnelQuestion;
+use App\Models\FunnelResult;
+use App\Models\FunnelStep;
 use App\Models\Lead;
 use App\Models\LeadStateLog;
 use App\Models\PublicSession;
 use App\Services\LeadScreeningService;
+use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
 
 /**
@@ -137,6 +145,72 @@ class LeadScreeningTest extends FeatureTest
         ]);
 
         $this->assertSame(LeadState::UNGUELTIG, $this->screen($twoWeak)->lead_state);
+    }
+
+    /**
+     * Die ganze Kette ueber drei Tickets hinweg.
+     *
+     * Genau an den Uebergaengen ist sie gerissen: FB-023 erkennt die Dublette
+     * und legt den Verweis ins DTO, FB-031 muss ihn speichern, FB-033 liest ihn.
+     * Faellt eines der drei Glieder aus, laeuft jede Dublette als kaufbarer Lead
+     * in den Marktplatz -- und ein Kaeufer bezahlt denselben Menschen zweimal.
+     * Deshalb steht hier ein durchgehender Test und nicht drei Einzelteile.
+     */
+    public function test_a_second_submission_with_the_same_email_ends_up_invalid(): void
+    {
+        // Die Zeitfalle stoert hier nicht: geprueft wird die Dublette.
+        config()->set('funnel.public.min_seconds_before_submit', 0);
+
+        $funnel = $this->publishedFunnelWithEmail();
+
+        $this->submitEmail($funnel, 'anna@example.com');
+
+        $first = Lead::query()->withoutGlobalScopes()->sole();
+
+        $this->assertNull($first->duplicate_of_lead_id, 'Die erste Anfrage hat keinen Vorgaenger.');
+        $this->assertSame(LeadState::VERFUEGBAR, $first->lead_state);
+
+        // Dieselbe Adresse, derselbe Funnel -- nur eine neue Sitzung.
+        $this->submitEmail($funnel, 'Anna@Example.com');
+
+        $second = Lead::query()->withoutGlobalScopes()->where('id', '!=', $first->id)->sole();
+
+        // FB-023 hat gefunden, FB-031 hat gespeichert ...
+        $this->assertSame($first->id, $second->duplicate_of_lead_id);
+
+        // ... und FB-033 hat entschieden.
+        $this->assertSame(LeadState::UNGUELTIG, $second->lead_state);
+        $this->assertSame(LeadTransitionReason::DUPLICATE, $this->lastReason($second));
+
+        // Der erste Lead bleibt kaufbar -- verworfen wird die Wiederholung.
+        $this->assertSame(LeadState::VERFUEGBAR, $first->fresh()->lead_state);
+    }
+
+    private function publishedFunnelWithEmail(): Funnel
+    {
+        $funnel = Funnel::factory()->create(['name' => 'Pfotencheck']);
+
+        $step = FunnelStep::factory()->create(['funnel_id' => $funnel->id, 'position' => 1]);
+        FunnelQuestion::factory()->create([
+            'step_id' => $step->id,
+            'field_key' => 'email',
+            'type' => QuestionType::EMAIL,
+            'label' => 'E-Mail-Adresse',
+            'position' => 1,
+        ]);
+        FunnelResult::factory()->forScoreRange(0, 0)->create(['funnel_id' => $funnel->id]);
+
+        app(PublishFunnel::class)->handle($funnel);
+
+        return $funnel->refresh();
+    }
+
+    private function submitEmail(Funnel $funnel, string $email): void
+    {
+        Livewire::test(FunnelRunner::class, ['token' => $funnel->public_token])
+            ->set('answers.email', $email)
+            ->call('submitStep')
+            ->call('continueAfterResult');
     }
 
     public function test_the_check_runs_by_itself_after_a_lead_was_created(): void
