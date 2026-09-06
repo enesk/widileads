@@ -10,6 +10,7 @@ use Database\Factories\FunnelFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -28,6 +29,7 @@ use Illuminate\Support\Str;
  * @property float|null $lead_price
  * @property int|null $contact_step_position
  * @property array<string, mixed>|null $settings
+ * @property int|null $current_version_id
  */
 class Funnel extends Model
 {
@@ -45,6 +47,7 @@ class Funnel extends Model
         'lead_price',
         'contact_step_position',
         'settings',
+        'current_version_id',
     ];
 
     /**
@@ -85,6 +88,26 @@ class Funnel extends Model
     public function results(): HasMany
     {
         return $this->hasMany(FunnelResult::class);
+    }
+
+    /**
+     * Alle veroeffentlichten Fassungen, neueste zuerst.
+     *
+     * @return HasMany<FunnelVersion, $this>
+     */
+    public function versions(): HasMany
+    {
+        return $this->hasMany(FunnelVersion::class)->orderByDesc('version');
+    }
+
+    /**
+     * Die Fassung, die aktuell oeffentlich ausgeliefert wird.
+     *
+     * @return BelongsTo<FunnelVersion, $this>
+     */
+    public function currentVersion(): BelongsTo
+    {
+        return $this->belongsTo(FunnelVersion::class, 'current_version_id');
     }
 
     /**

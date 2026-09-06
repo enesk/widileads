@@ -1,7 +1,9 @@
 # Snapshot-Format eines veröffentlichten Funnels
 
 Ein veröffentlichter Funnel wird als unveränderlicher JSON-Snapshot ausgeliefert
-(`funnel_versions.snapshot`, FB-014). Die öffentliche Strecke liest **ausschließlich**
+(`funnel_versions.snapshot`). Geschrieben wird er seit FB-014 von
+`App\Funnel\Snapshots\SnapshotBuilder`, ausgelöst von der Action
+`App\Actions\PublishFunnel`. Die öffentliche Strecke liest **ausschließlich**
 diesen Snapshot, nie die Live-Tabellen — sonst würde eine Änderung am Entwurf die
 laufende Auslieferung verändern.
 
@@ -58,6 +60,7 @@ sie unverändert mit echten Snapshots füttern.
   ],
   "results": [
     {
+      "key": "0-3",
       "min_score": 0,
       "max_score": 3,
       "title": "Geringes Risiko",
@@ -66,9 +69,13 @@ sie unverändert mit echten Snapshots füttern.
       "cta_url": null,
       "show_contact_form": true
     }
-  ]
+  ],
+  "theme": null
 }
 ```
+
+`theme` ist reserviert und bleibt `null`, bis FB-017 den Theme-Editor bringt — der
+Schlüssel steht schon hier, damit die Runtime ihn ab dann ohne Formatänderung findet.
 
 ## Regeln
 
@@ -89,6 +96,12 @@ sie unverändert mit echten Snapshots füttern.
   `max_score` sind **beidseitig einschließend**: 4 bis 7 deckt 4, 5, 6 und 7 ab.
   Ausgewertet wird der Abschnitt seit FB-013 vom `ResultResolver`; die Bereiche prüft
   der `ResultRangeValidator` auf Lücken und Überschneidungen.
+- **`results[].key`** identifiziert ein Ergebnis **innerhalb seiner Version** stabil.
+  Gebildet wird er aus dem Punktebereich (`"0-3"`, `"4-7"`), der innerhalb einer Version
+  fest ist und sich dank `ResultRangeValidator` nicht mit anderen überschneidet. Ein
+  Lead speichert später `funnel_version_id` **plus diesen Schlüssel** statt einer
+  `funnel_results`-ID (FB-031): Die Live-Zeile darf sich ändern, die veröffentlichte
+  Fassung nicht — genau dafür gibt es die Versionierung.
 - **`questions[].options[].score`** trägt die Punkte einer Antwortoption. Bei einer
   Mehrfachauswahl summieren sich die Punkte aller angekreuzten Optionen; Fragen ohne
   Optionen (Freitext, Zahl, Kontaktfelder) tragen nichts bei. Eine Option ohne `score`
@@ -113,7 +126,27 @@ gelten ebenfalls als unbeantwortet.
 | `ScoreCalculator` | Punktzahl aus den gewählten Optionen | FB-013 |
 | `ResultResolver` | Ergebnis-Screen zur Punktzahl | FB-013 |
 | `ResultRangeValidator` | Ergebnisbereiche lückenlos und überschneidungsfrei | FB-013 |
+| `SnapshotBuilder` | schreibt einen Funnel in dieses Format | FB-014 |
+| `PublishFunnel` | prüft, schreibt die Version, setzt `current_version_id` | FB-014 |
 
-Alle vier arbeiten ausschließlich auf den Value Objects dieses Formats — keine
-Datenbank, keine Eloquent-Modelle. Wo Punktzahl und Ergebnis einer Einreichung
-gespeichert werden (`leads.score`, `leads.result_id`), entscheidet FB-031.
+Die vier lesenden Bausteine arbeiten ausschließlich auf den Value Objects dieses
+Formats — keine Datenbank, keine Eloquent-Modelle. Nur der `SnapshotBuilder` kennt die
+Live-Tabellen, und zwar genau einmal: beim Schreiben.
+
+Wo Punktzahl und Ergebnis einer Einreichung am Lead landen, entscheidet FB-031. Zu
+speichern sind `funnel_version_id` und `results[].key` — nicht die ID einer Zeile aus
+`funnel_results`.
+
+## Veröffentlichung
+
+`PublishFunnel` weist einen Funnel ab, der
+
+- keinen einzigen Schritt hat,
+- keines der Kontaktfelder aus `config('funnel.publish.required_contact_field_keys')`
+  enthält (Vorgabe: `email` oder `telefon`) — ohne erreichbaren Kontaktweg entstünden
+  Leads, die kein Käufer erreichen kann,
+- oder dessen Ergebnisbereiche Lücken, Überschneidungen oder vertauschte Grenzen haben.
+
+Gemeldet werden immer **alle** Mängel auf einmal, nicht nur der erste. Nach erfolgreicher
+Prüfung entsteht eine neue Version mit fortlaufender Nummer (je Funnel eigenständig),
+`funnels.status` wird `published` und `funnels.current_version_id` zeigt darauf.
