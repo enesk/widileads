@@ -138,6 +138,14 @@ return [
 
     'enable_wildcard_permission' => false,
 
+    /*
+     * FB-005: Spatie loest die Ereignisse RoleAttached/RoleDetached nur aus,
+     * wenn dieser Schalter gesetzt ist. Das Audit-Log haengt daran, weil jede
+     * Rollenaenderung protokolliert werden muss.
+     */
+
+    'events_enabled' => true,
+
     'cache' => [
 
         /*

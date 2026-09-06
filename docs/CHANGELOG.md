@@ -24,6 +24,37 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-005 — Audit-Log
+
+**Was:** Neue Tabelle `audit_logs` und der Dienst `App\Services\AuditLogger` halten
+sicherheitsrelevante Vorgänge fest. Einträge sind unveränderlich: Model und
+Query-Builder werfen bei Änderungs- und Löschversuchen eine
+`AuditLogIsImmutableException` (nur `created_at`, kein `updated_at`). Verdrahtet sind
+die bereits vorhandenen Pflichtereignisse Login, Mandantenwechsel und Rollenänderung
+(Listener in `app/Listeners/Audit`). Die Aktionen für spätere Tickets sind im Enum
+`App\Constants\AuditAction` vorbereitet: API-Token erstellt/gelöscht (FB-006),
+Datenexport (FB-073), Lead-Kauf (FB-054), Zwangsstatuswechsel (FB-036) — sie müssen dort
+nur noch `AuditLogger::log()` aufrufen. Im Admin-Panel gibt es unter „Settings" eine
+reine Leseansicht mit Filtern (Vorgang, Mandant, Zeitraum); Anlegen, Bearbeiten und
+Löschen sind abgeschaltet.
+
+**Warum:** Für den Nachweis, wer wann welchen sicherheitsrelevanten Vorgang ausgelöst
+hat, braucht die Plattform ein fälschungssicheres Protokoll. Die IP-Adresse wird dabei
+nie im Klartext gespeichert oder geloggt, sondern nur als mit App-Salt gesalzener
+SHA-256-Hash; Payload-Schlüssel wie `password`, `token` oder `ip` werden vor dem
+Speichern durch `[redaktiert]` ersetzt.
+
+**Neue Config-Keys:** `config/funnel.php` → `audit.ip_salt` (leer → Fallback `APP_KEY`,
+`FUNNEL_AUDIT_IP_SALT`), `audit.redacted_payload_keys` (Liste mit Passwort-, Token- und
+IP-Schlüsseln, `FUNNEL_AUDIT_REDACTED_PAYLOAD_KEYS`, kommagetrennt). Zusätzlich steht
+`config/permission.php` → `events_enabled` jetzt auf `true`, weil Spatie die Ereignisse
+`RoleAttached`/`RoleDetached` nur dann auslöst — ohne sie bliebe die Rollenänderung
+unprotokolliert.
+
+**Migrationen:** `2026_09_06_120000_create_audit_logs_table` legt `audit_logs` an
+(tenant_id/user_id nullable mit `nullOnDelete`, action, subject_type, subject_id,
+payload JSON, ip_hash char(64), created_at) — additiv, mit `down()`.
+
 ### FB-002 — Rolle `buyer` und Tenant-Typ
 
 **Was:** `tenants.type` ist ein Enum (`operator` | `buyer`, Default `operator`).

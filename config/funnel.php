@@ -60,6 +60,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Audit-Log (FB-005)
+    |--------------------------------------------------------------------------
+    |
+    | Sicherheitsrelevante Vorgaenge werden ueber App\Services\AuditLogger in
+    | der Tabelle audit_logs protokolliert. Eintraege sind unveraenderlich.
+    |
+    */
+
+    'audit' => [
+
+        // Salt fuer den SHA-256-Hash der IP-Adresse. Die Roh-IP wird niemals
+        // gespeichert oder geloggt, nur ihr gesalzener Hash. Ohne eigenen Wert
+        // dient APP_KEY als Salt; ein Wechsel des Salts macht alte Hashes
+        // unvergleichbar (gewollt, z. B. nach einem Leak).
+        'ip_salt' => env('FUNNEL_AUDIT_IP_SALT', ''),
+
+        // Payload-Schluessel, deren Werte vor dem Speichern durch einen
+        // Platzhalter ersetzt werden. Schuetzt davor, dass Passwoerter, Tokens
+        // oder Roh-IPs versehentlich im Audit-Log landen.
+        'redacted_payload_keys' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'FUNNEL_AUDIT_REDACTED_PAYLOAD_KEYS',
+                'password,password_confirmation,current_password,token,api_token,access_token,plain_text_token,secret,authorization,ip,ip_address,client_ip,remote_addr,x_forwarded_for',
+            )),
+        ))),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Leads
     |--------------------------------------------------------------------------
     */
