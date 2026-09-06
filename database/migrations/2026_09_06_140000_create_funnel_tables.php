@@ -84,8 +84,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('funnel_id')->constrained('funnels')->cascadeOnDelete();
             $table->foreignId('source_question_id')->constrained('funnel_questions')->cascadeOnDelete();
-            // Operatoren als Enum kommen mit FB-012 (equals, not_equals, in, gt,
-            // lt, contains, answered, score_gte).
+            // Erlaubte Werte: App\Constants\ConditionOperator.
             $table->string('operator', 20);
             $table->json('value')->nullable();
             $table->foreignId('target_step_id')->constrained('funnel_steps')->cascadeOnDelete();

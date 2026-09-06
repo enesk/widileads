@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Constants\ConditionOperator;
 use App\Models\Funnel;
 use App\Models\FunnelCondition;
 use App\Models\FunnelQuestion;
@@ -29,14 +30,18 @@ class FunnelConditionFactory extends Factory
             'source_question_id' => fn (array $attributes): int => FunnelQuestion::factory()->create([
                 'step_id' => FunnelStep::factory()->create(['funnel_id' => $attributes['funnel_id']])->id,
             ])->id,
-            // Operator-Enum kommt mit FB-012.
-            'operator' => 'equals',
+            'operator' => ConditionOperator::EQUALS,
             'value' => ['ja'],
             'target_step_id' => fn (array $attributes): int => FunnelStep::factory()->create([
                 'funnel_id' => $attributes['funnel_id'],
             ])->id,
             'priority' => 0,
         ];
+    }
+
+    public function withOperator(ConditionOperator $operator): static
+    {
+        return $this->state(fn (): array => ['operator' => $operator]);
     }
 
     public function withPriority(int $priority): static
