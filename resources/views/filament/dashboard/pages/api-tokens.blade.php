@@ -1,3 +1,6 @@
 <x-filament-panels::page>
-    @livewire('filament.dashboard.api-tokens')
+    {{-- Die Filament-Page ist nur die Huelle fuer Routing und Navigation des
+         Dashboard-Panels. Der Inhalt ist reines Livewire (siehe Master-Prompt:
+         kein Filament im Tenant-Dashboard). --}}
+    @livewire('dashboard.api-tokens')
 </x-filament-panels::page>

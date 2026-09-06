@@ -75,6 +75,7 @@ return [
         'description' => 'Tokens gehoeren diesem Workspace und erreichen ausschliesslich dessen Daten.',
         'empty' => 'Noch keine API-Zugaenge angelegt.',
         'name' => 'Bezeichnung',
+        'name_placeholder' => 'z. B. Website-Einbettung',
         'name_helper' => 'Wofuer wird das Token verwendet? Zum Beispiel "Website-Einbettung" oder "CRM-Anbindung".',
         'abilities' => 'Berechtigungen',
         'abilities_helper' => 'Nur die hier gewaehlten Berechtigungen sind mit diesem Token moeglich.',
@@ -90,6 +91,7 @@ return [
         'plain_text_heading' => 'Token nur jetzt sichtbar',
         'plain_text_hint' => 'Kopiere das Token jetzt. Es wird nur als Hash gespeichert und laesst sich spaeter nicht erneut anzeigen.',
         'plain_text_dismiss' => 'Verstanden, ausblenden',
+        'limit_reached' => 'Es sind hoechstens :limit gleichzeitig gueltige Tokens je Workspace moeglich. Widerrufe zuerst ein bestehendes Token.',
         'no_tenant_token' => 'Das verwendete Token gehoert zu keinem Workspace.',
         'ability' => [
             'funnels_read' => 'Funnels lesen',

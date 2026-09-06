@@ -28,23 +28,27 @@ Weitere Konventionen:
 
 **Was:** API-Tokens gehören dem Tenant (`Tenant` ist tokenable), nicht einem einzelnen
 Nutzer. Abilities als Enum `TenantApiAbility` (`funnels:read`, `funnels:write`,
-`leads:read`, `webhooks:manage`). Neue Dashboard-Seite „API-Zugänge": erstellen mit
-Klartext-Anzeige genau einmal, widerrufen, letzte Nutzung. Alle `/api/v1/*`-Routen
-tragen `auth:sanctum` + `tenant.from-token`.
+`leads:read`, `webhooks:manage`). Neue Dashboard-Seite „API-Zugänge" in reinem
+Livewire: Token erstellen mit Klartext-Anzeige genau einmal, widerrufen, letzte
+Nutzung. Alle `/api/v1/*`-Routen tragen `auth:sanctum` + `tenant.from-token`,
+Endpunkte zusätzlich `ability:<...>`.
 
 **Warum:** Ein Token muss den Weggang des Nutzers überleben, der es angelegt hat, und
 darf ausschließlich an die Daten seines eigenen Tenants kommen. Der Tenant als
 Token-Träger macht diese Isolation zur Eigenschaft des Modells statt zu einer Regel,
 die jeder Endpunkt selbst einhalten müsste.
 
-**Neue Config-Keys:** keine.
+**Neue Config-Keys:** `config/funnel.php` → `api.token_expiration_days` (0 = kein
+Ablauf, `FUNNEL_API_TOKEN_EXPIRATION_DAYS`) und `api.max_tokens_per_tenant` (10,
+`FUNNEL_API_MAX_TOKENS_PER_TENANT`).
 
 **Migrationen:** keine — `personal_access_tokens` ist bereits polymorph.
 
 Neue Berechtigung `TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS`, im
-Seeder der Tenant-Rolle `admin` zugewiesen. Der Endpunkt `GET /api/v1/me` gibt den
-Tenant des verwendeten Tokens samt Abilities zurück; fachliche Endpunkte kommen ab
-FB-030 dazu und tragen zusätzlich `ability:<...>`.
+Seeder der Tenant-Rolle `admin` zugewiesen. `GET /api/v1/me` gibt den Tenant des
+verwendeten Tokens samt Abilities zurück; `GET /api/v1/ping/leads` ist eine minimale
+Sonde für die Ability-Prüfung. Fachliche Endpunkte kommen ab FB-030.
+
 ### FB-005 — Audit-Log
 
 **Was:** Neue Tabelle `audit_logs` und der Dienst `App\Services\AuditLogger` halten

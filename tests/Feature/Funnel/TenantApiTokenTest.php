@@ -3,6 +3,7 @@
 namespace Tests\Feature\Funnel;
 
 use App\Constants\TenantApiAbility;
+use App\Exceptions\TenantApiTokenLimitReachedException;
 use App\Models\Tenant;
 use App\Services\TenantApiTokenService;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -151,6 +152,79 @@ class TenantApiTokenTest extends FeatureTest
 
         $this->assertDatabaseMissing('personal_access_tokens', ['token' => $token->plainTextToken]);
         $this->assertNotNull(PersonalAccessToken::findToken($token->plainTextToken));
+    }
+
+    public function test_a_token_without_the_ability_is_rejected(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        $token = app(TenantApiTokenService::class)
+            ->create($tenant, 'Nur Funnels', [TenantApiAbility::FUNNELS_READ->value]);
+
+        $headers = ['Authorization' => 'Bearer '.$token->plainTextToken];
+
+        // /me steht jedem gueltigen Token offen ...
+        $this->getJson('/api/v1/me', $headers)->assertSuccessful();
+
+        // ... die durch leads:read geschuetzte Route jedoch nicht.
+        $this->getJson('/api/v1/ping/leads', $headers)->assertForbidden();
+    }
+
+    public function test_a_token_with_the_ability_is_accepted(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        $token = app(TenantApiTokenService::class)
+            ->create($tenant, 'Leads', [TenantApiAbility::LEADS_READ->value]);
+
+        $this->getJson('/api/v1/ping/leads', ['Authorization' => 'Bearer '.$token->plainTextToken])
+            ->assertSuccessful()
+            ->assertJson(['status' => 'ok']);
+    }
+
+    public function test_token_expiration_comes_from_the_config(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $service = app(TenantApiTokenService::class);
+
+        config(['funnel.api.token_expiration_days' => 0]);
+        $service->create($tenant, 'Unbefristet', TenantApiAbility::values());
+        $this->assertNull($tenant->tokens()->latest('id')->firstOrFail()->expires_at);
+
+        config(['funnel.api.token_expiration_days' => 30]);
+        $service->create($tenant, 'Befristet', TenantApiAbility::values());
+        $this->assertTrue(
+            $tenant->tokens()->latest('id')->firstOrFail()->expires_at->isSameDay(now()->addDays(30)),
+        );
+    }
+
+    public function test_an_expired_token_is_rejected(): void
+    {
+        $tenant = Tenant::factory()->create();
+
+        config(['funnel.api.token_expiration_days' => 1]);
+        $token = app(TenantApiTokenService::class)
+            ->create($tenant, 'Kurzlebig', TenantApiAbility::values());
+
+        $this->travel(2)->days();
+
+        $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$token->plainTextToken])
+            ->assertUnauthorized();
+    }
+
+    public function test_the_token_limit_from_the_config_is_enforced(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $service = app(TenantApiTokenService::class);
+
+        config(['funnel.api.max_tokens_per_tenant' => 2]);
+
+        $service->create($tenant, 'Eins', TenantApiAbility::values());
+        $service->create($tenant, 'Zwei', TenantApiAbility::values());
+
+        $this->expectException(TenantApiTokenLimitReachedException::class);
+
+        $service->create($tenant, 'Drei', TenantApiAbility::values());
     }
 
     /**

@@ -24,4 +24,16 @@ class TenantController extends Controller
 
         return new TenantResource($tenant);
     }
+
+    /**
+     * Sonde fuer die Ability-Pruefung: erreichbar nur mit einem Token, das
+     * leads:read traegt. Ersetzt keinen fachlichen Endpunkt - die kommen ab
+     * FB-030 und tragen dieselbe Middleware.
+     *
+     * @return array{status: string}
+     */
+    public function ping(): array
+    {
+        return ['status' => 'ok'];
+    }
 }

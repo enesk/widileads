@@ -1,5 +1,6 @@
 <?php
 
+use App\Constants\TenantApiAbility;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
@@ -62,4 +63,10 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
     ->name('api.v1.')
     ->group(function () {
         Route::get('/me', [TenantController::class, 'show'])->name('me');
+
+        // Minimale Sonde fuer die Ability-Pruefung. Die fachlichen Endpunkte ab
+        // FB-030 tragen dieselbe Middleware mit ihrer jeweiligen Ability.
+        Route::get('/ping/leads', [TenantController::class, 'ping'])
+            ->middleware('ability:'.TenantApiAbility::LEADS_READ->value)
+            ->name('ping.leads');
     });

@@ -91,6 +91,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API (FB-006)
+    |--------------------------------------------------------------------------
+    */
+
+    'api' => [
+
+        // Gueltigkeitsdauer eines Tenant-API-Tokens in Tagen. 0 bedeutet: kein
+        // Ablauf, das Token gilt bis es widerrufen wird.
+        'token_expiration_days' => (int) env('FUNNEL_API_TOKEN_EXPIRATION_DAYS', 0),
+
+        // Maximale Anzahl gleichzeitig gueltiger API-Tokens je Tenant.
+        'max_tokens_per_tenant' => (int) env('FUNNEL_API_MAX_TOKENS_PER_TENANT', 10),
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Leads
     |--------------------------------------------------------------------------
     */

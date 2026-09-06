@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Constants\TenantApiAbility;
+use App\Exceptions\TenantApiTokenLimitReachedException;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\NewAccessToken;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -15,15 +17,28 @@ use Laravel\Sanctum\PersonalAccessToken;
  *
  * Tokens haengen am Tenant, nicht am Nutzer. Der Klartext des Tokens existiert
  * nur im Rueckgabewert von create() - gespeichert wird ausschliesslich der Hash.
+ * Ablauf und Obergrenze kommen aus config/funnel.php.
  */
 class TenantApiTokenService
 {
     /**
      * @param  list<string>  $abilities
+     *
+     * @throws TenantApiTokenLimitReachedException
      */
     public function create(Tenant $tenant, string $name, array $abilities): NewAccessToken
     {
-        return $tenant->createToken($name, $this->sanitizeAbilities($abilities));
+        $limit = $this->maxTokensPerTenant();
+
+        if ($limit > 0 && $tenant->tokens()->count() >= $limit) {
+            throw new TenantApiTokenLimitReachedException($limit);
+        }
+
+        return $tenant->createToken(
+            $name,
+            $this->sanitizeAbilities($abilities),
+            $this->expiresAt(),
+        );
     }
 
     /**
@@ -43,11 +58,22 @@ class TenantApiTokenService
      */
     public function revoke(Tenant $tenant, int $tokenId): bool
     {
-        $deleted = $tenant->tokens()
-            ->whereKey($tokenId)
-            ->delete();
+        return $tenant->tokens()->whereKey($tokenId)->delete() > 0;
+    }
 
-        return $deleted > 0;
+    public function maxTokensPerTenant(): int
+    {
+        return (int) config('funnel.api.max_tokens_per_tenant');
+    }
+
+    /**
+     * Ablaufzeitpunkt neuer Tokens, oder null wenn sie unbefristet gelten.
+     */
+    private function expiresAt(): ?Carbon
+    {
+        $days = (int) config('funnel.api.token_expiration_days');
+
+        return $days > 0 ? now()->addDays($days) : null;
     }
 
     /**
