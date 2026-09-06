@@ -118,4 +118,46 @@ return [
         'score_gte' => 'score at least',
     ],
 
+    'lead' => [
+
+        // States of the lead lifecycle (App\Constants\LeadState).
+        'state' => [
+            'neu' => 'New',
+            'verfuegbar' => 'Available',
+            'reserviert' => 'Reserved',
+            'verkauft' => 'Sold',
+            'erreicht' => 'Reached',
+            'unerreichbar' => 'Unreachable',
+            'ungueltig' => 'Invalid',
+            'abgelaufen' => 'Expired',
+        ],
+
+        // Reasons for a state change (App\Constants\LeadTransitionReason).
+        'reason' => [
+            'screening_passed' => 'Screening passed',
+            'duplicate' => 'Duplicate',
+            'implausible_contact' => 'Contact details not plausible',
+            'spam' => 'Detected as spam',
+            'reserved_by_buyer' => 'Reserved by buyer',
+            'reservation_expired' => 'Reservation expired',
+            'reservation_released' => 'Reservation released',
+            'purchased' => 'Purchased',
+            'call_answered' => 'Call answered',
+            'call_attempts_exhausted' => 'Call attempts exhausted',
+            'complaint_approved' => 'Complaint approved',
+            'complaint_period_elapsed' => 'Complaint period elapsed',
+            'retention_elapsed' => 'Retention period reached',
+            'manual_override' => 'Set manually',
+        ],
+
+        'errors' => [
+            'illegal_transition' => 'A lead in state ":from" cannot move to ":to". Possible would be: :allowed.',
+            'no_transition_allowed' => 'no further change (final state)',
+            'concurrent_transition' => 'When moving to ":to" the lead was no longer in the expected state ":expected" but in ":actual". Another process was faster.',
+            'log_not_updatable' => 'An entry in the state log cannot be changed after it has been created.',
+            'log_not_deletable' => 'An entry in the state log cannot be deleted.',
+        ],
+
+    ],
+
 ];
