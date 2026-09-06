@@ -40,7 +40,7 @@ class EnsureMarketplaceAccess
         }
 
         if (! $this->tenantTypeService->canAccessMarketplace($tenant)) {
-            abort(Response::HTTP_FORBIDDEN, __('funnel.buyer.not_approved'));
+            abort(Response::HTTP_FORBIDDEN, __('marketplace.buyer.not_approved'));
         }
 
         return $next($request);

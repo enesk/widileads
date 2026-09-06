@@ -50,12 +50,12 @@ class BuyerRegistrationResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('funnel.buyer.resource.label');
+        return __('marketplace.buyer.resource.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('funnel.buyer.resource.plural_label');
+        return __('marketplace.buyer.resource.plural_label');
     }
 
     /**
@@ -78,44 +78,44 @@ class BuyerRegistrationResource extends Resource
     {
         return $schema->components([
             Section::make()
-                ->description(__('funnel.buyer.resource.read_only'))
+                ->description(__('marketplace.buyer.resource.read_only'))
                 ->schema([
                     TextEntry::make('company_name')
-                        ->label(__('funnel.buyer.fields.company_name')),
+                        ->label(__('marketplace.buyer.fields.company_name')),
                     TextEntry::make('status')
-                        ->label(__('funnel.buyer.fields.status'))
+                        ->label(__('marketplace.buyer.fields.status'))
                         ->badge()
                         ->formatStateUsing(fn (BuyerRegistrationStatus $state): string => $state->label()),
                     TextEntry::make('contact_name')
-                        ->label(__('funnel.buyer.fields.contact_name')),
+                        ->label(__('marketplace.buyer.fields.contact_name')),
                     TextEntry::make('contact_email')
-                        ->label(__('funnel.buyer.fields.contact_email')),
+                        ->label(__('marketplace.buyer.fields.contact_email')),
                     TextEntry::make('contact_phone')
-                        ->label(__('funnel.buyer.fields.contact_phone'))
+                        ->label(__('marketplace.buyer.fields.contact_phone'))
                         ->placeholder('-'),
                     TextEntry::make('vat_id')
-                        ->label(__('funnel.buyer.fields.vat_id')),
+                        ->label(__('marketplace.buyer.fields.vat_id')),
                     TextEntry::make('broker_register_number')
-                        ->label(__('funnel.buyer.fields.broker_register_number'))
-                        ->helperText(__('funnel.buyer.hints.broker_register_number'))
+                        ->label(__('marketplace.buyer.fields.broker_register_number'))
+                        ->helperText(__('marketplace.buyer.hints.broker_register_number'))
                         ->placeholder('-'),
                     TextEntry::make('av_accepted_at')
-                        ->label(__('funnel.buyer.fields.av_accepted_at'))
+                        ->label(__('marketplace.buyer.fields.av_accepted_at'))
                         ->dateTime(),
                     TextEntry::make('tenant.name')
-                        ->label(__('funnel.buyer.fields.tenant')),
+                        ->label(__('marketplace.buyer.fields.tenant')),
                     TextEntry::make('created_at')
-                        ->label(__('funnel.buyer.fields.created_at'))
+                        ->label(__('marketplace.buyer.fields.created_at'))
                         ->dateTime(),
                     TextEntry::make('reviewer.name')
-                        ->label(__('funnel.buyer.fields.reviewed_by'))
+                        ->label(__('marketplace.buyer.fields.reviewed_by'))
                         ->placeholder('-'),
                     TextEntry::make('reviewed_at')
-                        ->label(__('funnel.buyer.fields.reviewed_at'))
+                        ->label(__('marketplace.buyer.fields.reviewed_at'))
                         ->dateTime()
                         ->placeholder('-'),
                     TextEntry::make('rejection_reason')
-                        ->label(__('funnel.buyer.fields.rejection_reason'))
+                        ->label(__('marketplace.buyer.fields.rejection_reason'))
                         ->placeholder('-')
                         ->columnSpanFull(),
                 ])
@@ -127,19 +127,19 @@ class BuyerRegistrationResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading(__('funnel.buyer.resource.empty_heading'))
-            ->emptyStateDescription(__('funnel.buyer.resource.empty_description'))
+            ->emptyStateHeading(__('marketplace.buyer.resource.empty_heading'))
+            ->emptyStateDescription(__('marketplace.buyer.resource.empty_description'))
             ->columns([
                 TextColumn::make('created_at')
-                    ->label(__('funnel.buyer.fields.created_at'))
+                    ->label(__('marketplace.buyer.fields.created_at'))
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('company_name')
-                    ->label(__('funnel.buyer.fields.company_name'))
+                    ->label(__('marketplace.buyer.fields.company_name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->label(__('funnel.buyer.fields.status'))
+                    ->label(__('marketplace.buyer.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (BuyerRegistrationStatus $state): string => $state->label())
                     ->color(fn (BuyerRegistrationStatus $state): string => match ($state) {
@@ -149,47 +149,47 @@ class BuyerRegistrationResource extends Resource
                     })
                     ->sortable(),
                 TextColumn::make('contact_name')
-                    ->label(__('funnel.buyer.fields.contact_name'))
+                    ->label(__('marketplace.buyer.fields.contact_name'))
                     ->searchable(),
                 TextColumn::make('contact_email')
-                    ->label(__('funnel.buyer.fields.contact_email'))
+                    ->label(__('marketplace.buyer.fields.contact_email'))
                     ->searchable()
                     ->toggleable(),
                 TextColumn::make('vat_id')
-                    ->label(__('funnel.buyer.fields.vat_id'))
+                    ->label(__('marketplace.buyer.fields.vat_id'))
                     ->toggleable(),
                 TextColumn::make('broker_register_number')
-                    ->label(__('funnel.buyer.fields.broker_register_number'))
+                    ->label(__('marketplace.buyer.fields.broker_register_number'))
                     ->placeholder('-')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->label(__('funnel.buyer.fields.status'))
+                    ->label(__('marketplace.buyer.fields.status'))
                     ->options(fn (): array => BuyerRegistrationStatus::options()),
             ])
             ->recordActions([
                 ViewAction::make(),
 
                 Action::make('approve')
-                    ->label(__('funnel.buyer.actions.approve'))
+                    ->label(__('marketplace.buyer.actions.approve'))
                     ->icon(Heroicon::OutlinedCheckCircle)
                     ->color('success')
                     ->requiresConfirmation()
-                    ->modalDescription(__('funnel.buyer.actions.approve_confirm'))
+                    ->modalDescription(__('marketplace.buyer.actions.approve_confirm'))
                     ->visible(fn (BuyerRegistration $record): bool => ! $record->isApproved())
                     ->action(fn (BuyerRegistration $record) => app(BuyerOnboardingService::class)
                         ->approve($record, self::actingAdmin()))
-                    ->successNotificationTitle(__('funnel.buyer.actions.approved')),
+                    ->successNotificationTitle(__('marketplace.buyer.actions.approved')),
 
                 Action::make('reject')
-                    ->label(__('funnel.buyer.actions.reject'))
+                    ->label(__('marketplace.buyer.actions.reject'))
                     ->icon(Heroicon::OutlinedXCircle)
                     ->color('danger')
                     ->schema([
                         Textarea::make('reason')
-                            ->label(__('funnel.buyer.fields.rejection_reason'))
-                            ->helperText(__('funnel.buyer.hints.rejection_reason'))
+                            ->label(__('marketplace.buyer.fields.rejection_reason'))
+                            ->helperText(__('marketplace.buyer.hints.rejection_reason'))
                             ->required()
                             ->minLength(10)
                             ->maxLength(1000),
@@ -197,7 +197,7 @@ class BuyerRegistrationResource extends Resource
                     ->visible(fn (BuyerRegistration $record): bool => $record->status !== BuyerRegistrationStatus::REJECTED)
                     ->action(fn (array $data, BuyerRegistration $record) => app(BuyerOnboardingService::class)
                         ->reject($record, self::actingAdmin(), $data['reason']))
-                    ->successNotificationTitle(__('funnel.buyer.actions.rejected')),
+                    ->successNotificationTitle(__('marketplace.buyer.actions.rejected')),
             ])
             ->toolbarActions([]);
     }

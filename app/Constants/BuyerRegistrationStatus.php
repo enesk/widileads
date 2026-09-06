@@ -48,7 +48,7 @@ enum BuyerRegistrationStatus: string
 
     public function label(): string
     {
-        return __('funnel.buyer.status.'.$this->value);
+        return __('marketplace.buyer.status.'.$this->value);
     }
 
     /**

@@ -61,6 +61,8 @@ return [
             'data_erased' => 'Data anonymised (erasure request)',
             'lead_purchased' => 'Lead purchased',
             'lead_state_forced' => 'Lead state forced',
+            'buyer_approved' => 'Buyer approved',
+            'buyer_rejected' => 'Buyer rejected',
         ],
 
         'errors' => [
@@ -100,6 +102,13 @@ return [
             'leads_read' => 'Read leads',
             'webhooks_manage' => 'Manage webhooks',
         ],
+    ],
+
+    'api_docs' => [
+        'title' => 'API documentation',
+        'noscript' => 'JavaScript is required to display the API documentation.',
+        'download' => 'Download the OpenAPI specification',
+        'spec_missing' => 'The OpenAPI specification could not be found.',
     ],
 
     'status' => [
