@@ -1,0 +1,253 @@
+{
+  "funnel": {
+    "name": "Pfotencheck",
+    "slug": "pfotencheck",
+    "lead_price": 15.00,
+    "contact_step_position": 7
+  },
+  "steps": [
+    {
+      "position": 1,
+      "title": "Um welches Tier geht es?",
+      "description": "Der Pfotencheck dauert etwa eine Minute.",
+      "questions": [
+        {
+          "field_key": "tierart",
+          "type": "image_choice",
+          "label": "Welches Tier moechtest du absichern?",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "hund", "label": "Hund", "score": 2, "position": 1, "image_path": null },
+            { "value": "katze", "label": "Katze", "score": 1, "position": 2, "image_path": null },
+            { "value": "sonstige", "label": "Anderes Tier", "score": 3, "position": 3, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "title": "Wie alt ist dein Tier?",
+      "description": "Das Alter bestimmt, wie wahrscheinlich Behandlungen werden.",
+      "questions": [
+        {
+          "field_key": "alter",
+          "type": "single_choice",
+          "label": "Alter deines Tieres",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "unter_1", "label": "Unter 1 Jahr", "score": 1, "position": 1, "image_path": null },
+            { "value": "1_bis_3", "label": "1 bis 3 Jahre", "score": 0, "position": 2, "image_path": null },
+            { "value": "4_bis_7", "label": "4 bis 7 Jahre", "score": 1, "position": 3, "image_path": null },
+            { "value": "ab_8", "label": "8 Jahre oder aelter", "score": 3, "position": 4, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "title": "Rasse und Groesse",
+      "description": "Groessere Tiere und Rassen mit bekannten Veranlagungen verursachen haeufiger Kosten.",
+      "questions": [
+        {
+          "field_key": "rasse_groesse",
+          "type": "single_choice",
+          "label": "Wie wuerdest du dein Tier einordnen?",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "klein", "label": "Klein (bis 10 kg)", "score": 0, "position": 1, "image_path": null },
+            { "value": "mittel", "label": "Mittel (10 bis 25 kg)", "score": 1, "position": 2, "image_path": null },
+            { "value": "gross", "label": "Gross (ueber 25 kg)", "score": 2, "position": 3, "image_path": null },
+            { "value": "veranlagung", "label": "Rasse mit bekannter Veranlagung", "score": 3, "position": 4, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "title": "Vorerkrankungen",
+      "description": "Mehrfachauswahl moeglich.",
+      "questions": [
+        {
+          "field_key": "vorerkrankungen",
+          "type": "multi_choice",
+          "label": "Ist bei deinem Tier etwas davon bekannt?",
+          "help_text": "Waehle alles aus, was zutrifft.",
+          "required": false,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "keine", "label": "Nichts davon", "score": 0, "position": 1, "image_path": null },
+            { "value": "haut_allergie", "label": "Haut oder Allergie", "score": 1, "position": 2, "image_path": null },
+            { "value": "zaehne", "label": "Zaehne oder Zahnfleisch", "score": 1, "position": 3, "image_path": null },
+            { "value": "gelenke", "label": "Gelenke oder Huefte", "score": 2, "position": 4, "image_path": null },
+            { "value": "herz_niere", "label": "Herz, Niere oder Stoffwechsel", "score": 3, "position": 5, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "title": "Alltag und Aktivitaet",
+      "description": "Wie dein Tier lebt, beeinflusst das Unfallrisiko.",
+      "questions": [
+        {
+          "field_key": "verhalten",
+          "type": "single_choice",
+          "label": "Wie lebt dein Tier?",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "ruhig_drinnen", "label": "Ruhig, ueberwiegend drinnen", "score": 0, "position": 1, "image_path": null },
+            { "value": "normal", "label": "Normal aktiv", "score": 1, "position": 2, "image_path": null },
+            { "value": "sehr_aktiv", "label": "Sehr aktiv, viel draussen", "score": 2, "position": 3, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 6,
+      "title": "Bestehender Schutz",
+      "description": "Damit die Empfehlung zu deiner Situation passt.",
+      "questions": [
+        {
+          "field_key": "versicherungsstatus",
+          "type": "single_choice",
+          "label": "Ist dein Tier bereits versichert?",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "vollschutz", "label": "Ja, Krankenvollschutz", "score": 0, "position": 1, "image_path": null },
+            { "value": "op_schutz", "label": "Ja, nur OP-Schutz", "score": 1, "position": 2, "image_path": null },
+            { "value": "keine", "label": "Nein, noch nicht", "score": 2, "position": 3, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 7,
+      "title": "Deine Kontaktdaten",
+      "description": "Damit dich ein passender Anbieter zu deinem Ergebnis beraten kann.",
+      "questions": [
+        {
+          "field_key": "vorname",
+          "type": "text",
+          "label": "Vorname",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "nachname",
+          "type": "text",
+          "label": "Nachname",
+          "help_text": null,
+          "required": true,
+          "position": 2,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "email",
+          "type": "email",
+          "label": "E-Mail-Adresse",
+          "help_text": null,
+          "required": true,
+          "position": 3,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "telefon",
+          "type": "phone",
+          "label": "Telefonnummer",
+          "help_text": "Fuer die persoenliche Beratung.",
+          "required": true,
+          "position": 4,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "plz",
+          "type": "postal_code",
+          "label": "Postleitzahl",
+          "help_text": null,
+          "required": true,
+          "position": 5,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "einwilligung",
+          "type": "consent",
+          "label": "Ich darf zu meiner Anfrage kontaktiert werden.",
+          "help_text": null,
+          "required": true,
+          "position": 6,
+          "validation": {},
+          "meta": {},
+          "options": []
+        }
+      ]
+    }
+  ],
+  "conditions": [],
+  "results": [
+    {
+      "key": "0-3",
+      "min_score": 0,
+      "max_score": 3,
+      "title": "Geringes Risiko",
+      "body": "Dein Tier ist aktuell gut aufgestellt. Eine Absicherung ist sinnvoll, aber nicht dringend - wer frueh abschliesst, zahlt spaeter weniger.",
+      "cta_label": null,
+      "cta_url": null,
+      "show_contact_form": true
+    },
+    {
+      "key": "4-7",
+      "min_score": 4,
+      "max_score": 7,
+      "title": "Erhoehtes Risiko - Vorsorge empfohlen",
+      "body": "Alter, Groesse oder Alltag deines Tieres sprechen fuer eine Absicherung. Eine Beratung zeigt dir, welcher Schutz zu deiner Situation passt.",
+      "cta_label": null,
+      "cta_url": null,
+      "show_contact_form": true
+    },
+    {
+      "key": "8-20",
+      "min_score": 8,
+      "max_score": 20,
+      "title": "Hohes Risiko",
+      "body": "Bei deinem Tier kommen mehrere Risikofaktoren zusammen. Eine Tierkrankenversicherung schuetzt dich vor Behandlungskosten, die schnell vierstellig werden.",
+      "cta_label": null,
+      "cta_url": null,
+      "show_contact_form": true
+    }
+  ],
+  "theme": null
+}
