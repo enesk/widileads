@@ -123,6 +123,49 @@ vendor/bin/phpstan analyse          # Larastan, Level 6
 php artisan test --compact          # PHPUnit
 ```
 
+### Testdeterminismus
+
+Die Suite laeuft in **zufaelliger Reihenfolge** (`executionOrder="random"`). Das Ergebnis
+darf davon nicht abhaengen:
+
+```bash
+composer check:determinism   # drei Laeufe mit den festen Seeds 1, 2 und 3
+```
+
+Alle drei Laeufe muessen dasselbe Ergebnis liefern. Schlaegt einer fehl, laesst er sich
+mit dem ausgegebenen Seed exakt reproduzieren:
+
+```bash
+php artisan test --order-by=random --random-order-seed=<seed>
+```
+
+Zwei Regeln halten das offen:
+
+- Ein neuer statischer Cache in `app/` gehoert in
+  `Tests\TestCase::applicationStateFlushers()`, sonst leckt er von einem Testfall in den
+  naechsten.
+- Eine neue Testklasse erbt von `Tests\Feature\FeatureTest` und bekommt damit
+  `RefreshDatabase`. Nur Faelle, die die Datenbank nachweislich nicht brauchen, duerfen
+  direkt von `Tests\TestCase` erben.
+
+`php artisan test --parallel` funktioniert ebenfalls und halbiert etwa die Laufzeit.
+
+**Jede Arbeitskopie bekommt ihre eigene Test-Datenbank.** `RefreshDatabase` baut die
+Datenbank zu Beginn eines Laufs per `migrate:fresh` neu auf — teilen sich zwei Checkouts
+denselben Namen, reisst ein parallel laufender Testlauf dem anderen die Tabellen weg.
+`Tests\TestCase` leitet den Namen deshalb aus dem Pfad der Arbeitskopie ab
+(`funnel_test_<verzeichnis>_<hash>`) und legt die Datenbank beim ersten Lauf selbst an.
+
+Wer die Datenbank selbst bestimmen will — etwa in CI —, setzt `DB_DATABASE`; ein
+ausdruecklich gesetzter Wert hat immer Vorrang:
+
+```bash
+DB_DATABASE=meine_test_db composer check
+```
+
+Der Datenbank-Benutzer braucht dafuer das Recht, Datenbanken anzulegen. Fehlt es,
+bricht der Lauf mit einer Meldung ab, die genau das sagt.
+
 Larastan laeuft auf Level 6. Die Fehler des Bestandscodes sind in
 `phpstan-baseline.neon` eingefroren, neuer Code wird voll geprueft. Die Baseline
 darf nur schrumpfen - Details und Abbauplan in [docs/BACKLOG.md](docs/BACKLOG.md).

@@ -198,7 +198,7 @@ Gilt genauso für FB-015 (Builder), FB-034 (Lead-Liste) und FB-053 (Marktplatz).
 
 Im Admin-Panel (`/admin`) bleibt Filament uneingeschränkt das Mittel der Wahl.
 
-### 5. Feldschlüssel: Normalisierung **und** Alias-Auflösung
+### 6. Feldschlüssel: Normalisierung **und** Alias-Auflösung
 
 **Ursprungsdokument:** FB-010 verlangt, dass der Feldschlüssel beim Speichern
 normalisiert wird, mit dem Beispiel „E-Mail" → „e_mail", und nennt separat die
@@ -226,7 +226,7 @@ nicht existierenden reservierten Schlüssel zeigen, werden ignoriert.
 
 Umgesetzt in FB-010.
 
-### 6. Entschiedene Grundsatzfragen (2026-09-06)
+### 7. Entschiedene Grundsatzfragen (2026-09-06)
 
 Die sechs Punkte aus [roadmap.md](roadmap.md#teil-5--entscheidungen-enes) sind
 entschieden. Sie gelten für alle Tickets und werden dort **nicht neu aufgeworfen** —
@@ -241,3 +241,55 @@ ausführliche Begründung steht jeweils in Teil 5 der Roadmap.
 | 4 | **Vermittlerregister-Nummer (§ 34d GewO) ist optional**, nicht Pflicht. Die AV-Vertrag-Checkbox bleibt Pflicht mit Zeitstempel. | FB-050 |
 | 5 | **Kein JSON-Ticketformat.** `docs/funnel-builder/tickets.md` bleibt als Markdown die einzige Arbeitsgrundlage. | tickets.md |
 | 6 | **FB-E7 (FB-080…085, Anrufnachweis) wird nicht gebaut.** Folge: FB-058 ist der einzige Weg von `verkauft` nach `erreicht`/`unerreichbar` und wird vollwertig gebaut — Operator-Prüfqueue, Gutschrift über `credit_ledger` `refund`, Reklamationsquote je Käufer. Kein Provisorium. | FB-080…085, FB-058 |
+
+### 8. Testumfang (Entscheidung Enes, 2026-09-06)
+
+**Ursprungsdokument:** „Jede Muss-Anforderung eines Tickets hat mindestens einen Test."
+(Teil 1)
+
+**Verbindlich:** Der Testumfang wird drastisch reduziert.
+
+**Keine Tests mehr für:**
+
+- Migrationen, Schema, Spalten, Casts, Enums, Factories, Seeder
+- Konfigurationswerte
+- Blade-/UI-Rendering, Navigation, Filament-Ressourcen
+- Getter, Setter, Relationen, Scopes, Route-Keys
+- CRUD ohne Fachlogik
+- Sprachdateien
+
+Bei reinen Schema- und UI-Tickets ist **null Tests der Normalfall**, nicht die Ausnahme.
+
+**Tests nur dort, wo ein Fehler teuer ist und still passiert:**
+
+- Geld: Kauf, `credit_ledger`, `settled_price`, Guthabenprüfung, Gutschriften
+- `lead_state`-Übergänge und Unveränderlichkeit des Protokolls
+- Maskierung von Kontaktdaten
+- Mandantentrennung und Cross-Tenant-Zugriff
+- Nebenläufigkeit (zwei Käufer, ein Lead)
+- Normalisierung mit Datenfolge (E.164, `field_key`-Aliase)
+- Spam- und Dublettenregeln
+- Signaturprüfung bei Webhooks
+
+**Richtwert:** höchstens drei bis fünf Tests je Ticket, und nur aus dieser Liste.
+Bestehende Tests werden **nicht** entfernt. `composer check` bleibt Pflicht.
+
+**Verhältnis zum Ursprungsdokument:** Die Vorgabe „jede Muss-Anforderung hat mindestens
+einen Test" ist damit überstimmt und gilt nur noch für die oben aufgezählten Bereiche.
+
+#### Zusatz: keine Tests über die Testinfrastruktur
+
+Änderungen an `tests/TestCase.php`, `phpunit.xml`, Test-Traits und Hilfsklassen bekommen
+keinen eigenen Test, der prüft, dass die Infrastruktur funktioniert. Der grüne Lauf der
+Suite ist der Beleg.
+
+Begründung: Ein Test über die Testinfrastruktur läuft mit derselben Infrastruktur, die
+er prüfen soll. Er kostet Laufzeit und Pflege, ohne unabhängige Aussagekraft zu haben,
+und er zementiert Implementierungsdetails, die sich mit jedem Umbau der Suite ändern.
+
+Erstmals angewandt in FB-040: Die dort gebaute Isolation (statische Caches leeren,
+eigene Test-Datenbank je Arbeitskopie) ist durch `composer check:determinism` belegt —
+drei Läufe mit unterschiedlichen Seeds, gleiches Ergebnis — statt durch Wächter-Tests.
+
+Unberührt bleibt: Wo Infrastrukturarbeit einen **fachlichen** Fehler behebt oder
+Fachcode ändert, gehört der Test dorthin, wo die Fachlogik liegt.

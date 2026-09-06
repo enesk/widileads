@@ -13,6 +13,18 @@ class TenantPermissionService
 {
     private static $permissionCache = [];
 
+    /**
+     * Leert den statischen Berechtigungs-Cache.
+     *
+     * Der Cache ist auf einen einzelnen Request ausgelegt. Zwischen zwei Tests
+     * teilen sich alle Faelle denselben Prozess, deshalb wird er dort geleert
+     * (siehe Tests\TestCase, FB-040).
+     */
+    public static function flushPermissionCache(): void
+    {
+        self::$permissionCache = [];
+    }
+
     public function tenantUserHasPermissionTo(?Tenant $tenant, User $user, string $permission): bool
     {
         if ($tenant === null) {
