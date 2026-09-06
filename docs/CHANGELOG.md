@@ -136,6 +136,30 @@ Der Testumfang wurde vom Auftraggeber auf die E.164-Normalisierung begrenzt; die
 Ticket geforderten Tests je Fragetyp stehen als offener Punkt in
 [BACKLOG.md](BACKLOG.md).
 
+### FB-000 — Offene Entscheidungen festschreiben
+
+**Was:** Die fünf offenen Punkte aus Teil 5 der Roadmap sind entschieden, ein sechster
+(Anrufnachweis FB-E7 im MVP?) kam dazu und ist ebenfalls entschieden. Teil 5 von
+`docs/funnel-builder/roadmap.md` führt sie jetzt mit Status, Entscheidung und
+Begründung; `docs/funnel-builder/agent-prompt.md` trägt die Kurzfassung als Abschnitt 6
+der „Abweichungen vom Ursprungsdokument".
+
+**Warum:** Solange eine Entscheidung offen ist, muss jedes abhängige Ticket eine eigene
+Annahme treffen — und zwei Tickets treffen selten dieselbe. Festgeschrieben und im
+Master-Prompt sichtbar, werden sie nicht in jedem Ticket neu aufgeworfen.
+
+Die Entscheidungen im Einzelnen: (1) Guthaben per Stripe ist der Standardweg, Rechnung
+nur als manuelle `adjustment`-Buchung im `credit_ledger`. (2) `sale_mode = exclusive`
+ist Default (`max_buyers` 1, 15,00 €); `shared` wird vollständig implementiert, mit den
+Vorgabewerten `max_buyers` 3 und `shared_price` 7,50 €. (3) Reklamationsfrist 7 Tage,
+deckungsgleich mit `call.deadline_days`. (4) Vermittlerregister-Nummer nach § 34d GewO
+optional, AV-Vertrag-Checkbox weiterhin Pflicht. (5) Kein JSON-Ticketformat, `tickets.md`
+bleibt Markdown. (6) FB-E7 (FB-080…085) wird nicht gebaut; FB-058 ist damit der einzige
+Weg von `verkauft` nach `erreicht`/`unerreichbar` und wird vollwertig gebaut.
+
+**Neue Config-Keys:** keine. Die Vorgabewerte für `shared` aus Entscheidung 2 legt
+FB-055 an.
+
 ### FB-030 — LeadState-Zustandsmaschine
 
 **Was:** Der Zustand eines Leads liegt in genau einer Spalte (`leads.lead_state`) und

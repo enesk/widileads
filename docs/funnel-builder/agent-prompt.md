@@ -225,3 +225,19 @@ Gespeichert wird das Ergebnis aus Schritt 2. Die Alias-Tabelle steht in
 nicht existierenden reservierten Schlüssel zeigen, werden ignoriert.
 
 Umgesetzt in FB-010.
+
+### 6. Entschiedene Grundsatzfragen (2026-09-06)
+
+Die sechs Punkte aus [roadmap.md](roadmap.md#teil-5--entscheidungen-enes) sind
+entschieden. Sie gelten für alle Tickets und werden dort **nicht neu aufgeworfen** —
+wer meint, eine davon sei falsch, meldet das, statt sie im Ticket umzudeuten. Die
+ausführliche Begründung steht jeweils in Teil 5 der Roadmap.
+
+| Nr. | Entschieden | Betrifft |
+|:-:|---|---|
+| 1 | **Guthaben per Stripe ist der Standardweg.** Rechnung nur als manuelle `adjustment`-Buchung im `credit_ledger` durch den Plattform-Admin — kein Rechnungslauf, kein Mahnprozess. | FB-052, FB-059 |
+| 2 | **`sale_mode = exclusive` ist Default** (`max_buyers` 1, 15,00 €). `shared` wird vollständig implementiert, aber nicht als Default; Vorgabewerte `max_buyers` 3 und `shared_price` 7,50 € stehen in `config/funnel.php`. | FB-055 |
+| 3 | **Reklamationsfrist 7 Tage**, deckungsgleich mit `call.deadline_days`. Kein zweites Zeitmaß. | FB-058 |
+| 4 | **Vermittlerregister-Nummer (§ 34d GewO) ist optional**, nicht Pflicht. Die AV-Vertrag-Checkbox bleibt Pflicht mit Zeitstempel. | FB-050 |
+| 5 | **Kein JSON-Ticketformat.** `docs/funnel-builder/tickets.md` bleibt als Markdown die einzige Arbeitsgrundlage. | tickets.md |
+| 6 | **FB-E7 (FB-080…085, Anrufnachweis) wird nicht gebaut.** Folge: FB-058 ist der einzige Weg von `verkauft` nach `erreicht`/`unerreichbar` und wird vollwertig gebaut — Operator-Prüfqueue, Gutschrift über `credit_ledger` `refund`, Reklamationsquote je Käufer. Kein Provisorium. | FB-080…085, FB-058 |
