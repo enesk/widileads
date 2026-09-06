@@ -331,3 +331,43 @@ das ein Dauerzustand.
 Seiten bleiben vollständig erhalten, kein fremder Eintrag wird geändert, gekürzt oder
 umformatiert. Im Zweifel lieber eine Dopplung melden als etwas wegwerfen.
 
+### 10. Migrationszeitstempel: Minutenblock je Session (2026-09-07)
+
+**Anlass:** `php artisan make:migration` nimmt die aktuelle Uhrzeit und weiß nichts von
+den anderen Sessions. Bei vier gleichzeitigen Sessions kollidieren Zeitstempel deshalb
+regelmäßig — beim Schreiben dieser Regel lagen bereits **drei** Paare vor:
+
+| Zeitstempel | Kollidierende Migrationen |
+| --- | --- |
+| `2026_09_06_170000` | `add_precision_to_funnel_builder_timestamps` (FB-015) · `create_buyer_registrations_table` |
+| `2026_09_06_190000` | `add_origin_to_public_sessions_table` · `create_buyer_profiles_table` |
+| `2026_09_07_090000` | `add_evaluate_at_step_position_to_funnel_conditions_table` (FB-012a) · `create_credit_ledger_table` |
+
+Laravel sortiert dann nach Dateinamen, die Reihenfolge ist also deterministisch — aber
+sie ist nicht mehr am Zeitstempel ablesbar, und sie ergibt sich aus dem Anfangsbuchstaben
+statt aus der Absicht. Bei einer Migration, die auf einer anderen aufbaut, wäre sie
+schlicht falsch: `add_…` läuft vor `create_…`, auch wenn die Spalte erst nach der Tabelle
+Sinn ergibt.
+
+**Verbindlich:** Die Minute im Zeitstempel gehört der Session:
+
+| Session | Minutenblock |
+| --- | --- |
+| widileads-2 | `00`–`14` |
+| widileads-3 | `15`–`29` |
+| widileads-4 | `30`–`44` |
+| widileads-5 | `45`–`59` |
+
+Also `2026_09_07_091500_…` für widileads-3, `2026_09_07_093000_…` für widileads-4 und so
+weiter. `make:migration` erzeugt den Namen mit der Uhrzeit von jetzt; die Datei danach
+umbenennen, bevor sie das erste Mal läuft. Ist sie in der eigenen Entwicklungsdatenbank
+schon gelaufen, vorher die Zeile aus `migrations` löschen und die angelegten Tabellen
+verwerfen — sonst läuft sie unter dem neuen Namen ein zweites Mal.
+
+Die Stunde bleibt frei wählbar: Reihenfolge innerhalb eines Tages wird über die Stunde
+ausgedrückt, die Kollisionsfreiheit über die Minute.
+
+**Bestehende Migrationen werden nicht umbenannt.** Sie sind in allen Entwicklungs- und
+Testdatenbanken bereits gelaufen; ein nachträglicher Namenswechsel ließe sie überall ein
+zweites Mal laufen. Die Regel gilt für neue Migrationen.
+
