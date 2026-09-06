@@ -388,6 +388,21 @@ return [
 
         ],
 
+        'listing' => [
+
+            // Eintraege je Seite im Marktplatz.
+            'per_page' => (int) env('FUNNEL_MARKETPLACE_PER_PAGE', 25),
+
+            // Hoechstzahl an Leads, die je Aufruf gegen die Kaufkriterien
+            // geprueft werden. Der LeadMatcher ist eine reine Funktion und
+            // laeuft in PHP -- ohne Obergrenze wuerde eine Anfrage mit
+            // wachsendem Lead-Bestand immer teurer. Die Grenze wirkt auf den
+            // bereits nach Zustand, Betreiber und Funnel eingeschraenkten
+            // Bestand, sortiert nach der gewaehlten Reihenfolge.
+            'candidate_limit' => (int) env('FUNNEL_MARKETPLACE_CANDIDATE_LIMIT', 500),
+
+        ],
+
         'profile' => [
 
             // Hoechstzahl automatischer Kaeufe je Kalendertag, mit der ein neu

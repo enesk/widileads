@@ -194,4 +194,40 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Marktplatz (FB-053)
+    |--------------------------------------------------------------------------
+    */
+
+    'listing' => [
+
+        'heading' => 'Marktplatz',
+        'nav_label' => 'Marktplatz',
+        'description' => 'Verfuegbare Leads, die deinen Kaufkriterien entsprechen. Kontaktdaten werden erst nach dem Kauf sichtbar.',
+        'no_profile' => 'Du hast noch keine Kaufkriterien hinterlegt - dir werden deshalb alle verfuegbaren Leads angezeigt.',
+        'empty' => 'Zurzeit passt kein verfuegbarer Lead zu deinen Kaufkriterien.',
+
+        'sort' => 'Sortierung',
+        'sort_newest' => 'Neueste zuerst',
+        'sort_score' => 'Hoechste Punktzahl zuerst',
+        'only_watchlisted' => 'Nur Merkliste',
+
+        'score' => ':score Punkte',
+        'region' => 'Region',
+        'email' => 'E-Mail',
+        'phone' => 'Telefon',
+        'result' => 'Ergebnis',
+        'unknown_funnel' => 'Unbekannter Fragebogen',
+        'taken' => 'Vergriffen',
+        'masked_hint' => 'Kontaktdaten sind bis zum Kauf verdeckt.',
+
+        'watch' => 'Merken',
+        'unwatch' => 'Nicht mehr merken',
+
+        'purchase' => 'Lead kaufen',
+        'purchase_unavailable' => 'Der Kauf ist noch nicht freigeschaltet.',
+
+    ],
+
 ];

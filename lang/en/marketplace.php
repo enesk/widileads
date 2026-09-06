@@ -194,4 +194,40 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Marketplace (FB-053)
+    |--------------------------------------------------------------------------
+    */
+
+    'listing' => [
+
+        'heading' => 'Marketplace',
+        'nav_label' => 'Marketplace',
+        'description' => 'Available leads matching your purchase criteria. Contact details become visible after the purchase.',
+        'no_profile' => 'You have not set any purchase criteria yet -- you are therefore seeing every available lead.',
+        'empty' => 'No available lead currently matches your purchase criteria.',
+
+        'sort' => 'Sorting',
+        'sort_newest' => 'Newest first',
+        'sort_score' => 'Highest score first',
+        'only_watchlisted' => 'Watchlist only',
+
+        'score' => ':score points',
+        'region' => 'Region',
+        'email' => 'Email',
+        'phone' => 'Phone',
+        'result' => 'Result',
+        'unknown_funnel' => 'Unknown questionnaire',
+        'taken' => 'Taken',
+        'masked_hint' => 'Contact details stay hidden until the purchase.',
+
+        'watch' => 'Add to watchlist',
+        'unwatch' => 'Remove from watchlist',
+
+        'purchase' => 'Buy lead',
+        'purchase_unavailable' => 'Buying is not enabled yet.',
+
+    ],
+
 ];
