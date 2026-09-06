@@ -54,4 +54,9 @@ class TenancyPermissionConstants
      * Erlaubt das Anlegen und Widerrufen von API-Tokens des Tenants (FB-006).
      */
     public const PERMISSION_MANAGE_API_TOKENS = 'tenancy: manage api tokens';
+
+    /**
+     * Erlaubt das Anlegen und Bearbeiten von Funnels im Builder (FB-015).
+     */
+    public const PERMISSION_MANAGE_FUNNELS = 'tenancy: manage funnels';
 }
