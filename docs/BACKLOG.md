@@ -19,6 +19,21 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **`Order`-Beziehungen sind nicht typisiert** — `Order::items()` und `Order::tenant()` tragen
+  keine Generics, deshalb liefert PHPStan dort `Model` statt `OrderItem`/`Tenant`. Der Versuch,
+  das nachzuziehen, legt in `StripeProvider` und Umgebung rund 50 bislang von der Baseline
+  verdeckte Typfehler frei — das ist eine eigene Aufräumaufgabe, kein Nebenbei. Bis dahin
+  fragen neue Stellen Positionen und Produkte direkt ab (siehe `BookCreditsOnOrder`).
+  Aufgefallen bei: FB-052. Datum: 2026-09-07.
+- **Funnelnamen sind über Betreibergrenzen hinweg sichtbar** — `MarketplaceCatalog::publishedFunnels()`
+  schaltet den Mandanten-Scope bewusst ab und gibt Kennung und Name aller veröffentlichten
+  Funnels von Betreiber-Mandanten an jeden Käufer frei. Ohne das kann ein Käufer seine
+  Kaufkriterien nicht auf einzelne Funnels einschränken. Heute unkritisch, weil es genau
+  **einen** Betreiber gibt — das ist eine Annahme mit Verfallsdatum. Vor dem zweiten
+  Betreiber-Mandanten neu bewerten: entweder auf Funnels einschränken, aus denen der
+  Käufer bereits gekauft hat, oder den Namen durch eine neutrale Bezeichnung ersetzen.
+  Gehört in die Sicherheits-Checkliste FB-043.
+  Aufgefallen bei: FB-051. Datum: 2026-09-07.
 - **Verzweigungsregeln greifen nur im Schritt ihrer Ausgangsfrage** — `StepResolver`
   wertet über `FunnelSnapshot::conditionsForStep()` nur die Regeln aus, deren
   `source_field_key` zu einer Frage des gerade verlassenen Schritts gehört. Eine Regel

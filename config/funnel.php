@@ -379,6 +379,15 @@ return [
 
     'marketplace' => [
 
+        'credit' => [
+
+            // Wie lange der angezeigte Guthabenstand aus dem Cache kommt, in
+            // Sekunden. Nur fuer die Anzeige -- die Deckungspruefung beim
+            // Buchen liest immer aus der Datenbank.
+            'balance_cache_ttl' => (int) env('FUNNEL_MARKETPLACE_BALANCE_CACHE_TTL', 60),
+
+        ],
+
         'profile' => [
 
             // Hoechstzahl automatischer Kaeufe je Kalendertag, mit der ein neu
