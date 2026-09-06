@@ -157,6 +157,12 @@ return [
             'log_not_updatable' => 'An entry in the state log cannot be changed after it has been created.',
             'log_not_deletable' => 'An entry in the state log cannot be deleted.',
         ],
+
+        // Retention period (FB-037).
+        'retention' => [
+            'summary' => 'Retention run (:days days): :expired lead(s) expired, :anonymized lead(s) anonymised.',
+        ],
+
     ],
 
     'question_type' => [

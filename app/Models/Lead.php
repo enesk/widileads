@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  *                                            beim Schreiben ist jeder numerische Wert erlaubt.
  * @property-write float|string|null $settled_price
  * @property Carbon|null $settled_at
+ * @property Carbon|null $anonymized_at Gesetzt heisst: der Personenbezug wurde entfernt (FB-037).
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -97,6 +98,7 @@ class Lead extends Model
             'lead_state' => LeadState::class,
             'settled_price' => 'decimal:2',
             'settled_at' => 'datetime',
+            'anonymized_at' => 'datetime',
         ];
     }
 }

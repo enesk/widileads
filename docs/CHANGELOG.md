@@ -24,6 +24,49 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-037 — Aufbewahrung und Anonymisierung
+
+**Was:** Ein täglicher Lauf (`app:apply-lead-retention`, Uhrzeit aus der Konfiguration)
+räumt Leads auf, deren Aufbewahrungsfrist abgelaufen ist. Er besteht aus zwei Schritten:
+nie verkaufte Leads im Zustand `verfuegbar`, die älter als
+`config('funnel.lead.retention_days')` sind, gehen nach `abgelaufen`; danach verlieren
+alle Leads in einem Endzustand jenseits der Frist ihren Personenbezug und bekommen
+`anonymized_at` gesetzt. Der Zustandswechsel läuft ausschließlich über
+`LeadStateService::transition()` mit dem Grund `retention_elapsed` und hinterlässt
+denselben Protokolleintrag wie jeder andere Wechsel. Die Anonymisierung selbst steckt in
+`App\Services\LeadAnonymizer` — der einen Stelle, an der ein Lead seinen Personenbezug
+verliert; `settled_price`, `settled_at`, `lead_state` und `created_at` bleiben
+unangetastet. Der Lauf ist wiederholbar: ein zweiter Durchgang am selben Tag ändert
+nichts mehr.
+
+**Warum:** Personenbezogene Daten dürfen nicht länger vorgehalten werden als nötig, aber
+Umsatz- und Zähldaten der Vergangenheit müssen stimmig bleiben. Beides gleichzeitig geht
+nur, wenn Anonymisierung und Löschung getrennte Dinge sind: der Lead bleibt als Zeile
+mit seinem Preis und seinem Zustand erhalten, nur die Person dahinter verschwindet. Dass
+das Ablaufen über die Zustandsmaschine läuft und nicht per `update()`, ist kein
+Formalismus — nur so ist später nachweisbar, wann und warum ein Lead nicht mehr
+verkäuflich war.
+
+**Neue Config-Keys:** `config/funnel.php` → `lead.retention_run_at` (`03:15`,
+`FUNNEL_LEAD_RETENTION_RUN_AT`) und `lead.retention_chunk_size` (500,
+`FUNNEL_LEAD_RETENTION_CHUNK_SIZE`). Die Frist selbst ist der bestehende Wert
+`lead.retention_days` (730) aus FB-004.
+
+**Migrationen:** `2026_09_06_150000_add_anonymized_at_to_leads_table` ergänzt
+`leads.anonymized_at` samt Index `(anonymized_at, created_at)` — additiv, mit `down()`.
+
+Zwei bewusste Entscheidungen:
+
+- **Gerechnet wird ab `created_at`**, nicht ab Verkauf oder Eintritt in den Endzustand.
+  Die Frist hängt am Zeitpunkt der Erhebung der Daten, nicht an ihrer Verwertung.
+- **Die von FB-031 noch nicht angelegten Felder** stehen bereits in
+  `LeadAnonymizer::PERSONAL_COLUMNS` (`phone_e164`, `email_normalized`) und werden
+  übersprungen, solange die Spalten fehlen — der Lauf bricht daran nicht, und sobald
+  FB-031 sie anlegt, werden sie ohne Änderung am Code geleert. Das Überschreiben der
+  Antworten (`lead_answers`) gehört ebenfalls in diese Klasse, wird aber bewusst nicht
+  auf Verdacht vorweggenommen: FB-031 kennt die endgültige Form der Tabelle, dieses
+  Ticket nicht. `LeadAnonymizer` ist auch der Einstieg für das Löschersuchen aus FB-038.
+
 ### FB-011 — Fragetypen und Validierungsregeln
 
 **Was:** Enum `QuestionType` mit den dreizehn Fragetypen und je Typ eine Handler-Klasse

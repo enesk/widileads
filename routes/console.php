@@ -22,3 +22,6 @@ Schedule::command('app:local-subscription-expiring-soon-reminder')->dailyAt('00:
 Schedule::command('app:cleanup-local-subscription-statuses')->hourly();
 
 Schedule::command('app:sync-seat-based-subscription-quantities')->hourly();
+
+// FB-037: Aufbewahrungsfrist der Leads. Uhrzeit aus config/funnel.php.
+Schedule::command('app:apply-lead-retention')->dailyAt(config('funnel.lead.retention_run_at'));
