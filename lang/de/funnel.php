@@ -118,4 +118,46 @@ return [
         'score_gte' => 'Punktzahl mindestens',
     ],
 
+    'lead' => [
+
+        // Zustaende des Lead-Lebenszyklus (App\Constants\LeadState).
+        'state' => [
+            'neu' => 'Neu',
+            'verfuegbar' => 'Verfuegbar',
+            'reserviert' => 'Reserviert',
+            'verkauft' => 'Verkauft',
+            'erreicht' => 'Erreicht',
+            'unerreichbar' => 'Unerreichbar',
+            'ungueltig' => 'Ungueltig',
+            'abgelaufen' => 'Abgelaufen',
+        ],
+
+        // Gruende eines Zustandswechsels (App\Constants\LeadTransitionReason).
+        'reason' => [
+            'screening_passed' => 'Pruefung bestanden',
+            'duplicate' => 'Dublette',
+            'implausible_contact' => 'Kontaktdaten nicht plausibel',
+            'spam' => 'Als Spam erkannt',
+            'reserved_by_buyer' => 'Von Kaeufer reserviert',
+            'reservation_expired' => 'Reservierung abgelaufen',
+            'reservation_released' => 'Reservierung aufgehoben',
+            'purchased' => 'Gekauft',
+            'call_answered' => 'Anruf angenommen',
+            'call_attempts_exhausted' => 'Anrufversuche ausgeschoepft',
+            'complaint_approved' => 'Reklamation bestaetigt',
+            'complaint_period_elapsed' => 'Reklamationsfrist verstrichen',
+            'retention_elapsed' => 'Aufbewahrungsfrist erreicht',
+            'manual_override' => 'Manuell gesetzt',
+        ],
+
+        'errors' => [
+            'illegal_transition' => 'Ein Lead im Zustand ":from" kann nicht nach ":to" wechseln. Moeglich waere: :allowed.',
+            'no_transition_allowed' => 'kein Wechsel mehr (Endzustand)',
+            'concurrent_transition' => 'Der Lead war beim Wechsel nach ":to" nicht mehr im erwarteten Zustand ":expected", sondern in ":actual". Ein anderer Vorgang war schneller.',
+            'log_not_updatable' => 'Ein Eintrag im Zustandsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
+            'log_not_deletable' => 'Ein Eintrag im Zustandsprotokoll kann nicht geloescht werden.',
+        ],
+
+    ],
+
 ];

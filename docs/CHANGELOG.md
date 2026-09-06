@@ -24,6 +24,47 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-030 — LeadState-Zustandsmaschine
+
+**Was:** Der Zustand eines Leads liegt in genau einer Spalte (`leads.lead_state`) und
+wechselt an genau einer Stelle: `App\Services\LeadStateService::transition()`. Erlaubt
+ist ausschließlich, was in `App\Constants\LeadTransitions::TABLE` steht (zwölf Übergänge);
+alles andere wirft `App\Exceptions\IllegalLeadTransition`. Zustandsänderung und
+Protokolleintrag in `lead_state_log` entstehen in einer Transaktion, danach wird
+`App\Events\Lead\LeadStateChanged` ausgelöst. Beim Eintritt in einen Endzustand
+(`erreicht`, `unerreichbar`, `ungueltig`, `abgelaufen`) werden `settled_price` und
+`settled_at` einmalig geschrieben und nie wieder geändert. Protokolleinträge sind
+unveränderlich — Model und Query-Builder werfen `LeadStateLogIsImmutableException`,
+gleiches Muster wie das Audit-Log aus FB-005.
+
+**Warum:** Der Lead-Zustand entscheidet über Sichtbarkeit von Kontaktdaten, über
+Gutschriften und über die Abrechnung. Läge er in mehreren Flags oder ließe er sich an
+beliebiger Stelle setzen, gäbe es keinen Zeitpunkt, zu dem eine Aussage über einen Lead
+belastbar wäre. Ein einziger Eingang mit unveränderlichem Protokoll macht jeden Wechsel
+nachweisbar; ein festgeschriebener Preis kann seine Grundlage nicht nachträglich
+verlieren.
+
+**Neue Config-Keys:** keine. Der Abrechnungspreis wird aus dem bestehenden
+`config/funnel.php` → `lead.default_price` (FB-004) gelesen.
+
+**Migrationen:** `2026_09_06_130000_create_leads_table` (id, tenant_id, lead_state
+Default `neu`, settled_price, settled_at, Zeitstempel) und
+`2026_09_06_130100_create_lead_state_log_table` (lead_id, from_state, to_state, reason,
+actor_id, meta JSON, created_at) — beide additiv, mit `down()`.
+
+Bewusste Abgrenzungen, damit FB-010 und FB-030 sich nicht überschneiden:
+
+- Die `leads`-Tabelle ist ein Grundgerüst ohne Fremdschlüssel auf Funnel-Tabellen.
+  `funnel_id`, `funnel_version_id`, `score`, `result_id`, `price_at_creation`, die
+  Kontaktfelder und `lead_answers` kommen additiv in FB-031.
+- Der Abrechnungspreis wird über `settlementPriceFor()` aufgelöst: liegt am Lead eine
+  `price_at_creation` (FB-031), gilt sie; sonst der Konfigurationswert. FB-031 muss
+  dafür nichts am Dienst ändern.
+- `Lead` nutzt den in FB-010 entstandenen Trait `BelongsToTenant` statt einer eigenen
+  Mandantenlogik. Ohne Mandantenkontext (Konsole, Queue) greift der Scope bewusst nicht;
+  die Cross-Tenant-Tests gehören zu dem Ticket, das die erste lesende Sicht auf Leads
+  baut (FB-034 bzw. FB-030d).
+
 ### FB-010 — Datenmodell Funnel / Steps / Questions / Options
 
 **Was:** Sechs neue Tabellen (`funnels`, `funnel_steps`, `funnel_questions`,
