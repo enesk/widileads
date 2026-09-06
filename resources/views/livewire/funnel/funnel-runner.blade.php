@@ -37,6 +37,12 @@
                 <h2 class="text-xl font-semibold">{{ __('runtime.thanks_title') }}</h2>
                 <p class="mt-3 text-base-content/80">{{ __('runtime.thanks_body') }}</p>
             </section>
+
+            @if ($embedded)
+                {{-- Sagt der einbettenden Seite Bescheid, damit sie ihr eigenes
+                     Tracking anhaengen oder das Overlay schliessen kann. --}}
+                <div x-data x-init="document.dispatchEvent(new CustomEvent('funnel:submitted'))"></div>
+            @endif
         @elseif ($step !== null)
             <form wire:submit="{{ $phase === 'contact' ? 'submitContact' : 'submitStep' }}"
                   class="flex flex-1 flex-col gap-6">
