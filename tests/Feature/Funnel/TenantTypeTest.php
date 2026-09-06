@@ -4,6 +4,7 @@ namespace Tests\Feature\Funnel;
 
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
+use App\Models\BuyerRegistration;
 use App\Models\Tenant;
 use App\Services\TenantTypeService;
 use Filament\Facades\Filament;
@@ -116,7 +117,11 @@ class TenantTypeTest extends FeatureTest
     {
         $user = $this->createUser();
         $operator = Tenant::factory()->operator()->create();
-        $buyer = Tenant::factory()->buyer()->create();
+
+        // Seit FB-050 genuegt der Typ "buyer" allein nicht mehr fuer den
+        // Marktplatz: der Kaeufer muss zusaetzlich freigeschaltet sein. Der
+        // Typ bleibt notwendige Bedingung -- was dieser Test prueft.
+        $buyer = BuyerRegistration::factory()->approved()->create()->tenant;
 
         $this->assertTrue(Gate::forUser($user)->allows('funnels.manage', $operator));
         $this->assertFalse(Gate::forUser($user)->allows('marketplace.access', $operator));
@@ -136,8 +141,14 @@ class TenantTypeTest extends FeatureTest
         $this->assertFalse($service->canAccessMarketplace($operator));
 
         $this->assertTrue($service->isBuyer($buyer));
-        $this->assertTrue($service->canAccessMarketplace($buyer));
         $this->assertFalse($service->canManageFunnels($buyer));
+
+        // Der Typ macht aus einem Mandanten einen Kaeufer, noch keinen
+        // zugelassenen: die Freischaltung kommt aus FB-050 dazu.
+        $this->assertFalse($service->canAccessMarketplace($buyer));
+        $this->assertTrue($service->canAccessMarketplace(
+            BuyerRegistration::factory()->approved()->create()->tenant,
+        ));
 
         $this->assertFalse($service->canManageFunnels(null));
         $this->assertFalse($service->canAccessMarketplace(null));

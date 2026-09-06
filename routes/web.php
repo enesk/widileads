@@ -229,3 +229,20 @@ if (config('funnel.api.docs_enabled')) {
             Route::get('/openapi.yaml', 'spec')->name('api-docs.spec');
         });
 }
+
+/*
+|--------------------------------------------------------------------------
+| Kaeufer-Registrierung (FB-050)
+|--------------------------------------------------------------------------
+|
+| Oeffentlich erreichbar, aber angemeldet: das Benutzerkonto entsteht ueber die
+| Anmeldung von SaaSykit, dieses Formular ergaenzt nur die kaufmaennischen
+| Angaben und legt daraus den Kaeufer-Mandanten an. Der Mandant ist danach
+| "pending" -- den Marktplatz erreicht er erst nach der Freischaltung durch den
+| Plattform-Admin (Middleware "marketplace.access").
+|
+*/
+
+Route::get('/kaeufer/registrierung', function () {
+    return view('pages.buyer-registration');
+})->name('buyer.register')->middleware('auth');
