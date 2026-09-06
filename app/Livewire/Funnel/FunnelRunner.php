@@ -99,7 +99,18 @@ class FunnelRunner extends Component
         }
 
         $this->embedded = request()->boolean('embed');
-        $this->embedOrigin = app(EmbedOriginPolicy::class)->normalize(request()->query('origin'));
+
+        $policy = app(EmbedOriginPolicy::class);
+        $this->embedOrigin = $policy->normalize(request()->query('origin'));
+
+        // FB-025: Eingebettet wird nur von freigegebenen Seiten. Der Versuch
+        // wird protokolliert -- sonst bliebe unsichtbar, wer den Funnel ohne
+        // Wissen des Betreibers auf seiner Seite betreibt.
+        if ($this->embedded && ! $policy->allows($funnel, $this->embedOrigin)) {
+            $policy->recordRejection($funnel, $this->embedOrigin);
+
+            abort(Response::HTTP_FORBIDDEN, __('runtime.errors.origin_not_allowed'));
+        }
 
         $sessions = app(PublicSessionService::class);
         $session = $sessions->startOrResume(

@@ -25,6 +25,7 @@ return [
 
     'errors' => [
         'rate_limited' => 'We received a lot of requests from here just now. Please try again in an hour.',
+        'origin_not_allowed' => 'This questionnaire may not be embedded on this page.',
         'phone_not_dialable' => 'We could not read this phone number. Please include the area code.',
         'event_not_updatable' => 'An entry in the session log cannot be changed once it has been created.',
         'event_not_deletable' => 'An entry in the session log cannot be deleted.',

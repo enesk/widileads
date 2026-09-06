@@ -7,6 +7,7 @@ namespace Tests\Feature\Funnel;
 use App\Actions\PublishFunnel;
 use App\Constants\QuestionType;
 use App\Models\Funnel;
+use App\Models\FunnelOrigin;
 use App\Models\FunnelQuestion;
 use App\Models\FunnelResult;
 use App\Models\FunnelStep;
@@ -39,6 +40,12 @@ class EmbedTest extends FeatureTest
     public function test_the_embedded_run_uses_the_minimal_layout_and_reports_its_height(): void
     {
         $funnel = $this->publishedFunnel();
+
+        // Seit FB-025 bettet nur ein, wer freigegeben ist.
+        FunnelOrigin::factory()->create([
+            'funnel_id' => $funnel->id,
+            'origin' => 'https://tierarztportal.com',
+        ]);
 
         $response = $this->get('/f/'.$funnel->public_token.'?embed=1&origin=https://tierarztportal.com')
             ->assertOk();

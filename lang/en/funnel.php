@@ -61,6 +61,7 @@ return [
             'data_erased' => 'Data anonymised (erasure request)',
             'lead_purchased' => 'Lead purchased',
             'lead_state_forced' => 'Lead state forced',
+            'embed_origin_rejected' => 'Embedding rejected (unlisted origin)',
             'buyer_approved' => 'Buyer approved',
             'buyer_rejected' => 'Buyer rejected',
         ],

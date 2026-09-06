@@ -25,6 +25,7 @@ return [
 
     'errors' => [
         'rate_limited' => 'Wir haben von hier gerade sehr viele Anfragen erhalten. Bitte versuche es in einer Stunde noch einmal.',
+        'origin_not_allowed' => 'Dieser Fragebogen darf auf dieser Seite nicht eingebettet werden.',
         'phone_not_dialable' => 'Diese Telefonnummer konnten wir nicht lesen. Bitte gib sie mit Vorwahl an.',
         'event_not_updatable' => 'Ein Ereignis im Sitzungsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
         'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht geloescht werden.',

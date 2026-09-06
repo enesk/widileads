@@ -82,6 +82,16 @@ class Funnel extends Model
     }
 
     /**
+     * Seiten, die diesen Funnel einbetten duerfen (FB-025).
+     *
+     * @return HasMany<FunnelOrigin, $this>
+     */
+    public function origins(): HasMany
+    {
+        return $this->hasMany(FunnelOrigin::class);
+    }
+
+    /**
      * Ergebnis-Screens des Funnels je Punktebereich (Auswahl in FB-013).
      *
      * @return HasMany<FunnelResult, $this>

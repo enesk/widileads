@@ -77,9 +77,30 @@ Ereignisnamen: `funnel:ready`, `funnel:resize`, `funnel:submitted`, `funnel:clos
 
 Der `origin` der einbettenden Seite wird an der Sitzung gespeichert
 (`public_sessions.embed_origin`, FB-022). Ob ein Funnel auf einer bestimmten Seite
-eingebettet werden **darf**, entscheidet `App\Funnel\Runtime\EmbedOriginPolicy` — heute
-erlaubt sie jede Herkunft, ab FB-025 prüft sie gegen `funnel_origins`. Die Entscheidung
-liegt bewusst an genau einer Stelle, damit die Runtime dafür nicht angefasst werden muss.
+eingebettet werden **darf**, entscheidet `App\Funnel\Runtime\EmbedOriginPolicy`
+(FB-025).
+
+Erlaubt sind:
+
+- jede in `funnel_origins` für diesen Funnel gepflegte Herkunft,
+- die eigene Domain (`config('app.url')`) — darüber laufen Vorschau und Testseite,
+- **kein** `origin`: Dann ist es keine Einbettung, sondern ein direkter Aufruf der
+  Strecke.
+
+Alles andere endet mit **403** und einem Eintrag im Audit-Log
+(`embed.origin_rejected`, mit abgewiesener Herkunft und Funnel-Token). Der Besucher
+sieht nur eine Fehlerseite — der Betreiber soll erfahren, wer seinen Funnel ohne sein
+Wissen einbetten wollte.
+
+Verglichen wird die **vollständige Herkunft**, also Schema, Host und Port. Eine Freigabe
+für `https://beispiel.de` erlaubt weder `http://beispiel.de` noch
+`https://sub.beispiel.de`; Subdomains brauchen einen eigenen Eintrag. Das ist bewusst
+streng: Eine Wildcard über Subdomains würde bei einem übernommenen Subdomain-Eintrag
+(„subdomain takeover") die ganze Domain öffnen.
+
+Geprüft wird gegen die **Live-Tabelle**, nicht gegen den Snapshot: Eine Freigabe soll
+sofort wirken, ohne den Funnel neu zu veröffentlichen — und ein Entzug erst recht. Der
+Snapshot friert die Fragen ein, nicht die Zugriffsrechte.
 
 ## Testseite
 
