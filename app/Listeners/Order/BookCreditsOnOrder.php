@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Listeners\Order;
 
 use App\Events\Order\Ordered;
+use App\Models\Currency;
 use App\Models\OneTimeProduct;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -53,7 +54,27 @@ class BookCreditsOnOrder
             $credits,
             (int) $order->total_amount_after_discount,
             $order,
+            // Die Waehrung der Bestellung, nicht die Standardwaehrung: Der
+            // Betrag stammt aus dieser Bestellung, und ihn unter einer anderen
+            // Waehrung abzulegen waere genau der Fehler, den die Spalte
+            // verhindern soll (FB-052a).
+            $this->currencyOf($order),
         );
+    }
+
+    /**
+     * Waehrung, in der die Bestellung bezahlt wurde. Ohne hinterlegte Waehrung
+     * entscheidet der Buchungsdienst mit der Standardwaehrung.
+     */
+    private function currencyOf(Order $order): ?string
+    {
+        if ($order->currency_id === null) {
+            return null;
+        }
+
+        $code = Currency::query()->whereKey($order->currency_id)->value('code');
+
+        return is_string($code) ? $code : null;
     }
 
     /**

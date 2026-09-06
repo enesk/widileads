@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property CreditLedgerType $type
  * @property int $credits
  * @property int|null $amount_cents
+ * @property string $currency ISO 4217, gilt fuer die ganze Buchung (FB-052a)
  * @property string|null $reference_type
  * @property int|null $reference_id
  * @property Carbon|null $created_at
@@ -60,6 +61,7 @@ class CreditLedgerEntry extends Model
         'type',
         'credits',
         'amount_cents',
+        'currency',
         'reference_type',
         'reference_id',
     ];

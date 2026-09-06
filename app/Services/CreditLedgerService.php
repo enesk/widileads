@@ -32,6 +32,12 @@ use InvalidArgumentException;
  * Der gecachte Saldo ist ausschliesslich fuer die Anzeige. Die Deckungspruefung
  * liest immer aus der Datenbank -- ein Cache, der einer Kaufentscheidung
  * zugrunde liegt, ist ein Fehler mit Geldfolge.
+ *
+ * Jede Buchung traegt ihre Waehrung (FB-052a). Sie gilt fuer die ganze Buchung,
+ * nicht nur fuer amount_cents: Ein Guthabenkonto ist in einer Waehrung gefuehrt,
+ * auch wenn eine Abbuchung selbst kein Geld bewegt. Ohne Angabe gilt die
+ * Standardwaehrung der Installation -- ein Guthabenkauf nennt dagegen die
+ * Waehrung, in der tatsaechlich bezahlt wurde.
  */
 class CreditLedgerService
 {
@@ -59,9 +65,14 @@ class CreditLedgerService
      * Guthabenkauf. Idempotent ueber den Beleg: dasselbe Ereignis schreibt auch
      * bei wiederholter Zustellung nur eine Buchung.
      */
-    public function purchase(Tenant $tenant, int $credits, ?int $amountCents = null, ?Model $reference = null): CreditLedgerEntry
-    {
-        return $this->book($tenant, CreditLedgerType::PURCHASE, $credits, $amountCents, $reference);
+    public function purchase(
+        Tenant $tenant,
+        int $credits,
+        ?int $amountCents = null,
+        ?Model $reference = null,
+        ?string $currency = null,
+    ): CreditLedgerEntry {
+        return $this->book($tenant, CreditLedgerType::PURCHASE, $credits, $amountCents, $reference, $currency);
     }
 
     /**
@@ -71,26 +82,39 @@ class CreditLedgerService
      *
      * @throws InsufficientCreditsException wenn das Guthaben nicht reicht
      */
-    public function debit(Tenant $tenant, int $credits, ?Model $reference = null): CreditLedgerEntry
-    {
-        return $this->book($tenant, CreditLedgerType::DEBIT, -abs($credits), null, $reference);
+    public function debit(
+        Tenant $tenant,
+        int $credits,
+        ?Model $reference = null,
+        ?string $currency = null,
+    ): CreditLedgerEntry {
+        return $this->book($tenant, CreditLedgerType::DEBIT, -abs($credits), null, $reference, $currency);
     }
 
     /**
      * Gutschrift nach einer anerkannten Reklamation (FB-058).
      */
-    public function refund(Tenant $tenant, int $credits, ?Model $reference = null): CreditLedgerEntry
-    {
-        return $this->book($tenant, CreditLedgerType::REFUND, abs($credits), null, $reference);
+    public function refund(
+        Tenant $tenant,
+        int $credits,
+        ?Model $reference = null,
+        ?string $currency = null,
+    ): CreditLedgerEntry {
+        return $this->book($tenant, CreditLedgerType::REFUND, abs($credits), null, $reference, $currency);
     }
 
     /**
      * Manuelle Korrektur durch den Plattform-Admin -- auch der Weg fuer
      * Guthaben auf Rechnung. Das Vorzeichen bestimmt der Aufrufer.
      */
-    public function adjust(Tenant $tenant, int $credits, ?int $amountCents = null, ?Model $reference = null): CreditLedgerEntry
-    {
-        return $this->book($tenant, CreditLedgerType::ADJUSTMENT, $credits, $amountCents, $reference);
+    public function adjust(
+        Tenant $tenant,
+        int $credits,
+        ?int $amountCents = null,
+        ?Model $reference = null,
+        ?string $currency = null,
+    ): CreditLedgerEntry {
+        return $this->book($tenant, CreditLedgerType::ADJUSTMENT, $credits, $amountCents, $reference, $currency);
     }
 
     /**
@@ -105,14 +129,17 @@ class CreditLedgerService
         int $credits,
         ?int $amountCents,
         ?Model $reference,
+        ?string $currency = null,
     ): CreditLedgerEntry {
+        $currency = self::normalizeCurrency($currency);
+
         if (! $type->allowsCredits($credits)) {
             throw new InvalidArgumentException(
                 sprintf('Eine Buchung vom Typ "%s" laesst den Betrag %d nicht zu.', $type->value, $credits),
             );
         }
 
-        $entry = DB::transaction(function () use ($tenant, $type, $credits, $amountCents, $reference): CreditLedgerEntry {
+        $entry = DB::transaction(function () use ($tenant, $type, $credits, $amountCents, $reference, $currency): CreditLedgerEntry {
             // Sperrt den Mandanten fuer die Dauer der Transaktion. Alle
             // Buchungen desselben Mandanten laufen dadurch nacheinander, egal
             // aus welchem Prozess sie kommen.
@@ -139,6 +166,7 @@ class CreditLedgerService
                 'type' => $type,
                 'credits' => $credits,
                 'amount_cents' => $amountCents,
+                'currency' => $currency,
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
             ]);
@@ -178,6 +206,25 @@ class CreditLedgerService
             ->withoutGlobalScope('tenant')
             ->where('tenant_id', $tenant->getKey())
             ->sum('credits');
+    }
+
+    /**
+     * Waehrungscode in der Form, in der er gespeichert wird: drei Grossbuchstaben.
+     * Ohne Angabe die Standardwaehrung der Installation.
+     *
+     * @throws InvalidArgumentException bei einem Code, der kein ISO-4217-Code sein kann
+     */
+    private static function normalizeCurrency(?string $currency): string
+    {
+        $code = strtoupper(trim($currency ?? (string) config('app.default_currency')));
+
+        if (preg_match('/^[A-Z]{3}$/', $code) !== 1) {
+            throw new InvalidArgumentException(
+                sprintf('"%s" ist kein Waehrungscode nach ISO 4217.', $code),
+            );
+        }
+
+        return $code;
     }
 
     private static function cacheKey(Tenant $tenant): string
