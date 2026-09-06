@@ -26,8 +26,10 @@ Weitere Konventionen:
 
 ### FB-010 — Datenmodell Funnel / Steps / Questions / Options
 
-**Was:** Vier neue Tabellen (`funnels`, `funnel_steps`, `funnel_questions`,
-`funnel_options`) mit Models, Factories und einem Beispiel-Seeder. Ein Funnel wird
+**Was:** Sechs neue Tabellen (`funnels`, `funnel_steps`, `funnel_questions`,
+`funnel_options`, `funnel_conditions`, `funnel_results`) mit Models, Factories und einem
+Beispiel-Seeder. `funnel_conditions` und `funnel_results` bringen nur die Struktur mit —
+StepResolver (FB-012) und ResultResolver (FB-013) kommen später. Ein Funnel wird
 öffentlich ausschließlich über `public_token` (ULID, automatisch vergeben, zugleich
 Route-Key) adressiert, nie über die ID. Der Feldschlüssel einer Frage wird beim
 Speichern normalisiert („E-Mail" → `e_mail`) und ist je Funnel eindeutig — dafür trägt
@@ -44,7 +46,7 @@ die kaufmännische Vorgabe nicht im Code steht.
 
 **Neue Config-Keys:** keine.
 
-**Migrationen:** `2026_09_06_140000_create_funnel_tables` legt die vier Tabellen an —
+**Migrationen:** `2026_09_06_140000_create_funnel_tables` legt die sechs Tabellen an —
 additiv, mit `down()` in umgekehrter Reihenfolge. Fremdschlüssel kaskadieren
 (Funnel → Schritte → Fragen → Optionen).
 

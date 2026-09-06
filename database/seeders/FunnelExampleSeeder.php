@@ -8,8 +8,10 @@ use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
 use App\Constants\TenantType;
 use App\Models\Funnel;
+use App\Models\FunnelCondition;
 use App\Models\FunnelOption;
 use App\Models\FunnelQuestion;
+use App\Models\FunnelResult;
 use App\Models\FunnelStep;
 use App\Models\Tenant;
 use Illuminate\Database\Seeder;
@@ -110,6 +112,33 @@ class FunnelExampleSeeder extends Seeder
                 'field_key' => $fieldKey->value,
                 'label' => $label,
                 'required' => $required,
+            ]);
+        }
+
+        // Wer kein Tier versichern moechte, springt direkt zum Kontaktschritt.
+        FunnelCondition::query()->create([
+            'funnel_id' => $funnel->id,
+            'source_question_id' => $animalQuestion->id,
+            'operator' => 'equals',
+            'value' => ['anderes'],
+            'target_step_id' => $contactStep->id,
+            'priority' => 10,
+        ]);
+
+        $results = [
+            [0, 3, 'Geringes Risiko', 'Dein Tier ist gut aufgestellt - eine Vorsorge ist optional.'],
+            [4, 7, 'Erhoehtes Risiko', 'Eine Absicherung ist empfehlenswert.'],
+            [8, 999, 'Hohes Risiko', 'Wir empfehlen dir eine Tierkrankenversicherung.'],
+        ];
+
+        foreach ($results as [$minScore, $maxScore, $title, $body]) {
+            FunnelResult::query()->create([
+                'funnel_id' => $funnel->id,
+                'min_score' => $minScore,
+                'max_score' => $maxScore,
+                'title' => $title,
+                'body' => $body,
+                'show_contact_form' => true,
             ]);
         }
 

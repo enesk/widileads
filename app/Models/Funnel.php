@@ -67,6 +67,27 @@ class Funnel extends Model
     }
 
     /**
+     * Verzweigungsregeln des Funnels. Ausgewertet werden sie vom StepResolver
+     * in FB-012.
+     *
+     * @return HasMany<FunnelCondition, $this>
+     */
+    public function conditions(): HasMany
+    {
+        return $this->hasMany(FunnelCondition::class);
+    }
+
+    /**
+     * Ergebnis-Screens des Funnels je Punktebereich (Auswahl in FB-013).
+     *
+     * @return HasMany<FunnelResult, $this>
+     */
+    public function results(): HasMany
+    {
+        return $this->hasMany(FunnelResult::class);
+    }
+
+    /**
      * Verkaufspreis eines Leads aus diesem Funnel. Ohne eigenen Preis gilt der
      * Standardpreis aus config('funnel.lead.default_price').
      */

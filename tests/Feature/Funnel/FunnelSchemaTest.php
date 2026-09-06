@@ -7,8 +7,10 @@ namespace Tests\Feature\Funnel;
 use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
 use App\Models\Funnel;
+use App\Models\FunnelCondition;
 use App\Models\FunnelOption;
 use App\Models\FunnelQuestion;
+use App\Models\FunnelResult;
 use App\Models\FunnelStep;
 use Database\Seeders\FunnelExampleSeeder;
 use Filament\Facades\Filament;
@@ -155,6 +157,44 @@ class FunnelSchemaTest extends FeatureTest
         $this->assertDatabaseMissing('funnel_options', ['id' => $option->id]);
     }
 
+    public function test_conditions_link_question_and_target_step_within_one_funnel(): void
+    {
+        $condition = FunnelCondition::factory()->withPriority(10)->create();
+
+        $this->assertSame($condition->funnel_id, $condition->sourceQuestion->funnel_id);
+        $this->assertSame($condition->funnel_id, $condition->targetStep->funnel_id);
+        $this->assertSame(['ja'], $condition->value);
+        $this->assertSame(10, $condition->priority);
+        $this->assertSame([$condition->id], $condition->funnel->conditions()->pluck('id')->all());
+    }
+
+    public function test_results_carry_their_score_range(): void
+    {
+        $funnel = Funnel::factory()->create();
+
+        FunnelResult::factory()->forScoreRange(0, 3)->create(['funnel_id' => $funnel->id, 'title' => 'Geringes Risiko']);
+        FunnelResult::factory()->forScoreRange(4, 7)->create(['funnel_id' => $funnel->id, 'title' => 'Erhoehtes Risiko']);
+
+        $results = $funnel->results()->orderBy('min_score')->get();
+
+        $this->assertCount(2, $results);
+        $this->assertSame('Geringes Risiko', $results[0]->title);
+        $this->assertSame(3, $results[0]->max_score);
+        $this->assertTrue($results[0]->show_contact_form);
+    }
+
+    public function test_deleting_a_funnel_removes_conditions_and_results(): void
+    {
+        $condition = FunnelCondition::factory()->create();
+        $funnel = $condition->funnel;
+        $result = FunnelResult::factory()->create(['funnel_id' => $funnel->id]);
+
+        $funnel->delete();
+
+        $this->assertDatabaseMissing('funnel_conditions', ['id' => $condition->id]);
+        $this->assertDatabaseMissing('funnel_results', ['id' => $result->id]);
+    }
+
     public function test_reserved_field_keys_are_recognized(): void
     {
         $this->assertSame(
@@ -200,6 +240,8 @@ class FunnelSchemaTest extends FeatureTest
         $this->assertSame(8, $funnel->questions()->count());
         $this->assertTrue(Str::isUlid($funnel->public_token));
         $this->assertSame(3, $funnel->questions()->where('field_key', 'tierart')->sole()->options()->count());
+        $this->assertSame(1, $funnel->conditions()->count());
+        $this->assertSame(3, $funnel->results()->count());
 
         // Zweiter Lauf legt nichts doppelt an.
         $this->seed(FunnelExampleSeeder::class);

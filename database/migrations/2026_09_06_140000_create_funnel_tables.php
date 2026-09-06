@@ -7,12 +7,16 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * FB-010: Grundgeruest eines Funnels -- Funnel, Schritte, Fragen, Antwortoptionen.
+ * FB-010: Grundgeruest eines Funnels -- Funnel, Schritte, Fragen, Antwortoptionen,
+ * Verzweigungsregeln und Ergebnis-Screens.
  *
  * Oeffentlich adressiert wird ein Funnel ausschliesslich ueber public_token
  * (ULID), nie ueber die ID. Der Feldschluessel einer Frage ist je Funnel
  * eindeutig, deshalb traegt funnel_questions zusaetzlich funnel_id -- ein
  * Unique-Index ueber die Schritt-Grenze hinweg ist sonst nicht moeglich.
+ *
+ * funnel_conditions und funnel_results legen nur die Struktur an; der
+ * StepResolver (FB-012) und der ResultResolver (FB-013) kommen spaeter.
  */
 return new class extends Migration
 {
@@ -75,10 +79,42 @@ return new class extends Migration
 
             $table->index(['question_id', 'position']);
         });
+
+        Schema::create('funnel_conditions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('funnel_id')->constrained('funnels')->cascadeOnDelete();
+            $table->foreignId('source_question_id')->constrained('funnel_questions')->cascadeOnDelete();
+            // Operatoren als Enum kommen mit FB-012 (equals, not_equals, in, gt,
+            // lt, contains, answered, score_gte).
+            $table->string('operator', 20);
+            $table->json('value')->nullable();
+            $table->foreignId('target_step_id')->constrained('funnel_steps')->cascadeOnDelete();
+            $table->unsignedInteger('priority')->default(0);
+            $table->timestamps();
+
+            $table->index(['funnel_id', 'priority']);
+        });
+
+        Schema::create('funnel_results', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('funnel_id')->constrained('funnels')->cascadeOnDelete();
+            $table->integer('min_score');
+            $table->integer('max_score');
+            $table->string('title');
+            $table->text('body')->nullable();
+            $table->string('cta_label')->nullable();
+            $table->string('cta_url')->nullable();
+            $table->boolean('show_contact_form')->default(true);
+            $table->timestamps();
+
+            $table->index(['funnel_id', 'min_score']);
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('funnel_results');
+        Schema::dropIfExists('funnel_conditions');
         Schema::dropIfExists('funnel_options');
         Schema::dropIfExists('funnel_questions');
         Schema::dropIfExists('funnel_steps');
