@@ -176,6 +176,11 @@ return [
         // schneller abgeschickt, gilt die Einreichung als Bot (Zeit-Honeypot).
         'min_seconds_before_submit' => (int) env('FUNNEL_PUBLIC_MIN_SECONDS_BEFORE_SUBMIT', 30),
 
+        // Minuten ohne Aktivitaet, nach denen eine angefangene Strecke als
+        // abgebrochen gilt. Der Teilfortschritt bleibt erhalten -- kehrt der
+        // Endkunde zurueck, laeuft dieselbe Sitzung weiter.
+        'abandon_after_minutes' => (int) env('FUNNEL_PUBLIC_ABANDON_AFTER_MINUTES', 30),
+
     ],
 
     /*

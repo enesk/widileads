@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Funnel;
 
 use App\Constants\FunnelStatus;
+use App\Constants\SessionEventType;
 use App\Dto\FunnelSubmissionData;
 use App\Funnel\Conditions\StepResolver;
 use App\Funnel\QuestionTypes\QuestionTypeRegistry;
@@ -15,7 +16,10 @@ use App\Funnel\Snapshots\FunnelSnapshot;
 use App\Funnel\Snapshots\ResultSnapshot;
 use App\Funnel\Snapshots\StepSnapshot;
 use App\Models\Funnel;
+use App\Models\PublicSession;
+use App\Services\PublicSessionService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cookie;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -31,8 +35,10 @@ use Symfony\Component\HttpFoundation\Response;
  * FB-012), dann der Ergebnis-Screen (Punktzahl aus FB-013), dann der
  * Kontaktschritt, dann die Uebergabe an den SubmissionReceiver.
  *
- * Die Antworten liegen bewusst nur in der Komponente. Ihre Persistenz in
- * public_sessions ist FB-021.
+ * Der Fortschritt liegt seit FB-021 in public_sessions: Ein Reload, ein
+ * Netzabbruch oder ein Geraetewechsel darf den Endkunden nicht von vorn
+ * anfangen lassen -- jede abgebrochene Strecke ist eine verlorene Anfrage. Der
+ * Sitzungstoken steht in einem Cookie je Funnel.
  */
 class FunnelRunner extends Component
 {
@@ -48,13 +54,8 @@ class FunnelRunner extends Component
      */
     public array $answers = [];
 
-    /**
-     * Bereits durchlaufene Schritte -- der tatsaechliche Weg, nicht die
-     * gepflegte Reihenfolge.
-     *
-     * @var list<int>
-     */
-    public array $visitedStepPositions = [];
+    /** Token der laufenden Sitzung (public_sessions.token). */
+    public string $sessionToken = '';
 
     /** questions | result | contact | done */
     public string $phase = 'questions';
@@ -63,24 +64,34 @@ class FunnelRunner extends Component
 
     public ?string $resultKey = null;
 
-    public ?string $startedAt = null;
-
     private ?FunnelSnapshot $snapshot = null;
+
+    private ?PublicSession $session = null;
 
     private ?Funnel $funnel = null;
 
     public function mount(string $token): void
     {
         $funnel = $this->findPublishedFunnel($token);
-
         $this->token = $token;
-        $this->startedAt = now()->toIso8601String();
-        $this->currentStepPosition = $this->snapshot()->stepPositions()[0] ?? 0;
-        $this->visitedStepPositions = [$this->currentStepPosition];
 
         if ($funnel->currentVersion === null || $this->snapshot()->steps === []) {
             abort(Response::HTTP_NOT_FOUND);
         }
+
+        $sessions = app(PublicSessionService::class);
+        $session = $sessions->startOrResume($funnel->currentVersion, $this->sessionTokenFromCookie());
+
+        $this->session = $session;
+        $this->sessionToken = $session->token;
+        Cookie::queue($this->cookieName(), $session->token, $this->cookieLifetimeInMinutes());
+
+        // Teilfortschritt aufnehmen -- der Endkunde macht dort weiter, wo er war.
+        $this->answers = $session->answers ?? [];
+        $this->currentStepPosition = $session->current_step ?? ($this->snapshot()->stepPositions()[0] ?? 0);
+
+        $sessions->record($session, SessionEventType::STEP_VIEW, $this->currentStepPosition);
+        $sessions->saveProgress($session, $this->answers, $this->currentStepPosition);
     }
 
     public function render(): View
@@ -122,6 +133,10 @@ class FunnelRunner extends Component
         if ($this->shouldShowResultBefore($next)) {
             $this->prepareResult();
             $this->phase = 'result';
+
+            $sessions = app(PublicSessionService::class);
+            $sessions->record($this->session(), SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
+            $sessions->saveProgress($this->session(), $this->answers, $this->currentStepPosition);
 
             return;
         }
@@ -191,23 +206,33 @@ class FunnelRunner extends Component
         $this->prepareResult();
         $this->phase = 'done';
 
+        $sessions = app(PublicSessionService::class);
+        $session = $this->session();
+
+        $sessions->record($session, SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
+        $sessions->saveProgress($session, $this->answers, $this->currentStepPosition);
+        $sessions->complete($session);
+
         app(SubmissionReceiver::class)->receive(new FunnelSubmissionData(
             publicToken: $this->token,
             funnelVersionId: (int) $this->funnel()->current_version_id,
+            publicSessionId: (int) $session->getKey(),
             answers: $this->answers,
             score: $this->score,
             resultKey: $this->resultKey,
-            visitedStepPositions: array_values(array_unique($this->visitedStepPositions)),
-            startedAt: $this->startedAt,
-            submittedAt: now()->toIso8601String(),
         ));
     }
 
     private function goTo(int $stepPosition): void
     {
+        $sessions = app(PublicSessionService::class);
+        $sessions->record($this->session(), SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
+
         $this->currentStepPosition = $stepPosition;
-        $this->visitedStepPositions[] = $stepPosition;
         $this->phase = $stepPosition === $this->contactStepPosition() ? 'contact' : 'questions';
+
+        $sessions->record($this->session(), SessionEventType::STEP_VIEW, $stepPosition);
+        $sessions->saveProgress($this->session(), $this->answers, $stepPosition);
     }
 
     /**
@@ -323,6 +348,32 @@ class FunnelRunner extends Component
         $index = array_search($this->currentStepPosition, $positions, true);
 
         return (int) round((((int) $index + 1) / count($positions)) * 100);
+    }
+
+    private function session(): PublicSession
+    {
+        return $this->session ??= PublicSession::query()->where('token', $this->sessionToken)->firstOrFail();
+    }
+
+    /**
+     * Cookiename je Funnel: Wer mehrere Strecken parallel ausfuellt, soll sich
+     * nicht selbst ueberschreiben.
+     */
+    private function cookieName(): string
+    {
+        return 'funnel_session_'.$this->token;
+    }
+
+    private function cookieLifetimeInMinutes(): int
+    {
+        return (int) config('funnel.public.abandon_after_minutes') * 24;
+    }
+
+    private function sessionTokenFromCookie(): ?string
+    {
+        $token = request()->cookie($this->cookieName());
+
+        return is_string($token) && $token !== '' ? $token : null;
     }
 
     private function funnel(): Funnel
