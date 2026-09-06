@@ -18,11 +18,13 @@ class FunnelSnapshot
      * @param  array<string, mixed>  $funnel
      * @param  list<StepSnapshot>  $steps  nach Position sortiert
      * @param  list<ConditionSnapshot>  $conditions  nach Prioritaet sortiert, hoechste zuerst
+     * @param  list<ResultSnapshot>  $results  nach Mindestpunktzahl sortiert
      */
     public function __construct(
         public readonly array $funnel,
         public readonly array $steps,
         public readonly array $conditions,
+        public readonly array $results = [],
     ) {}
 
     /**
@@ -46,10 +48,18 @@ class FunnelSnapshot
         // Snapshots erhalten, damit dieselben Antworten immer denselben Weg nehmen.
         usort($conditions, static fn (ConditionSnapshot $a, ConditionSnapshot $b): int => $b->priority <=> $a->priority);
 
+        $results = array_map(
+            static fn (array $result): ResultSnapshot => ResultSnapshot::fromArray($result),
+            array_values((array) ($snapshot['results'] ?? [])),
+        );
+
+        usort($results, static fn (ResultSnapshot $a, ResultSnapshot $b): int => $a->minScore <=> $b->minScore);
+
         return new self(
             funnel: (array) ($snapshot['funnel'] ?? []),
             steps: $steps,
             conditions: $conditions,
+            results: $results,
         );
     }
 
@@ -99,6 +109,24 @@ class FunnelSnapshot
             $this->conditions,
             static fn (ConditionSnapshot $condition): bool => in_array($condition->sourceFieldKey, $fieldKeys, true),
         ));
+    }
+
+    /**
+     * Alle Fragen des Funnels ueber alle Schritte hinweg.
+     *
+     * @return list<QuestionSnapshot>
+     */
+    public function questions(): array
+    {
+        $questions = [];
+
+        foreach ($this->steps as $step) {
+            foreach ($step->questions as $question) {
+                $questions[] = $question;
+            }
+        }
+
+        return $questions;
     }
 
     /**
