@@ -71,7 +71,7 @@ final class LeadContact
             name: $answer(FunnelFieldKey::NAME),
             email: $lead->email_normalized ?? $answer(FunnelFieldKey::EMAIL),
             phone: $lead->phone_e164 ?? $answer(FunnelFieldKey::TELEFON),
-            postalCode: $answer(FunnelFieldKey::PLZ),
+            postalCode: $lead->postal_code ?? $answer(FunnelFieldKey::PLZ),
             masked: false,
         );
     }

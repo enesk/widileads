@@ -56,6 +56,16 @@ class TenancyPermissionConstants
     public const PERMISSION_MANAGE_API_TOKENS = 'tenancy: manage api tokens';
 
     /**
+     * Erlaubt die Volltextsuche ueber Kontaktdaten in der Lead-Liste (FB-034).
+     *
+     * Ohne diese Berechtigung sucht ein Mitglied nur ueber den Namen. Wer nicht
+     * mit Kontaktdaten arbeitet, soll auch nicht ueber sie suchen koennen --
+     * eine Suche ueber alle Telefonnummern waere ein Auszug der Datenbank in
+     * kleinen Schritten.
+     */
+    public const PERMISSION_SEARCH_LEAD_CONTACTS = 'tenancy: search lead contacts';
+
+    /**
      * Erlaubt das Anlegen und Bearbeiten von Funnels im Builder (FB-015).
      */
     public const PERMISSION_MANAGE_FUNNELS = 'tenancy: manage funnels';
