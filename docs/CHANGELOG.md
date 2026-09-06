@@ -179,6 +179,82 @@ Der Testumfang wurde vom Auftraggeber auf die E.164-Normalisierung begrenzt; die
 Ticket geforderten Tests je Fragetyp stehen als offener Punkt in
 [BACKLOG.md](BACKLOG.md).
 
+### FB-030a — OpenAPI-3.1-Spezifikation als Single Source of Truth
+
+**Was:** `docs/openapi.yaml` beschreibt die komplette Management-API v1: den heute
+umgesetzten Teil aus FB-006 (`GET /me`, `GET /ping/leads`) und die geplanten Endpunkte
+aus FB-030b bis FB-030f — Funnel-CRUD samt verschachtelter Schritte, Fragen, Optionen,
+Verzweigungsregeln und Ergebnis-Screens, `PUT /funnels/{funnel}/structure`, Publish,
+Duplicate, Archive, Versionshistorie, Leads und Webhook-Verwaltung. Fehler folgen
+RFC 9457 (Problem Details). Unter `/docs/api` zeigt eine schlanke Blade-Seite die Datei
+über einen CDN-Betrachter an, `/docs/api/openapi.yaml` liefert sie unverändert aus.
+`tests/Feature/Funnel/OpenApiContractTest.php` prüft die Datei und hält sie mit der
+Anwendung zusammen.
+
+**Warum:** Spezifikation zuerst, Code danach. Ohne verbindlichen Vertrag entscheidet
+jedes der fünf Folgetickets für sich, wie eine Antwort aussieht — und die API zerfällt
+in fünf Handschriften. Der Contract-Test macht aus dem Dokument eine Zusicherung: jede
+als umgesetzt markierte Operation muss als Route existieren, und **jede** registrierte
+Route unter `/api/v1` muss beschrieben sein. Ein undokumentierter Endpunkt lässt den
+Test fehlschlagen. Geplante Endpunkte sind ausdrücklich erlaubt (`x-status: planned`)
+und werden übersprungen, solange FB-030b ff. offen sind.
+
+Zwei Festlegungen, an die sich die Umsetzung zu halten hat:
+
+- **Maskierung als Vertrag.** Ein Lead erscheint als `LeadMasked` oder als `LeadFull` —
+  zwei getrennte Schemas, unterschieden über `contact_visibility`, nicht ein Schema mit
+  optionalen Kontaktfeldern. Beide verlangen dieselben Kontaktfelder; die maskierte
+  Fassung schreibt ihre Kürzung als Muster fest (`a…@example.com`, `+49 30 …`, `76…`).
+  Ein unmaskierter Wert an dieser Stelle ist damit vertragswidrig und nicht bloß ein
+  Versehen. Der Contract-Test prüft diese Struktur mit.
+- **Adressierung.** Ein Funnel wird über seinen `public_token` (ULID) angesprochen, nie
+  über die fortlaufende ID; Leads über eine UUID. Die Bausteine eines Funnels (Schritte,
+  Fragen, Optionen, Regeln, Ergebnisse) tragen im Schema aus FB-010 keinen eigenen
+  öffentlichen Schlüssel und werden über ihre ID adressiert — sie sind nur innerhalb
+  eines Funnels erreichbar, den das Token ohnehin besitzt.
+
+Schemas und Enums sind gegen den Ist-Stand modelliert: `FunnelStatus`
+(`draft|published|archived`), `ConditionOperator`, `FunnelFieldKey` samt
+`einwilligung`, `LeadState`. Felder, deren Tabelle noch fehlt, tragen `x-ticket` mit dem
+Ticket, das sie liefert (FB-011, FB-014, FB-031, FB-055) — so muss keines dieser Tickets
+die Spezifikation aufreißen. Das schließt `sale_mode`, `max_buyers` und `shared_price`
+aus Entscheidung 2 ein.
+
+Keine neue Composer-Abhängigkeit: die Spezifikation wird mit `symfony/yaml` gelesen (über
+Laravel ohnehin vorhanden), der Betrachter kommt per CDN. Ein Spec-Validator als
+Dev-Abhängigkeit hätte für ein einziges Dokument mehr Wartung als Nutzen gebracht.
+
+**Neue Config-Keys:** `config/funnel.php` → `api.docs_enabled` (`true`,
+`FUNNEL_API_DOCS_ENABLED`) und `api.docs_viewer_url` (Scalar über jsDelivr,
+`FUNNEL_API_DOCS_VIEWER_URL`). Ist `api.docs_enabled` aus, werden beide Routen nicht
+registriert.
+
+**Migrationen:** keine.
+
+### FB-000 — Offene Entscheidungen festschreiben
+
+**Was:** Die fünf offenen Punkte aus Teil 5 der Roadmap sind entschieden, ein sechster
+(Anrufnachweis FB-E7 im MVP?) kam dazu und ist ebenfalls entschieden. Teil 5 von
+`docs/funnel-builder/roadmap.md` führt sie jetzt mit Status, Entscheidung und
+Begründung; `docs/funnel-builder/agent-prompt.md` trägt die Kurzfassung als Abschnitt 6
+der „Abweichungen vom Ursprungsdokument".
+
+**Warum:** Solange eine Entscheidung offen ist, muss jedes abhängige Ticket eine eigene
+Annahme treffen — und zwei Tickets treffen selten dieselbe. Festgeschrieben und im
+Master-Prompt sichtbar, werden sie nicht in jedem Ticket neu aufgeworfen.
+
+Die Entscheidungen im Einzelnen: (1) Guthaben per Stripe ist der Standardweg, Rechnung
+nur als manuelle `adjustment`-Buchung im `credit_ledger`. (2) `sale_mode = exclusive`
+ist Default (`max_buyers` 1, 15,00 €); `shared` wird vollständig implementiert, mit den
+Vorgabewerten `max_buyers` 3 und `shared_price` 7,50 €. (3) Reklamationsfrist 7 Tage,
+deckungsgleich mit `call.deadline_days`. (4) Vermittlerregister-Nummer nach § 34d GewO
+optional, AV-Vertrag-Checkbox weiterhin Pflicht. (5) Kein JSON-Ticketformat, `tickets.md`
+bleibt Markdown. (6) FB-E7 (FB-080…085) wird nicht gebaut; FB-058 ist damit der einzige
+Weg von `verkauft` nach `erreicht`/`unerreichbar` und wird vollwertig gebaut.
+
+**Neue Config-Keys:** keine. Die Vorgabewerte für `shared` aus Entscheidung 2 legt
+FB-055 an.
+
 ### FB-030 — LeadState-Zustandsmaschine
 
 **Was:** Der Zustand eines Leads liegt in genau einer Spalte (`leads.lead_state`) und

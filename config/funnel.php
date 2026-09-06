@@ -104,6 +104,19 @@ return [
         // Maximale Anzahl gleichzeitig gueltiger API-Tokens je Tenant.
         'max_tokens_per_tenant' => (int) env('FUNNEL_API_MAX_TOKENS_PER_TENANT', 10),
 
+        // Oeffentliche API-Dokumentation unter /docs/api (FB-030a). Ist der
+        // Schalter aus, wird weder die Seite noch die Auslieferung der
+        // Spezifikation als Route registriert.
+        'docs_enabled' => (bool) env('FUNNEL_API_DOCS_ENABLED', true),
+
+        // Der Betrachter, der docs/openapi.yaml im Browser darstellt. Bewusst
+        // ueber ein CDN und nicht als Abhaengigkeit: die Spezifikation ist das
+        // Erzeugnis, der Betrachter nur ihre Anzeige.
+        'docs_viewer_url' => (string) env(
+            'FUNNEL_API_DOCS_VIEWER_URL',
+            'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1/dist/browser/standalone.min.js',
+        ),
+
     ],
 
     /*

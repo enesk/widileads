@@ -1,0 +1,3592 @@
+# =============================================================================
+# Funnel Builder - Management-API v1
+# =============================================================================
+#
+# Diese Datei ist die Single Source of Truth der Management-API (FB-030a).
+# Spezifikation zuerst, Code danach: Ein Endpunkt wird hier beschrieben, bevor
+# er implementiert wird. Weicht der Code von dieser Datei ab, ist der Code der
+# Fehler.
+#
+# Jede Operation traegt zwei projekteigene Erweiterungen:
+#
+#   x-status   implemented | planned
+#              "implemented" heisst: die Route existiert in routes/api.php.
+#              Der Contract-Test (tests/Feature/Funnel/OpenApiContractTest.php)
+#              prueft genau diese Operationen gegen Laravels Routenliste und
+#              ueberspringt die geplanten nachvollziehbar.
+#   x-ticket   Das Ticket, das die Operation liefert (docs/funnel-builder/tickets.md).
+#
+# Bearbeitungsregeln:
+#   - Berechtigungen kommen aus App\Constants\TenantApiAbility. Neue Werte
+#     gehoeren zuerst in das Enum, dann hierher; der Contract-Test haelt beide
+#     deckungsgleich.
+#   - Wird ein geplanter Endpunkt implementiert, wird sein x-status auf
+#     "implemented" gesetzt - sonst prueft ihn niemand.
+#   - Kontaktdaten: siehe LeadMasked / LeadFull. Es gibt kein Lead-Schema mit
+#     optionalen Kontaktfeldern, und es wird auch keines geben.
+#
+# Stand der Modellierung: Funnel, Schritte, Fragen, Optionen, Verzweigungsregeln
+# und Ergebnis-Screens sind gegen das gelieferte Schema aus FB-010 modelliert.
+# Wo eine Tabelle noch fehlt (funnel_versions aus FB-014, funnel_themes aus
+# FB-017, leads aus FB-031, funnel_webhooks aus FB-030e), legt diese Datei den
+# Vertrag fest, den die Umsetzung einzuhalten hat.
+#
+# =============================================================================
+
+openapi: 3.1.1
+
+info:
+  title: Funnel Builder Management-API
+  version: 1.0.0
+  summary: Verwaltung von Lead-Funnels, Leads und Webhooks je Workspace.
+  description: |
+    Die Management-API des Funnel Builders. Ueber sie legen externe Systeme
+    Funnels an, veroeffentlichen sie, lesen die daraus entstehenden Leads und
+    abonnieren Ereignisse per Webhook.
+
+    ## Authentifizierung
+
+    Jede Anfrage traegt ein Sanctum-Token im `Authorization`-Header:
+
+    ```
+    Authorization: Bearer 12|AbCdEf...
+    ```
+
+    Ein Token gehoert einem **Workspace** (Tenant), nicht einem einzelnen
+    Benutzer. Es erreicht ausschliesslich die Daten seines eigenen Workspaces;
+    diese Isolation ist eine Eigenschaft des Modells, keine Regel, die einzelne
+    Endpunkte einhalten muessten. Tokens werden im Dashboard unter
+    "API-Zugaenge" erstellt und widerrufen (FB-006).
+
+    ## Berechtigungen
+
+    Ein Token traegt genau die Berechtigungen, die beim Anlegen ausgewaehlt
+    wurden. Jede Operation nennt unter `x-required-abilities`, welche sie
+    voraussetzt; fehlt sie, antwortet die API mit `403`. Die vollstaendige
+    Liste steht unter der Erweiterung `x-abilities` am Ende dieses Dokuments
+    und entspricht `App\Constants\TenantApiAbility`.
+
+    ## Kontaktdaten von Leads
+
+    Vor dem Kauf eines Leads sind seine Kontaktdaten maskiert, nach dem Kauf im
+    Klartext. Die Maskierung geschieht serverseitig, bevor die Daten die
+    Response erreichen. Beides sind getrennte Schemas: `LeadMasked` und
+    `LeadFull`, unterschieden ueber das Feld `contact_visibility`. Ein Client
+    darf sich darauf verlassen, dass ein `LeadMasked` niemals einen
+    unmaskierten Wert enthaelt.
+
+    ## Fehler
+
+    Alle Fehlerantworten folgen RFC 9457 (Problem Details) mit dem Medientyp
+    `application/problem+json`.
+
+    ## Adressierung
+
+    Ein Funnel wird ueber seinen `public_token` adressiert - einen nicht
+    erratbaren ULID, der zugleich sein Route-Key ist. Fortlaufende IDs eines
+    Funnels verlassen die API nicht.
+
+    Die untergeordneten Bausteine eines Funnels (Schritte, Fragen,
+    Antwortoptionen, Verzweigungsregeln, Ergebnis-Screens) tragen im Schema aus
+    FB-010 keinen eigenen oeffentlichen Schluessel und werden deshalb ueber ihre
+    Datenbank-ID adressiert. Das ist unbedenklich, weil sie nur innerhalb eines
+    Funnels erreichbar sind, den das Token ohnehin besitzt: Der Pfad wird immer
+    zuerst gegen den Funnel des Tokens aufgeloest, eine fremde ID ergibt `404`.
+
+    Leads werden ueber eine UUID adressiert. Ihre fortlaufende ID verlaesst die
+    API nicht - anders als die Bausteine eines Funnels sind Leads zwischen
+    Workspaces handelbar, ihre Kennungen also nicht auf einen Besitzer begrenzt.
+  contact:
+    name: Funnel Builder
+    url: https://github.com/enesk/widileads
+  license:
+    name: proprietaer
+    identifier: LicenseRef-Proprietary
+
+externalDocs:
+  description: Ticketset, Datenmodell, Snapshot-Format und Architekturleitsaetze
+  url: https://github.com/enesk/widileads/tree/main/docs/funnel-builder
+
+servers:
+  - url: /api/v1
+    description: Diese Installation
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Konto
+    description: Auskunft ueber das verwendete Token und seinen Workspace.
+  - name: Funnels
+    description: Anlegen, Lesen, Aendern und Loeschen von Funnels.
+  - name: Funnel-Struktur
+    description: |
+      Schritte, Fragen, Antwortoptionen, Verzweigungslogik und Ergebnis-Screens.
+      Die komplette Struktur laesst sich alternativ in einem einzigen Aufruf
+      schreiben (`PUT /funnels/{funnel}/structure`).
+  - name: Veroeffentlichung
+    description: Publizieren, Duplizieren, Archivieren und die Versionshistorie.
+  - name: Leads
+    description: Die aus Funnels entstandenen Anfragen.
+  - name: Webhooks
+    description: Verwaltung der Ereignis-Abonnements je Funnel.
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # Konto (FB-006, implementiert)
+  # ---------------------------------------------------------------------------
+
+  /me:
+    get:
+      operationId: showCurrentTenant
+      tags: [Konto]
+      summary: Workspace des verwendeten Tokens
+      description: |
+        Gibt den Workspace zurueck, zu dem das verwendete Token gehoert, samt
+        seiner Berechtigungen. Dient Integrationen dazu, ein Token zu pruefen,
+        ohne dafuer einen fachlichen Endpunkt anzusprechen.
+      x-status: implemented
+      x-ticket: FB-006
+      x-required-abilities: []
+      responses:
+        '200':
+          description: Der Workspace des Tokens.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Tenant'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ping/leads:
+    get:
+      operationId: pingLeads
+      tags: [Konto]
+      summary: Sonde fuer die Berechtigungspruefung
+      description: |
+        Antwortet nur, wenn das Token die Berechtigung `leads:read` traegt.
+        Ersetzt keinen fachlichen Endpunkt - die kommen ab FB-030b und tragen
+        dieselbe Pruefung.
+      x-status: implemented
+      x-ticket: FB-006
+      x-required-abilities: ['leads:read']
+      responses:
+        '200':
+          description: Das Token traegt die Berechtigung.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ---------------------------------------------------------------------------
+  # Funnels (FB-030b, geplant)
+  # ---------------------------------------------------------------------------
+
+  /funnels:
+    get:
+      operationId: listFunnels
+      tags: [Funnels]
+      summary: Funnels auflisten
+      description: Alle Funnels des Workspaces, seitenweise und filterbar.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          description: Auf einen Lebenszyklus-Zustand einschraenken.
+          required: false
+          schema:
+            $ref: '#/components/schemas/FunnelStatus'
+        - name: search
+          in: query
+          description: Volltextsuche ueber Name und Slug.
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+        - name: sort
+          in: query
+          description: Sortierfeld. Ein vorangestelltes `-` kehrt die Richtung um.
+          required: false
+          schema:
+            type: string
+            enum: [name, created_at, updated_at, -name, -created_at, -updated_at]
+            default: -created_at
+      responses:
+        '200':
+          description: Seite mit Funnels.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedCollection'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Funnel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      operationId: createFunnel
+      tags: [Funnels]
+      summary: Funnel anlegen
+      description: |
+        Legt einen leeren Funnel im Zustand `draft` an. Sein `public_token` wird
+        serverseitig erzeugt; ohne `slug` wird er aus dem Namen abgeleitet. Die
+        Struktur wird anschliessend entweder ueber die feingranularen Endpunkte
+        oder in einem Zug ueber `PUT /funnels/{funnel}/structure` geschrieben.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/FunnelCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /funnels/{funnel}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: showFunnel
+      tags: [Funnels]
+      summary: Funnel lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/FunnelOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnel
+      tags: [Funnels]
+      summary: Funnel aendern
+      description: |
+        Aendert die Stammdaten des Funnels. Die Struktur bleibt unberuehrt;
+        dafuer sind die Struktur-Endpunkte zustaendig. Der Zustand laesst sich
+        hier nicht setzen - dafuer gibt es `publish` und `archive`.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/FunnelOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnel
+      tags: [Funnels]
+      summary: Funnel loeschen
+      description: |
+        Loescht einen Funnel samt seiner Struktur. Ein Funnel, zu dem bereits
+        Leads existieren, wird nicht geloescht, sondern mit `409` abgewiesen -
+        sonst verloeren die Leads ihren Ursprung. Er ist zu archivieren.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ---------------------------------------------------------------------------
+  # Komplette Struktur in einem Aufruf (FB-030b, geplant)
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}/structure:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: showFunnelStructure
+      tags: [Funnel-Struktur]
+      summary: Komplette Struktur lesen
+      description: |
+        Liefert Schritte, Fragen, Optionen, Verzweigungsregeln und
+        Ergebnis-Screens des Funnels in genau dem Format, das `PUT` wieder
+        entgegennimmt. Es ist zugleich das Format der Snapshots in
+        `funnel_versions` (FB-014) und der Seed-Vorlagen (FB-019).
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/StructureOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: replaceFunnelStructure
+      tags: [Funnel-Struktur]
+      summary: Komplette Struktur schreiben
+      description: |
+        Nimmt die vollstaendige Struktur entgegen und schreibt sie transaktional
+        in die Live-Tabellen: Vorhandenes wird abgeglichen, Fehlendes geloescht,
+        Neues angelegt. Damit legt ein externes System einen kompletten Funnel in
+        einem einzigen Aufruf an.
+
+        Entweder gelingt der gesamte Aufruf oder gar nichts - eine halb
+        geschriebene Struktur gibt es nicht. Schlaegt die Validierung fehl,
+        bleibt der Funnel unveraendert.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelStructure'
+      responses:
+        '200':
+          $ref: '#/components/responses/StructureOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ---------------------------------------------------------------------------
+  # Veroeffentlichung und Versionen (FB-030c, geplant)
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}/publish:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    post:
+      operationId: publishFunnel
+      tags: [Veroeffentlichung]
+      summary: Funnel veroeffentlichen
+      description: |
+        Validiert den Entwurf (mindestens ein Schritt, Kontaktfelder vorhanden,
+        lueckenlose und ueberschneidungsfreie Punktebereiche), friert die
+        Struktur als neuen Snapshot in `funnel_versions` ein und setzt den
+        Zustand auf `published`. Laufende Sitzungen bleiben auf ihrer bisherigen
+        Version. Loest das Ereignis `funnel.published` aus.
+
+        Scheitert die Validierung, antwortet die API mit `422` und nennt die
+        beanstandeten Stellen in `errors`.
+      x-status: planned
+      x-ticket: FB-030c
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+                  description: Freitext zur Aenderung, erscheint in der Versionshistorie.
+      responses:
+        '201':
+          description: Die veroeffentlichte Version.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FunnelVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/duplicate:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    post:
+      operationId: duplicateFunnel
+      tags: [Veroeffentlichung]
+      summary: Funnel duplizieren
+      description: |
+        Legt eine tiefe Kopie des Funnels samt Struktur im Zustand `draft` an.
+        Die Kopie erhaelt einen eigenen `public_token`; Leads und
+        Versionshistorie werden nicht mitkopiert.
+      x-status: planned
+      x-ticket: FB-030c
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                  description: Name der Kopie. Ohne Angabe wird der Name um einen Zusatz ergaenzt.
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+                  maxLength: 255
+      responses:
+        '201':
+          $ref: '#/components/responses/FunnelCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/archive:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    post:
+      operationId: archiveFunnel
+      tags: [Veroeffentlichung]
+      summary: Funnel archivieren
+      description: |
+        Setzt den Zustand auf `archived` und nimmt den Funnel damit aus der
+        oeffentlichen Auslieferung. Bestehende Leads bleiben erhalten und
+        weiterhin lesbar.
+      x-status: planned
+      x-ticket: FB-030c
+      x-required-abilities: ['funnels:write']
+      responses:
+        '200':
+          $ref: '#/components/responses/FunnelOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /funnels/{funnel}/versions:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: listFunnelVersions
+      tags: [Veroeffentlichung]
+      summary: Versionshistorie auflisten
+      description: Alle veroeffentlichten Snapshots, neueste zuerst - ohne Snapshot-Inhalt.
+      x-status: planned
+      x-ticket: FB-030c
+      x-required-abilities: ['funnels:read']
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Seite mit Versionen.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedCollection'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FunnelVersion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /funnels/{funnel}/versions/{version}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/VersionNumber'
+    get:
+      operationId: showFunnelVersion
+      tags: [Veroeffentlichung]
+      summary: Version samt Snapshot lesen
+      description: |
+        Liefert eine einzelne Version einschliesslich ihres Snapshots. Der
+        Snapshot hat dasselbe Format wie `GET /funnels/{funnel}/structure` und
+        laesst sich unveraendert in einen anderen Funnel einspielen.
+      x-status: planned
+      x-ticket: FB-030c
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          description: Die Version samt Snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FunnelVersionWithSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------------------------------------------------------------------------
+  # Feingranulare Struktur-Endpunkte (FB-030b, geplant)
+  #
+  # Sie erledigen dasselbe wie PUT /structure, nur ressourcenweise - fuer
+  # Clients, die eine einzelne Frage aendern, statt den ganzen Funnel zu senden.
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}/steps:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: listFunnelSteps
+      tags: [Funnel-Struktur]
+      summary: Schritte auflisten
+      description: Alle Schritte des Funnels, aufsteigend nach `position`.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/StepList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelStep
+      tags: [Funnel-Struktur]
+      summary: Schritt anlegen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelStepWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/StepCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/steps/{step}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/StepId'
+    get:
+      operationId: showFunnelStep
+      tags: [Funnel-Struktur]
+      summary: Schritt lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/StepOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelStep
+      tags: [Funnel-Struktur]
+      summary: Schritt aendern
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelStepWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/StepOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelStep
+      tags: [Funnel-Struktur]
+      summary: Schritt loeschen
+      description: |
+        Loescht den Schritt samt seiner Fragen und deren Antwortoptionen. Ist er
+        Sprungziel einer Verzweigungsregel, wird die Loeschung mit `409`
+        abgewiesen - erst die Regel entfernen.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /funnels/{funnel}/steps/{step}/questions:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/StepId'
+    get:
+      operationId: listFunnelQuestions
+      tags: [Funnel-Struktur]
+      summary: Fragen eines Schritts auflisten
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/QuestionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelQuestion
+      tags: [Funnel-Struktur]
+      summary: Frage anlegen
+      description: |
+        Der Feldschluessel wird beim Speichern vereinheitlicht und auf die
+        reservierten Kontaktschluessel abgebildet ("E-Mail" wird zu `email`).
+        Er ist je Funnel eindeutig - ein zweites Mal vergeben ergibt `422`.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelQuestionWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/QuestionCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/steps/{step}/questions/{question}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/StepId'
+      - $ref: '#/components/parameters/QuestionId'
+    get:
+      operationId: showFunnelQuestion
+      tags: [Funnel-Struktur]
+      summary: Frage lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/QuestionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelQuestion
+      tags: [Funnel-Struktur]
+      summary: Frage aendern
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelQuestionWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/QuestionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelQuestion
+      tags: [Funnel-Struktur]
+      summary: Frage loeschen
+      description: |
+        Loescht die Frage samt ihrer Antwortoptionen. Wird sie von einer
+        Verzweigungsregel geprueft, wird die Loeschung mit `409` abgewiesen.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /funnels/{funnel}/steps/{step}/questions/{question}/options:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/StepId'
+      - $ref: '#/components/parameters/QuestionId'
+    get:
+      operationId: listFunnelOptions
+      tags: [Funnel-Struktur]
+      summary: Antwortoptionen auflisten
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/OptionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelOption
+      tags: [Funnel-Struktur]
+      summary: Antwortoption anlegen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelOptionWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/OptionCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/steps/{step}/questions/{question}/options/{option}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/StepId'
+      - $ref: '#/components/parameters/QuestionId'
+      - $ref: '#/components/parameters/OptionId'
+    get:
+      operationId: showFunnelOption
+      tags: [Funnel-Struktur]
+      summary: Antwortoption lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/OptionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelOption
+      tags: [Funnel-Struktur]
+      summary: Antwortoption aendern
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelOptionWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/OptionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelOption
+      tags: [Funnel-Struktur]
+      summary: Antwortoption loeschen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /funnels/{funnel}/conditions:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: listFunnelConditions
+      tags: [Funnel-Struktur]
+      summary: Verzweigungsregeln auflisten
+      description: |
+        Die Regeln, nach denen der Funnel zu einem anderen Schritt springt.
+        Treffen mehrere zu, gewinnt die hoechste `priority`; trifft keine zu,
+        geht es zum naechsten Schritt in der Reihenfolge.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/ConditionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelCondition
+      tags: [Funnel-Struktur]
+      summary: Verzweigungsregel anlegen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelConditionWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ConditionCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/conditions/{condition}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/ConditionId'
+    get:
+      operationId: showFunnelCondition
+      tags: [Funnel-Struktur]
+      summary: Verzweigungsregel lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/ConditionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelCondition
+      tags: [Funnel-Struktur]
+      summary: Verzweigungsregel aendern
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelConditionWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ConditionOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelCondition
+      tags: [Funnel-Struktur]
+      summary: Verzweigungsregel loeschen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /funnels/{funnel}/results:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: listFunnelResults
+      tags: [Funnel-Struktur]
+      summary: Ergebnis-Screens auflisten
+      description: |
+        Die moeglichen Ergebnisse des Funnels samt ihrer Punktebereiche. Welches
+        Ergebnis erscheint, entscheidet die erreichte Punktzahl. Beim
+        Veroeffentlichen wird geprueft, dass die Bereiche lueckenlos und
+        ueberschneidungsfrei sind.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/ResultList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelResult
+      tags: [Funnel-Struktur]
+      summary: Ergebnis-Screen anlegen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelResultWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/ResultCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/results/{result}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/ResultId'
+    get:
+      operationId: showFunnelResult
+      tags: [Funnel-Struktur]
+      summary: Ergebnis-Screen lesen
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:read']
+      responses:
+        '200':
+          $ref: '#/components/responses/ResultOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelResult
+      tags: [Funnel-Struktur]
+      summary: Ergebnis-Screen aendern
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelResultWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ResultOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelResult
+      tags: [Funnel-Struktur]
+      summary: Ergebnis-Screen loeschen
+      description: |
+        Ein Ergebnis, auf das bereits Leads verweisen, wird nicht geloescht,
+        sondern mit `409` abgewiesen - sonst verloere der Lead seine Bewertung.
+      x-status: planned
+      x-ticket: FB-030b
+      x-required-abilities: ['funnels:write']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ---------------------------------------------------------------------------
+  # Leads (FB-030d, geplant)
+  # ---------------------------------------------------------------------------
+
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [Leads]
+      summary: Leads auflisten
+      description: |
+        Die Leads des Workspaces, seitenweise und filterbar.
+
+        **Maskierung:** Jeder Eintrag ist entweder ein `LeadMasked` oder ein
+        `LeadFull`, erkennbar am Feld `contact_visibility`. Welche Auspraegung
+        ausgeliefert wird, entscheidet der Server je Lead anhand von Rolle und
+        Kaufstatus - nicht der Client, und nicht ueber einen Parameter. Eine
+        Liste kann beide Auspraegungen mischen: gekaufte Leads im Klartext, die
+        uebrigen maskiert.
+      x-status: planned
+      x-ticket: FB-030d
+      x-required-abilities: ['leads:read']
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: funnel
+          in: query
+          description: Auf einen Funnel einschraenken (dessen `public_token`).
+          required: false
+          schema:
+            $ref: '#/components/schemas/PublicToken'
+        - name: state
+          in: query
+          description: |
+            Auf einen oder mehrere Zustaende einschraenken. Mehrfach angebbar
+            (`?state[]=verfuegbar&state[]=verkauft`).
+          required: false
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/LeadState'
+        - name: created_from
+          in: query
+          description: Nur Leads ab diesem Zeitpunkt (einschliesslich).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: created_until
+          in: query
+          description: Nur Leads bis zu diesem Zeitpunkt (einschliesslich).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: postal_code_prefix
+          in: query
+          description: |
+            Regionsfilter ueber die ersten Stellen der Postleitzahl. Er wirkt
+            auch dann, wenn die Postleitzahl im Ergebnis maskiert ist - gefiltert
+            wird serverseitig auf dem Klartext.
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9]{1,5}$'
+        - name: score_min
+          in: query
+          description: Mindestpunktzahl der Qualifizierung.
+          required: false
+          schema:
+            type: integer
+        - name: score_max
+          in: query
+          description: Hoechstpunktzahl der Qualifizierung.
+          required: false
+          schema:
+            type: integer
+        - name: stale
+          in: query
+          description: |
+            Nur Liegenbleiber: Leads, die laenger als
+            `config('funnel.lead.stale_after_days')` im Zustand `verfuegbar`
+            stehen.
+          required: false
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          description: Sortierfeld. Ein vorangestelltes `-` kehrt die Richtung um.
+          required: false
+          schema:
+            type: string
+            enum: [created_at, score, -created_at, -score]
+            default: -created_at
+      responses:
+        '200':
+          description: Seite mit Leads.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedCollection'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Lead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /leads/{lead}:
+    parameters:
+      - $ref: '#/components/parameters/LeadId'
+    get:
+      operationId: showLead
+      tags: [Leads]
+      summary: Lead lesen
+      description: |
+        Ein einzelner Lead. Fuer die Maskierung gilt dasselbe wie bei
+        `GET /leads`: Der Server entscheidet, ob `LeadMasked` oder `LeadFull`
+        ausgeliefert wird.
+      x-status: planned
+      x-ticket: FB-030d
+      x-required-abilities: ['leads:read']
+      responses:
+        '200':
+          description: Der Lead.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Lead'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------------------------------------------------------------------------
+  # Webhooks (FB-030e, geplant)
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}/webhooks:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+    get:
+      operationId: listFunnelWebhooks
+      tags: [Webhooks]
+      summary: Webhooks eines Funnels auflisten
+      description: |
+        Das Secret wird nie zurueckgegeben - es ist nur beim Anlegen einmal
+        sichtbar. Wer es verloren hat, laesst es ueber `PATCH` neu erzeugen.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      responses:
+        '200':
+          $ref: '#/components/responses/WebhookList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createFunnelWebhook
+      tags: [Webhooks]
+      summary: Webhook anlegen
+      description: |
+        Legt ein Ereignis-Abonnement an. Die Antwort enthaelt das Secret im
+        Klartext - **nur dieses eine Mal**. Mit ihm wird die HMAC-SHA256-Signatur
+        im Header `X-Funnel-Signature` geprueft.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelWebhookWriteRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/WebhookCreated'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /funnels/{funnel}/webhooks/{webhook}:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/WebhookId'
+    get:
+      operationId: showFunnelWebhook
+      tags: [Webhooks]
+      summary: Webhook lesen
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      responses:
+        '200':
+          $ref: '#/components/responses/WebhookOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updateFunnelWebhook
+      tags: [Webhooks]
+      summary: Webhook aendern
+      description: |
+        Aendert Ziel-URL, Ereignisliste oder Aktivierung. Mit
+        `rotate_secret: true` wird ein neues Secret erzeugt und - wie beim
+        Anlegen - einmalig zurueckgegeben; das alte wird sofort ungueltig.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunnelWebhookWriteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/WebhookOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      operationId: deleteFunnelWebhook
+      tags: [Webhooks]
+      summary: Webhook loeschen
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /funnels/{funnel}/webhooks/{webhook}/deliveries:
+    parameters:
+      - $ref: '#/components/parameters/FunnelToken'
+      - $ref: '#/components/parameters/WebhookId'
+    get:
+      operationId: listWebhookDeliveries
+      tags: [Webhooks]
+      summary: Zustellprotokoll lesen
+      description: |
+        Das Protokoll aus `webhook_deliveries`: je Zustellung das Ereignis, der
+        Antwortcode, der Versuchszaehler und die Zeitpunkte. Es dient der
+        Fehlersuche, wenn ein Empfaenger Ereignisse vermisst.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          description: Auf einen Zustellzustand einschraenken.
+          required: false
+          schema:
+            $ref: '#/components/schemas/WebhookDeliveryStatus'
+      responses:
+        '200':
+          description: Seite mit Zustellungen.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedCollection'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WebhookDelivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# =============================================================================
+# Ausgehende Ereignisse (FB-030e, geplant)
+#
+# Diese Aufrufe gehen von der Plattform an die beim Webhook hinterlegte URL.
+# Der Empfaenger prueft die Signatur und antwortet mit 2xx; jede andere Antwort
+# oder ein Timeout loest einen erneuten Versuch mit exponentiellem Backoff aus
+# (fuenf Versuche insgesamt).
+#
+# Kontaktdaten im Klartext gehen ausschliesslich an Webhooks des Eigentuemer-
+# Workspaces und an den Kaeufer nach dem Kauf. Alle uebrigen Empfaenger sehen
+# LeadMasked - die Regel gilt hier genauso wie in den Endpunkten.
+# =============================================================================
+
+webhooks:
+
+  lead.created:
+    post:
+      operationId: onLeadCreated
+      tags: [Webhooks]
+      summary: Ein Lead ist entstanden
+      description: |
+        Wird ausgeloest, sobald aus einer abgeschlossenen Sitzung ein Lead
+        entstanden ist (Zustand `neu`). Die Pruefung auf Dubletten und
+        Plausibilitaet laeuft zu diesem Zeitpunkt noch.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/SignatureHeader'
+        - $ref: '#/components/parameters/SignatureTimestampHeader'
+        - $ref: '#/components/parameters/EventNameHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WebhookEnvelope'
+                - type: object
+                  required: [data]
+                  properties:
+                    event:
+                      const: lead.created
+                    data:
+                      type: object
+                      required: [lead]
+                      properties:
+                        lead:
+                          $ref: '#/components/schemas/Lead'
+      responses:
+        '200':
+          description: Der Empfaenger hat das Ereignis angenommen.
+
+  lead.state_changed:
+    post:
+      operationId: onLeadStateChanged
+      tags: [Webhooks]
+      summary: Ein Lead hat seinen Zustand gewechselt
+      description: |
+        Wird bei jedem Uebergang ausgeloest, den `LeadStateService::transition()`
+        durchfuehrt - einschliesslich der Endzustaende.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/SignatureHeader'
+        - $ref: '#/components/parameters/SignatureTimestampHeader'
+        - $ref: '#/components/parameters/EventNameHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WebhookEnvelope'
+                - type: object
+                  required: [data]
+                  properties:
+                    event:
+                      const: lead.state_changed
+                    data:
+                      type: object
+                      required: [lead, from, to, reason]
+                      properties:
+                        lead:
+                          $ref: '#/components/schemas/Lead'
+                        from:
+                          $ref: '#/components/schemas/LeadState'
+                        to:
+                          $ref: '#/components/schemas/LeadState'
+                        reason:
+                          type: string
+                          description: Grund des Uebergangs aus `LeadTransitionReason` (FB-030).
+      responses:
+        '200':
+          description: Der Empfaenger hat das Ereignis angenommen.
+
+  lead.purchased:
+    post:
+      operationId: onLeadPurchased
+      tags: [Webhooks]
+      summary: Ein Lead wurde gekauft
+      description: |
+        Wird ausgeloest, sobald ein Kaeufer den Lead gekauft hat. Der Kaeufer
+        erhaelt in diesem Ereignis erstmals die Kontaktdaten im Klartext
+        (`LeadFull`); alle anderen Empfaenger weiterhin `LeadMasked`.
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/SignatureHeader'
+        - $ref: '#/components/parameters/SignatureTimestampHeader'
+        - $ref: '#/components/parameters/EventNameHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WebhookEnvelope'
+                - type: object
+                  required: [data]
+                  properties:
+                    event:
+                      const: lead.purchased
+                    data:
+                      type: object
+                      required: [lead, purchased_at, settled_price]
+                      properties:
+                        lead:
+                          $ref: '#/components/schemas/Lead'
+                        purchased_at:
+                          type: string
+                          format: date-time
+                        settled_price:
+                          $ref: '#/components/schemas/Money'
+      responses:
+        '200':
+          description: Der Empfaenger hat das Ereignis angenommen.
+
+  funnel.published:
+    post:
+      operationId: onFunnelPublished
+      tags: [Webhooks]
+      summary: Ein Funnel wurde veroeffentlicht
+      x-status: planned
+      x-ticket: FB-030e
+      x-required-abilities: ['webhooks:manage']
+      parameters:
+        - $ref: '#/components/parameters/SignatureHeader'
+        - $ref: '#/components/parameters/SignatureTimestampHeader'
+        - $ref: '#/components/parameters/EventNameHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/WebhookEnvelope'
+                - type: object
+                  required: [data]
+                  properties:
+                    event:
+                      const: funnel.published
+                    data:
+                      type: object
+                      required: [funnel, version]
+                      properties:
+                        funnel:
+                          $ref: '#/components/schemas/Funnel'
+                        version:
+                          $ref: '#/components/schemas/FunnelVersion'
+      responses:
+        '200':
+          description: Der Empfaenger hat das Ereignis angenommen.
+
+# =============================================================================
+# Wiederverwendbare Bausteine
+# =============================================================================
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum Personal Access Token
+      description: |
+        Ein im Dashboard unter "API-Zugaenge" erzeugtes Workspace-Token
+        (FB-006). Es wird nur beim Anlegen im Klartext angezeigt und danach
+        ausschliesslich als Hash gespeichert.
+
+        Welche Berechtigungen ein Token traegt, verraet `GET /me`. Fehlt eine
+        von der Operation verlangte Berechtigung, antwortet die API mit `403`
+        und dem Problem-Typ `/problems/insufficient-ability`.
+
+  # ---------------------------------------------------------------------------
+  # Parameter
+  # ---------------------------------------------------------------------------
+
+  parameters:
+
+    FunnelToken:
+      name: funnel
+      in: path
+      required: true
+      description: |
+        Der `public_token` des Funnels - ein ULID. Die fortlaufende ID eines
+        Funnels wird nicht akzeptiert.
+      schema:
+        $ref: '#/components/schemas/PublicToken'
+
+    StepId:
+      name: step
+      in: path
+      required: true
+      description: ID des Schritts. Muss zum Funnel im Pfad gehoeren, sonst `404`.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    QuestionId:
+      name: question
+      in: path
+      required: true
+      description: ID der Frage. Muss zum Schritt im Pfad gehoeren, sonst `404`.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    OptionId:
+      name: option
+      in: path
+      required: true
+      description: ID der Antwortoption. Muss zur Frage im Pfad gehoeren, sonst `404`.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    ConditionId:
+      name: condition
+      in: path
+      required: true
+      description: ID der Verzweigungsregel.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    ResultId:
+      name: result
+      in: path
+      required: true
+      description: ID des Ergebnis-Screens.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    VersionNumber:
+      name: version
+      in: path
+      required: true
+      description: |
+        Die fortlaufende Versionsnummer innerhalb des Funnels, beginnend bei 1 -
+        nicht die Datenbank-ID der Version.
+      schema:
+        type: integer
+        minimum: 1
+
+    WebhookId:
+      name: webhook
+      in: path
+      required: true
+      description: ID des Webhooks.
+      schema:
+        $ref: '#/components/schemas/ResourceId'
+
+    LeadId:
+      name: lead
+      in: path
+      required: true
+      description: UUID des Leads.
+      schema:
+        type: string
+        format: uuid
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Seitennummer, beginnend bei 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PerPage:
+      name: per_page
+      in: query
+      required: false
+      description: Eintraege je Seite.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Frei gewaehlter, eindeutiger Schluessel des Clients (FB-030f). Wird
+        derselbe Schluessel innerhalb der Aufbewahrungsfrist erneut geschickt,
+        antwortet die API mit dem Ergebnis des ersten Aufrufs, ohne die Aktion
+        ein zweites Mal auszufuehren. Unterscheidet sich der Rumpf bei gleichem
+        Schluessel, antwortet die API mit `409`.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+
+    SignatureHeader:
+      name: X-Funnel-Signature
+      in: header
+      required: true
+      description: |
+        HMAC-SHA256 ueber `<Zeitstempel>.<Rumpf>`, hexadezimal, gebildet mit dem
+        Secret des Webhooks. Der Empfaenger vergleicht zeitkonstant.
+      schema:
+        type: string
+        pattern: '^[a-f0-9]{64}$'
+
+    SignatureTimestampHeader:
+      name: X-Funnel-Timestamp
+      in: header
+      required: true
+      description: |
+        Unix-Zeitstempel der Signatur. Der Empfaenger weist Zustellungen ab,
+        deren Zeitstempel zu weit in der Vergangenheit liegt (Replay-Schutz).
+      schema:
+        type: integer
+        format: int64
+
+    EventNameHeader:
+      name: X-Funnel-Event
+      in: header
+      required: true
+      description: Name des Ereignisses, identisch mit dem Feld `event` im Rumpf.
+      schema:
+        $ref: '#/components/schemas/WebhookEvent'
+
+  # ---------------------------------------------------------------------------
+  # Header
+  # ---------------------------------------------------------------------------
+
+  headers:
+
+    RateLimitLimit:
+      description: Zulaessige Anfragen im aktuellen Zeitfenster.
+      schema:
+        type: integer
+
+    RateLimitRemaining:
+      description: Im aktuellen Zeitfenster verbleibende Anfragen.
+      schema:
+        type: integer
+
+    RetryAfter:
+      description: Sekunden bis zum naechsten zulaessigen Versuch.
+      schema:
+        type: integer
+
+  # ---------------------------------------------------------------------------
+  # Antworten
+  # ---------------------------------------------------------------------------
+
+  responses:
+
+    NoContent:
+      description: Erfolgreich, kein Inhalt.
+
+    FunnelOk:
+      description: Der Funnel.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/Funnel'
+
+    FunnelCreated:
+      description: Der angelegte Funnel.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/Funnel'
+
+    StructureOk:
+      description: Die komplette Struktur des Funnels.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelStructure'
+
+    StepList:
+      description: Die Schritte des Funnels.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelStep'
+
+    StepOk:
+      description: Der Schritt.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelStep'
+
+    StepCreated:
+      description: Der angelegte Schritt.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelStep'
+
+    QuestionList:
+      description: Die Fragen des Schritts.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelQuestion'
+
+    QuestionOk:
+      description: Die Frage.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelQuestion'
+
+    QuestionCreated:
+      description: Die angelegte Frage.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelQuestion'
+
+    OptionList:
+      description: Die Antwortoptionen der Frage.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelOption'
+
+    OptionOk:
+      description: Die Antwortoption.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelOption'
+
+    OptionCreated:
+      description: Die angelegte Antwortoption.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelOption'
+
+    ConditionList:
+      description: Die Verzweigungsregeln des Funnels.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelCondition'
+
+    ConditionOk:
+      description: Die Verzweigungsregel.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelCondition'
+
+    ConditionCreated:
+      description: Die angelegte Verzweigungsregel.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelCondition'
+
+    ResultList:
+      description: Die Ergebnis-Screens des Funnels.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelResult'
+
+    ResultOk:
+      description: Der Ergebnis-Screen.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelResult'
+
+    ResultCreated:
+      description: Der angelegte Ergebnis-Screen.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelResult'
+
+    WebhookList:
+      description: Die Webhooks des Funnels.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FunnelWebhook'
+
+    WebhookOk:
+      description: |
+        Der Webhook. Das Secret erscheint ausschliesslich unmittelbar nach einem
+        `rotate_secret`, sonst ist es `null`.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelWebhookWithSecret'
+
+    WebhookCreated:
+      description: Der angelegte Webhook samt einmalig sichtbarem Secret.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                $ref: '#/components/schemas/FunnelWebhookWithSecret'
+
+    Unauthorized:
+      description: Kein, abgelaufenes oder widerrufenes Token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            fehlendesToken:
+              summary: Kein Token mitgeschickt
+              value:
+                type: /problems/unauthenticated
+                title: Nicht authentifiziert
+                status: 401
+                detail: Die Anfrage traegt kein gueltiges API-Token.
+
+    Forbidden:
+      description: |
+        Das Token ist gueltig, traegt aber nicht die verlangte Berechtigung.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            fehlendeBerechtigung:
+              summary: Berechtigung fehlt
+              value:
+                type: /problems/insufficient-ability
+                title: Berechtigung fehlt
+                status: 403
+                detail: Dieses Token traegt die Berechtigung "funnels:write" nicht.
+
+    NotFound:
+      description: |
+        Die Ressource existiert nicht - oder gehoert einem anderen Workspace.
+        Beides wird bewusst gleich beantwortet, damit sich die Existenz fremder
+        Datensaetze nicht erraten laesst.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            nichtGefunden:
+              summary: Unbekannte Ressource
+              value:
+                type: /problems/not-found
+                title: Nicht gefunden
+                status: 404
+                detail: Es existiert kein Funnel mit dieser Kennung.
+
+    Conflict:
+      description: |
+        Die Aktion widerspricht dem aktuellen Zustand der Ressource, etwa das
+        Loeschen eines Funnels mit bestehenden Leads oder ein wiederverwendeter
+        `Idempotency-Key` mit abweichendem Rumpf.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            konflikt:
+              summary: Funnel hat Leads
+              value:
+                type: /problems/funnel-has-leads
+                title: Funnel kann nicht geloescht werden
+                status: 409
+                detail: Zu diesem Funnel existieren bereits Leads. Archiviere ihn stattdessen.
+
+    ValidationFailed:
+      description: Der Rumpf oder die Parameter der Anfrage sind fehlerhaft.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+          examples:
+            validierung:
+              summary: Feldschluessel doppelt vergeben
+              value:
+                type: /problems/validation-failed
+                title: Eingabe fehlerhaft
+                status: 422
+                detail: Die uebermittelten Daten sind unvollstaendig oder ungueltig.
+                errors:
+                  name:
+                    - Das Feld Name ist erforderlich.
+                  steps.0.questions.0.field_key:
+                    - Der Feldschluessel ist in diesem Funnel bereits vergeben.
+
+    TooManyRequests:
+      description: Die Ratenbegrenzung des Tokens ist ausgeschoepft (FB-030f).
+      headers:
+        X-RateLimit-Limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        X-RateLimit-Remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            zuVieleAnfragen:
+              summary: Ratenbegrenzung erreicht
+              value:
+                type: /problems/rate-limit-exceeded
+                title: Zu viele Anfragen
+                status: 429
+                detail: Die Ratenbegrenzung dieses Tokens ist erreicht. Versuche es spaeter erneut.
+
+  # ---------------------------------------------------------------------------
+  # Schemas
+  # ---------------------------------------------------------------------------
+
+  schemas:
+
+    # --- Querschnitt --------------------------------------------------------
+
+    PublicToken:
+      type: string
+      title: Oeffentlicher Funnel-Token
+      description: |
+        ULID, 26 Zeichen, Crockford-Base32. Er adressiert einen Funnel
+        oeffentlich und in dieser API; die fortlaufende ID wird nie verwendet
+        (Architekturleitsatz 7).
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      examples: ['01JBQ7Z8V2K4M6N8P0R2T4W6X8']
+
+    ResourceId:
+      type: integer
+      format: int64
+      minimum: 1
+      title: Kennung eines Funnel-Bausteins
+      description: |
+        Datenbank-ID eines Schritts, einer Frage, einer Antwortoption, einer
+        Verzweigungsregel, eines Ergebnis-Screens oder eines Webhooks. Sie ist
+        nur innerhalb des Funnels im Pfad gueltig, den das Token besitzt.
+
+    Problem:
+      type: object
+      title: Problem Details (RFC 9457)
+      description: |
+        Einheitliches Fehlerformat aller Endpunkte. Der Medientyp ist
+        `application/problem+json`. `type` ist der stabile, maschinenlesbare
+        Fehlerschluessel - `title` und `detail` sind fuer Menschen und koennen
+        sich aendern, ohne dass das ein Bruch der API waere.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+          description: Stabiler Bezeichner der Fehlerart.
+          examples: ['/problems/validation-failed']
+        title:
+          type: string
+          description: Kurze, menschenlesbare Zusammenfassung - deutsch.
+          examples: ['Eingabe fehlerhaft']
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+          description: Der HTTP-Statuscode, identisch mit dem der Antwort.
+        detail:
+          type: string
+          description: Erlaeuterung genau dieses Vorfalls - deutsch.
+        instance:
+          type: string
+          format: uri-reference
+          description: Kennung dieses konkreten Vorfalls, etwa fuer die Fehlersuche im Log.
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: object
+              description: |
+                Feldname in Punktnotation auf die Liste seiner Fehlermeldungen.
+                Die Meldungen sind deutsch und stammen aus `lang/de/*.php`.
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+
+    Money:
+      type: object
+      title: Geldbetrag
+      description: |
+        Betraege werden als ganzzahlige kleinste Waehrungseinheit ausgegeben,
+        nie als Gleitkommazahl. `formatted` ist die bereits lokalisierte
+        Darstellung und dient ausschliesslich der Anzeige.
+      required: [amount, currency, formatted]
+      properties:
+        amount:
+          type: integer
+          description: Betrag in der kleinsten Waehrungseinheit, also Cent.
+          examples: [1500]
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          examples: [EUR]
+        formatted:
+          type: string
+          examples: ['15,00 €']
+      additionalProperties: false
+
+    DecimalAmount:
+      type: string
+      title: Geldbetrag als Eingabe
+      description: |
+        Betrag mit hoechstens zwei Nachkommastellen, als Zeichenkette, damit
+        beim Transport keine Rundungsfehler entstehen. Entspricht der Spalte
+        `decimal(8,2)`.
+      pattern: '^[0-9]{1,6}(\.[0-9]{1,2})?$'
+      examples: ['15.00']
+
+    PaginationLinks:
+      type: object
+      required: [first, last, prev, next]
+      properties:
+        first:
+          type: [string, 'null']
+          format: uri-reference
+        last:
+          type: [string, 'null']
+          format: uri-reference
+        prev:
+          type: [string, 'null']
+          format: uri-reference
+        next:
+          type: [string, 'null']
+          format: uri-reference
+
+    PaginationMeta:
+      type: object
+      required: [current_page, from, last_page, per_page, to, total]
+      properties:
+        current_page:
+          type: integer
+          minimum: 1
+        from:
+          type: [integer, 'null']
+        last_page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+        to:
+          type: [integer, 'null']
+        total:
+          type: integer
+          minimum: 0
+
+    PaginatedCollection:
+      type: object
+      description: Rahmen jeder seitenweisen Antwort, wie ihn Laravels API-Resources liefern.
+      required: [links, meta]
+      properties:
+        links:
+          $ref: '#/components/schemas/PaginationLinks'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # --- Konto --------------------------------------------------------------
+
+    Ability:
+      type: string
+      title: Berechtigung
+      description: |
+        Berechtigung eines Workspace-Tokens. Die Werte entsprechen exakt
+        `App\Constants\TenantApiAbility`; der Contract-Test haelt Enum und
+        Spezifikation deckungsgleich.
+      enum:
+        - 'funnels:read'
+        - 'funnels:write'
+        - 'leads:read'
+        - 'webhooks:manage'
+
+    Tenant:
+      type: object
+      title: Workspace
+      description: Der Workspace, zu dem das verwendete Token gehoert.
+      required: [uuid, name, type, abilities]
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+          examples: [Tierarztportal]
+        type:
+          type: string
+          enum: [operator, buyer]
+          description: |
+            `operator` baut Funnels und besitzt die daraus entstehenden Leads,
+            `buyer` kauft Leads. Entspricht `App\Constants\TenantType`.
+        abilities:
+          type: array
+          description: Die Berechtigungen des verwendeten Tokens.
+          items:
+            $ref: '#/components/schemas/Ability'
+      additionalProperties: false
+
+    # --- Funnel -------------------------------------------------------------
+
+    FunnelStatus:
+      type: string
+      title: Lebenszyklus eines Funnels
+      description: |
+        Entspricht `App\Constants\FunnelStatus`. Nur `published` wird
+        oeffentlich ausgeliefert; ein archivierter Funnel bleibt erhalten, damit
+        bereits entstandene Leads ihren Ursprung behalten.
+      enum: [draft, published, archived]
+
+    SaleMode:
+      type: string
+      title: Verkaufsart eines Leads
+      description: |
+        `exclusive` verkauft jeden Lead genau einmal, `shared` an mehrere
+        Kaeufer zu einem niedrigeren Preis. Vorgabe ist `exclusive`
+        (Entscheidung 2 vom 2026-09-06); die Vorgabewerte fuer `shared` stehen
+        in `config/funnel.php`.
+      enum: [exclusive, shared]
+      default: exclusive
+      x-ticket: FB-055
+
+    Funnel:
+      type: object
+      title: Funnel
+      description: Stammdaten eines Funnels - ohne Schritte, Fragen und Ergebnisse.
+      required:
+        [public_token, name, slug, status, lead_price, created_at, updated_at]
+      properties:
+        public_token:
+          $ref: '#/components/schemas/PublicToken'
+        name:
+          type: string
+          examples: [Pfotencheck]
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          description: Je Workspace eindeutig.
+          examples: [pfotencheck]
+        status:
+          $ref: '#/components/schemas/FunnelStatus'
+        lead_price:
+          description: |
+            Der tatsaechlich geltende Verkaufspreis eines Leads. Traegt der
+            Funnel keinen eigenen Preis, ist es der Vorgabewert aus
+            `config('funnel.lead.default_price')`.
+          allOf:
+            - $ref: '#/components/schemas/Money'
+        has_own_lead_price:
+          type: boolean
+          description: |
+            `false` bedeutet: der Funnel folgt dem Vorgabepreis und aendert sich
+            mit ihm. `true`: er hat einen eigenen, festen Preis.
+        contact_step_position:
+          type: [integer, 'null']
+          minimum: 1
+          description: |
+            Position des Schritts, der die Kontaktdaten erhebt. Ohne Angabe ist
+            es der letzte Schritt.
+        sale_mode:
+          $ref: '#/components/schemas/SaleMode'
+        max_buyers:
+          type: [integer, 'null']
+          minimum: 1
+          description: |
+            Hoechstzahl der Kaeufer eines Leads. Bei `exclusive` immer 1.
+          x-ticket: FB-055
+        shared_price:
+          description: |
+            Preis je Kaeufer bei `sale_mode: shared`. Bei `exclusive` `null`.
+          x-ticket: FB-055
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        settings:
+          type: [object, 'null']
+          description: |
+            Freie Einstellungen des Funnels. Erscheinungsbild und Texte zieht
+            FB-017 hier heraus in eigene Felder; bis dahin bleibt der Inhalt
+            bewusst unspezifiziert.
+          additionalProperties: true
+        current_version:
+          description: Die derzeit ausgelieferte Version, oder `null` im Entwurf.
+          x-ticket: FB-014
+          oneOf:
+            - $ref: '#/components/schemas/FunnelVersion'
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    FunnelWriteRequest:
+      type: object
+      title: Funnel anlegen oder aendern
+      description: |
+        Bei `POST` ist `name` erforderlich; ohne `slug` wird er aus dem Namen
+        abgeleitet. Bei `PATCH` wird nur geschrieben, was mitgeschickt wurde.
+        `status` und `public_token` lassen sich nicht setzen.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          maxLength: 255
+        lead_price:
+          description: |
+            Eigener Verkaufspreis eines Leads in EUR. `null` setzt den Funnel
+            zurueck auf den Vorgabepreis aus `config/funnel.php`.
+          oneOf:
+            - $ref: '#/components/schemas/DecimalAmount'
+            - type: 'null'
+        contact_step_position:
+          type: [integer, 'null']
+          minimum: 1
+        sale_mode:
+          $ref: '#/components/schemas/SaleMode'
+        max_buyers:
+          type: [integer, 'null']
+          minimum: 1
+          x-ticket: FB-055
+        shared_price:
+          x-ticket: FB-055
+          oneOf:
+            - $ref: '#/components/schemas/DecimalAmount'
+            - type: 'null'
+        settings:
+          type: [object, 'null']
+          additionalProperties: true
+      additionalProperties: false
+
+    FunnelVersion:
+      type: object
+      title: Veroeffentlichte Version
+      description: |
+        Ein eingefrorener Stand der Funnel-Struktur. Die oeffentliche
+        Auslieferung liest ausschliesslich Snapshots, nie die Live-Tabellen;
+        laufende Sitzungen bleiben auf der Version, mit der sie begonnen haben.
+      x-ticket: FB-014
+      required: [version, published_at]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Fortlaufende Versionsnummer innerhalb des Funnels.
+        note:
+          type: [string, 'null']
+          maxLength: 500
+        published_at:
+          type: string
+          format: date-time
+        published_by:
+          type: [string, 'null']
+          description: Name der Person, die veroeffentlicht hat.
+      additionalProperties: false
+
+    FunnelVersionWithSnapshot:
+      type: object
+      title: Version samt Snapshot
+      x-ticket: FB-014
+      required: [version, published_at, snapshot]
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        note:
+          type: [string, 'null']
+          maxLength: 500
+        published_at:
+          type: string
+          format: date-time
+        published_by:
+          type: [string, 'null']
+        snapshot:
+          $ref: '#/components/schemas/FunnelStructure'
+      additionalProperties: false
+
+    # --- Funnel-Struktur ----------------------------------------------------
+
+    FunnelStructure:
+      type: object
+      title: Komplette Funnel-Struktur
+      description: |
+        Die vollstaendige Klickstrecke eines Funnels. Dieses Format wird an drei
+        Stellen unveraendert verwendet: als Rumpf von
+        `PUT /funnels/{funnel}/structure`, als Snapshot in `funnel_versions`
+        (FB-014) und als Seed-Vorlage (FB-019). Wer es an einer Stelle liest,
+        kann es an jeder anderen schreiben.
+
+        Massgeblich ist `docs/funnel-builder/snapshot-format.md`; gelesen wird es
+        von `App\Funnel\Snapshots\FunnelSnapshot::fromArray()`. Daraus folgen
+        drei Eigenschaften, die hier nicht verhandelbar sind:
+
+        - **Positionen statt IDs.** Schritte werden ueber `position` adressiert,
+          Fragen ueber `field_key`. Datenbank-IDs stehen bewusst nicht in der
+          Struktur - sie soll ohne die Live-Tabellen lesbar bleiben und beim
+          Duplizieren nicht auf fremde Zeilen zeigen.
+        - **Sortierung ist nicht garantiert.** Schritte, Fragen, Optionen und
+          Regeln werden beim Lesen nach `position` bzw. `priority` sortiert; die
+          Struktur darf sie in beliebiger Reihenfolge enthalten.
+        - **Unbekannte Schluessel werden ignoriert.** Eine Struktur aus einer
+          spaeteren Fassung darf zusaetzliche Felder tragen, ohne dass das Lesen
+          bricht. Deshalb ist dieses Schema als einziges offen.
+      required: [steps, results]
+      properties:
+        funnel:
+          type: object
+          description: |
+            Kopfdaten der Strecke. In einem Snapshot immer enthalten; beim
+            Schreiben ueber `PUT /structure` werden sie ignoriert - die
+            Stammdaten aendert `PATCH /funnels/{funnel}`.
+          properties:
+            public_token:
+              $ref: '#/components/schemas/PublicToken'
+            name:
+              type: string
+            lead_price:
+              type: [number, 'null']
+              description: Verkaufspreis in EUR, wie in der Spalte `funnels.lead_price`.
+            contact_step_position:
+              type: [integer, 'null']
+              minimum: 1
+        steps:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/FunnelStep'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunnelConditionInStructure'
+        results:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/FunnelResult'
+      additionalProperties: true
+
+    FunnelStep:
+      type: object
+      title: Schritt
+      description: Eine Seite der Klickstrecke mit einer oder mehreren Fragen.
+      required: [position, title]
+      properties:
+        id:
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
+        position:
+          type: integer
+          minimum: 1
+          description: |
+            Reihenfolge innerhalb des Funnels. Sie ist zugleich das Sprungziel
+            einer Verzweigungsregel und deshalb je Funnel eindeutig.
+        title:
+          type: string
+          maxLength: 255
+          examples: ['Welches Tier moechtest du versichern?']
+        description:
+          type: [string, 'null']
+        questions:
+          type: array
+          description: |
+            Die Fragen des Schritts. In der Struktur immer enthalten, in der
+            Antwort der Schritt-Endpunkte nur beim Lesen eines einzelnen Schritts.
+          items:
+            $ref: '#/components/schemas/FunnelQuestion'
+      additionalProperties: false
+
+    FunnelStepWriteRequest:
+      type: object
+      title: Schritt anlegen oder aendern
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: [string, 'null']
+      additionalProperties: false
+
+    QuestionType:
+      type: string
+      title: Fragetyp
+      description: |
+        Bestimmt Darstellung und Validierung einer Frage. `phone` normalisiert
+        nach E.164, `postal_code` erwartet eine fuenfstellige deutsche
+        Postleitzahl, `info` ist ein reiner Textschritt ohne Eingabe.
+
+        Entspricht `App\Constants\QuestionType`. Die Spalte
+        `funnel_questions.type` bleibt eine Zeichenkette; die gueltigen Werte und
+        die Validierungsregeln je Typ stehen im Enum und seinen Handler-Klassen.
+      enum:
+        - single_choice
+        - multi_choice
+        - text
+        - textarea
+        - number
+        - email
+        - phone
+        - date
+        - postal_code
+        - image_choice
+        - slider
+        - consent
+        - info
+
+    ReservedFieldKey:
+      type: string
+      title: Reservierter Feldschluessel
+      description: |
+        Feldschluessel mit plattformweit fester Bedeutung, entspricht
+        `App\Constants\FunnelFieldKey`. Ihre Antworten tragen die Kontaktdaten
+        eines Leads und werden ausschliesslich ueber `LeadContact` ausgegeben -
+        maskiert oder im Klartext, nie roh.
+
+        Gebraeuchliche Schreibweisen werden beim Speichern aufgeloest
+        ("E-Mail" wird zu `email`, "Handy" zu `telefon`); die Zuordnung steht in
+        `config('funnel.field_key_aliases')`.
+      enum: [vorname, nachname, name, email, telefon, plz, einwilligung]
+
+    FunnelQuestion:
+      type: object
+      title: Frage
+      required: [position, type, field_key, label, required]
+      properties:
+        id:
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
+        position:
+          type: integer
+          minimum: 1
+          description: Reihenfolge innerhalb des Schritts.
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        field_key:
+          type: string
+          pattern: '^[a-z0-9]+(?:_[a-z0-9]+)*$'
+          maxLength: 64
+          description: |
+            Schluessel, unter dem die Antwort am Lead haengt - je Funnel
+            eindeutig, nicht nur je Schritt. Er wird beim Speichern
+            vereinheitlicht und auf die reservierten Schluessel abgebildet.
+          examples: [tierart]
+        label:
+          type: string
+          maxLength: 255
+        help_text:
+          type: [string, 'null']
+        required:
+          type: boolean
+          default: true
+        validation:
+          type: [object, 'null']
+          description: Zusaetzliche Regeln, abhaengig vom Fragetyp (FB-011).
+          additionalProperties: true
+        meta:
+          type: [object, 'null']
+          description: Darstellungsangaben wie Platzhalter oder Schrittweite eines Schiebereglers.
+          additionalProperties: true
+        options:
+          type: array
+          description: Nur bei Auswahlfragen belegt.
+          items:
+            $ref: '#/components/schemas/FunnelOption'
+      additionalProperties: false
+
+    FunnelQuestionWriteRequest:
+      type: object
+      title: Frage anlegen oder aendern
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        field_key:
+          type: string
+          maxLength: 64
+          description: |
+            Wird vereinheitlicht und auf reservierte Schluessel abgebildet;
+            "E-Mail" ist also eine zulaessige Eingabe und ergibt `email`.
+        label:
+          type: string
+          maxLength: 255
+        help_text:
+          type: [string, 'null']
+        required:
+          type: boolean
+        validation:
+          type: [object, 'null']
+          additionalProperties: true
+        meta:
+          type: [object, 'null']
+          additionalProperties: true
+      additionalProperties: false
+
+    FunnelOption:
+      type: object
+      title: Antwortoption
+      required: [position, label, value]
+      properties:
+        id:
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
+        position:
+          type: integer
+          minimum: 1
+        label:
+          type: string
+          maxLength: 255
+          examples: [Hund]
+        value:
+          type: string
+          maxLength: 255
+          description: Gespeicherter Wert, eindeutig innerhalb der Frage.
+          examples: [hund]
+        score:
+          type: [integer, 'null']
+          description: |
+            Punkte, mit denen die Option in die Auswertung eingeht. Ohne
+            Punktwert bleibt sie neutral.
+        image_path:
+          type: [string, 'null']
+          description: Bild der Option, nur bei `image_choice` genutzt.
+      additionalProperties: false
+
+    FunnelOptionWriteRequest:
+      type: object
+      title: Antwortoption anlegen oder aendern
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        label:
+          type: string
+          maxLength: 255
+        value:
+          type: string
+          maxLength: 255
+        score:
+          type: [integer, 'null']
+        image_path:
+          type: [string, 'null']
+      additionalProperties: false
+
+    ConditionOperator:
+      type: string
+      title: Vergleichsoperator einer Verzweigungsregel
+      description: |
+        Entspricht `App\Constants\ConditionOperator`. `answered` prueft ohne
+        Wertvergleich, ob die Frage beantwortet wurde; `score_gte` vergleicht
+        nicht die Antwort, sondern die bis dahin erreichte Punktzahl.
+      enum:
+        - equals
+        - not_equals
+        - in
+        - gt
+        - lt
+        - contains
+        - answered
+        - score_gte
+
+    FunnelCondition:
+      type: object
+      title: Verzweigungsregel
+      description: |
+        Trifft die Regel zu, geht es beim Schritt `target_step_id` weiter.
+        Treffen mehrere zu, gewinnt die hoechste `priority`; trifft keine zu,
+        folgt der naechste Schritt in der Reihenfolge.
+      required: [source_question_id, operator, target_step_id, priority]
+      properties:
+        id:
+          $ref: '#/components/schemas/ResourceId'
+        source_question_id:
+          $ref: '#/components/schemas/ResourceId'
+        operator:
+          $ref: '#/components/schemas/ConditionOperator'
+        value:
+          description: |
+            Vergleichswert. Bei `in` eine Liste, bei `answered` ohne Bedeutung.
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: 'null'
+        target_step_id:
+          $ref: '#/components/schemas/ResourceId'
+        priority:
+          type: integer
+          minimum: 0
+          description: Hoehere Werte werden zuerst geprueft.
+      additionalProperties: false
+
+    FunnelConditionInStructure:
+      type: object
+      title: Verzweigungsregel innerhalb der Struktur
+      description: |
+        Dieselbe Regel wie `FunnelCondition`, aber ohne Datenbank-IDs: die Frage
+        wird ueber ihren `field_key` benannt, das Ziel ueber die `position` des
+        Schritts. Nur so bleibt eine exportierte Struktur woanders einspielbar.
+      required: [source_field_key, operator, target_step_position, priority]
+      properties:
+        source_field_key:
+          type: string
+          pattern: '^[a-z0-9]+(?:_[a-z0-9]+)*$'
+          description: Feldschluessel der Frage, deren Antwort geprueft wird.
+        operator:
+          $ref: '#/components/schemas/ConditionOperator'
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: 'null'
+        target_step_position:
+          type: integer
+          minimum: 1
+          description: Position des Schritts, zu dem gesprungen wird.
+        priority:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    FunnelConditionWriteRequest:
+      type: object
+      title: Verzweigungsregel anlegen oder aendern
+      properties:
+        source_question_id:
+          $ref: '#/components/schemas/ResourceId'
+        operator:
+          $ref: '#/components/schemas/ConditionOperator'
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: 'null'
+        target_step_id:
+          $ref: '#/components/schemas/ResourceId'
+        priority:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    FunnelResult:
+      type: object
+      title: Ergebnis-Screen
+      description: |
+        Der Abschluss der Klickstrecke fuer einen Punktebereich. Welches
+        Ergebnis erscheint, entscheidet die erreichte Punktzahl. Beim
+        Veroeffentlichen wird geprueft, dass die Bereiche eines Funnels
+        lueckenlos und ueberschneidungsfrei sind.
+      required: [min_score, max_score, title, show_contact_form]
+      properties:
+        id:
+          readOnly: true
+          description: |
+            Nur in den Antworten der ressourcenweisen Endpunkte gesetzt. In der
+            Struktur und im Snapshot fehlt sie - dort wird ueber `position` bzw.
+            `field_key` adressiert.
+          allOf:
+            - $ref: '#/components/schemas/ResourceId'
+        min_score:
+          type: integer
+          description: Untere Grenze des Punktebereichs, einschliesslich.
+        max_score:
+          type: integer
+          description: Obere Grenze des Punktebereichs, einschliesslich.
+        title:
+          type: string
+          maxLength: 255
+          examples: ['Erhoehtes Risiko - Vorsorge empfohlen']
+        body:
+          type: [string, 'null']
+          description: Fliesstext des Ergebnisses, als Markdown gespeichert.
+        cta_label:
+          type: [string, 'null']
+          maxLength: 255
+          description: Beschriftung des Handlungsaufrufs.
+        cta_url:
+          type: [string, 'null']
+          format: uri
+        show_contact_form:
+          type: boolean
+          default: true
+          description: |
+            Ob nach diesem Ergebnis die Kontaktdaten erhoben werden. `false`
+            beendet die Strecke ohne Lead.
+      additionalProperties: false
+
+    FunnelResultWriteRequest:
+      type: object
+      title: Ergebnis-Screen anlegen oder aendern
+      properties:
+        min_score:
+          type: integer
+        max_score:
+          type: integer
+        title:
+          type: string
+          maxLength: 255
+        body:
+          type: [string, 'null']
+        cta_label:
+          type: [string, 'null']
+          maxLength: 255
+        cta_url:
+          type: [string, 'null']
+          format: uri
+        show_contact_form:
+          type: boolean
+      additionalProperties: false
+
+    # --- Leads --------------------------------------------------------------
+    #
+    # Architekturleitsatz 5: Kontaktdaten werden serverseitig maskiert, bevor sie
+    # eine Response erreichen. Deshalb gibt es hier ZWEI Lead-Schemas und kein
+    # gemeinsames mit optionalen Kontaktfeldern:
+    #
+    #   LeadMasked  vor dem Kauf  - Kontaktfelder sind gekuerzt, nie vollstaendig
+    #   LeadFull    nach dem Kauf - Kontaktfelder im Klartext
+    #
+    # Beide verlangen dieselben Kontaktfelder und unterscheiden sich
+    # ausschliesslich in deren Format. Ein Client kann also nicht in die Lage
+    # geraten, ein fehlendes Feld faelschlich als "nicht vorhanden" statt als
+    # "verdeckt" zu lesen. Welche Auspraegung er bekommt, entscheidet der Server
+    # anhand von Rolle und Kaufstatus - es gibt keinen Parameter dafuer.
+    #
+    # Umgesetzt wird die Maskierung in FB-032 an genau einer Stelle
+    # (LeadContact::masked()); LeadResource ruft sie auf. Wer hier ein Feld
+    # ergaenzt, ergaenzt es in beiden Schemas.
+    #
+    # Stand der Tabelle: `leads` traegt aus FB-030 erst id, tenant_id,
+    # lead_state, settled_price, settled_at und die Zeitstempel. Alles Weitere -
+    # Funnelbezug, Score, Ergebnis, Antworten, Kontaktdaten, Herkunft - kommt
+    # additiv in FB-031 dazu und ist unten mit `x-ticket: FB-031` markiert.
+    # ------------------------------------------------------------------------
+
+    LeadState:
+      type: string
+      title: Lead-Zustand
+      description: |
+        Der einzige Zustand eines Leads, entspricht `App\Constants\LeadState`.
+        Es gibt daneben keine Flags wie `is_reached` oder `is_fake`, und jeder
+        Wechsel laeuft ueber `LeadStateService::transition()`.
+
+        Endzustaende sind `erreicht`, `unerreichbar`, `ungueltig` und
+        `abgelaufen`; ab ihnen aendert sich weder Zustand noch Preis.
+      enum:
+        - neu
+        - verfuegbar
+        - reserviert
+        - verkauft
+        - erreicht
+        - unerreichbar
+        - ungueltig
+        - abgelaufen
+
+    LeadAnswer:
+      type: object
+      title: Antwort eines Leads
+      description: |
+        Eine Rohantwort aus der Sitzung. Antworten auf reservierte
+        Feldschluessel erscheinen hier **nicht** - sie werden ausschliesslich
+        ueber `contact` ausgegeben, damit die Maskierung nicht zu umgehen ist.
+      x-ticket: FB-031
+      required: [field_key, label, value]
+      properties:
+        field_key:
+          type: string
+          pattern: '^[a-z0-9]+(?:_[a-z0-9]+)*$'
+          examples: [tierart]
+        label:
+          type: string
+          description: Die Frage, wie sie dem Endkunden angezeigt wurde.
+        value:
+          description: Die Antwort. Bei Mehrfachauswahl eine Liste.
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                type: string
+            - type: 'null'
+        value_label:
+          type: [string, 'null']
+          description: Die Antwort in der Beschriftung der gewaehlten Option.
+      additionalProperties: false
+
+    LeadContactMasked:
+      type: object
+      title: Kontaktdaten, verdeckt
+      description: |
+        Kontaktdaten vor dem Kauf. Vor- und Nachname bleiben lesbar, alles
+        Kontaktierbare ist gekuerzt: die E-Mail auf ihren ersten Buchstaben, die
+        Telefonnummer auf Laender- und Ortsvorwahl, die Postleitzahl auf zwei
+        Stellen. Gekuerzt wird serverseitig; die vollstaendigen Werte verlassen
+        den Server nicht.
+      x-ticket: FB-032
+      required: [first_name, last_name, email, phone, postal_code]
+      properties:
+        first_name:
+          type: [string, 'null']
+          description: Klartext - der Vorname allein macht niemanden kontaktierbar.
+          examples: [Anna]
+        last_name:
+          type: [string, 'null']
+          description: Klartext.
+          examples: [Muster]
+        email:
+          type: [string, 'null']
+          pattern: '^.…@[^@\s]+$'
+          description: Erster Buchstabe, Auslassungszeichen, vollstaendige Domain.
+          examples: ['a…@example.com']
+        phone:
+          type: [string, 'null']
+          pattern: '^\+[0-9]{1,3} [0-9]{1,6} …$'
+          description: Laender- und Ortsvorwahl, der Rest verdeckt.
+          examples: ['+49 30 …']
+        postal_code:
+          type: [string, 'null']
+          pattern: '^[0-9]{2}…$'
+          description: |
+            Die ersten zwei Stellen - genug fuer die Region, zu wenig fuer die
+            Adresse.
+          examples: ['76…']
+      additionalProperties: false
+
+    LeadContactFull:
+      type: object
+      title: Kontaktdaten, Klartext
+      description: |
+        Kontaktdaten nach dem Kauf. Erst ab diesem Zeitpunkt gibt der Server sie
+        vollstaendig heraus.
+      x-ticket: FB-032
+      required: [first_name, last_name, email, phone, postal_code]
+      properties:
+        first_name:
+          type: [string, 'null']
+          examples: [Anna]
+        last_name:
+          type: [string, 'null']
+          examples: [Muster]
+        email:
+          type: [string, 'null']
+          format: email
+          description: Normalisiert, kleingeschrieben.
+          examples: ['anna.muster@example.com']
+        phone:
+          type: [string, 'null']
+          pattern: '^\+[1-9][0-9]{6,14}$'
+          description: Normalisiert nach E.164.
+          examples: ['+493012345678']
+        postal_code:
+          type: [string, 'null']
+          pattern: '^[0-9]{5}$'
+          examples: ['76133']
+      additionalProperties: false
+
+    LeadCommon:
+      type: object
+      title: Lead ohne Kontaktdaten
+      description: |
+        Die Felder, die `LeadMasked` und `LeadFull` gemeinsam haben. Dieses
+        Schema wird nie allein ausgeliefert - es sorgt dafuer, dass die beiden
+        Auspraegungen nicht auseinanderlaufen.
+      required: [uuid, lead_state, settled_price, settled_at, anonymized_at, created_at]
+      properties:
+        uuid:
+          type: string
+          format: uuid
+          description: |
+            Oeffentliche Kennung des Leads. Die fortlaufende ID verlaesst die
+            API nicht - Leads sind zwischen Workspaces handelbar, ihre
+            Kennungen also nicht auf einen Besitzer begrenzt.
+          x-ticket: FB-031
+        lead_state:
+          $ref: '#/components/schemas/LeadState'
+        settled_price:
+          description: |
+            Der bei Eintritt eines Endzustands einmalig festgeschriebene Preis.
+            Solange kein Endzustand erreicht ist, `null`. Einmal gesetzt, aendert
+            er sich nicht mehr.
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        settled_at:
+          type: [string, 'null']
+          format: date-time
+          description: Zeitpunkt, zu dem der Preis festgeschrieben wurde.
+        anonymized_at:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Gesetzt heisst: der Personenbezug wurde nach Ablauf der
+            Aufbewahrungsfrist entfernt (FB-037). Die Kontaktfelder tragen dann
+            keine Person mehr, waehrend Zustand, Preis und Eingangsdatum
+            erhalten bleiben. Ein Client, der Kontaktdaten erwartet, prueft
+            dieses Feld zuerst.
+        funnel:
+          description: Der Funnel, aus dem der Lead stammt.
+          x-ticket: FB-031
+          oneOf:
+            - type: object
+              required: [public_token, name]
+              properties:
+                public_token:
+                  $ref: '#/components/schemas/PublicToken'
+                name:
+                  type: string
+              additionalProperties: false
+            - type: 'null'
+        funnel_version:
+          description: Die Version, aus der dieser Lead stammt.
+          x-ticket: FB-031
+          oneOf:
+            - $ref: '#/components/schemas/FunnelVersion'
+            - type: 'null'
+        score:
+          type: [integer, 'null']
+          description: Erreichte Punktzahl der Qualifizierung.
+          x-ticket: FB-031
+        result:
+          description: Der ausgespielte Ergebnis-Screen.
+          x-ticket: FB-031
+          oneOf:
+            - type: object
+              required: [id, title]
+              properties:
+                id:
+                  $ref: '#/components/schemas/ResourceId'
+                title:
+                  type: string
+              additionalProperties: false
+            - type: 'null'
+        price_at_creation:
+          description: |
+            Der Preis, der bei Entstehen des Leads galt. Er ist die Grundlage
+            fuer `settled_price` und aendert sich nicht mit dem Funnelpreis.
+          x-ticket: FB-031
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        origin:
+          type: [string, 'null']
+          format: uri
+          description: Seite, auf der der Funnel ausgefuellt wurde.
+          x-ticket: FB-031
+        utm:
+          type: [object, 'null']
+          description: Kampagnenparameter der Sitzung.
+          x-ticket: FB-031
+          properties:
+            source:
+              type: [string, 'null']
+            medium:
+              type: [string, 'null']
+            campaign:
+              type: [string, 'null']
+            term:
+              type: [string, 'null']
+            content:
+              type: [string, 'null']
+          additionalProperties: false
+        answers:
+          type: array
+          description: Die Qualifizierungsantworten - ohne Kontaktfelder.
+          x-ticket: FB-031
+          items:
+            $ref: '#/components/schemas/LeadAnswer'
+        created_at:
+          type: string
+          format: date-time
+
+    LeadMasked:
+      title: Lead, Kontaktdaten verdeckt
+      description: |
+        Ein Lead, dessen Kontaktdaten der Abrufende noch nicht gekauft hat.
+        Enthaelt garantiert keinen unmaskierten Kontaktwert.
+      allOf:
+        - $ref: '#/components/schemas/LeadCommon'
+        - type: object
+          required: [contact_visibility, contact]
+          properties:
+            contact_visibility:
+              type: string
+              const: masked
+            contact:
+              $ref: '#/components/schemas/LeadContactMasked'
+      unevaluatedProperties: false
+
+    LeadFull:
+      title: Lead, Kontaktdaten im Klartext
+      description: |
+        Ein gekaufter Lead. Zusaetzlich zu den gemeinsamen Feldern enthaelt er
+        die vollstaendigen Kontaktdaten und den Kaufzeitpunkt.
+      allOf:
+        - $ref: '#/components/schemas/LeadCommon'
+        - type: object
+          required: [contact_visibility, contact, purchased_at]
+          properties:
+            contact_visibility:
+              type: string
+              const: full
+            contact:
+              $ref: '#/components/schemas/LeadContactFull'
+            purchased_at:
+              type: string
+              format: date-time
+              x-ticket: FB-054
+      unevaluatedProperties: false
+
+    Lead:
+      title: Lead
+      description: |
+        Ein Lead in genau einer der beiden Auspraegungen. `contact_visibility`
+        sagt, welche: `masked` oder `full`. Clients werten dieses Feld aus,
+        statt auf das Vorhandensein einzelner Kontaktfelder zu schliessen.
+      oneOf:
+        - $ref: '#/components/schemas/LeadMasked'
+        - $ref: '#/components/schemas/LeadFull'
+      discriminator:
+        propertyName: contact_visibility
+        mapping:
+          masked: '#/components/schemas/LeadMasked'
+          full: '#/components/schemas/LeadFull'
+
+    # --- Webhooks -----------------------------------------------------------
+
+    WebhookEvent:
+      type: string
+      title: Ereignis
+      enum:
+        - lead.created
+        - lead.state_changed
+        - lead.purchased
+        - funnel.published
+
+    WebhookDeliveryStatus:
+      type: string
+      title: Zustellzustand
+      description: |
+        `pending` wartet auf den naechsten Versuch, `delivered` wurde mit 2xx
+        quittiert, `failed` ist der letzte Versuch fehlgeschlagen und
+        `exhausted` sind alle fuenf Versuche verbraucht.
+      enum: [pending, delivered, failed, exhausted]
+
+    FunnelWebhook:
+      type: object
+      title: Webhook
+      description: Ein Ereignis-Abonnement. Das Secret ist nicht Teil dieser Darstellung.
+      x-ticket: FB-030e
+      required: [id, url, events, active, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/ResourceId'
+        url:
+          type: string
+          format: uri
+          description: Ziel-URL. Nur `https` wird angenommen.
+          examples: ['https://crm.example.com/hooks/funnel']
+        events:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        active:
+          type: boolean
+          default: true
+        last_delivery_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    FunnelWebhookWithSecret:
+      type: object
+      title: Webhook samt Secret
+      description: |
+        Wie `FunnelWebhook`, zusaetzlich mit dem Secret im Klartext. Es erscheint
+        ausschliesslich in der Antwort auf das Anlegen und auf ein
+        `rotate_secret` - danach nie wieder, sonst `null`.
+      x-ticket: FB-030e
+      required: [id, url, events, active, created_at, secret]
+      properties:
+        id:
+          $ref: '#/components/schemas/ResourceId'
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        active:
+          type: boolean
+        last_delivery_at:
+          type: [string, 'null']
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        secret:
+          type: [string, 'null']
+          description: |
+            Nur einmal sichtbar. Mit ihm wird die HMAC-SHA256-Signatur im Header
+            `X-Funnel-Signature` gebildet und geprueft.
+      additionalProperties: false
+
+    FunnelWebhookWriteRequest:
+      type: object
+      title: Webhook anlegen oder aendern
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Ziel-URL, `https` verpflichtend.
+        events:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/WebhookEvent'
+        active:
+          type: boolean
+        rotate_secret:
+          type: boolean
+          default: false
+          description: |
+            Nur bei `PATCH`. Erzeugt ein neues Secret, gibt es einmalig zurueck
+            und macht das alte sofort ungueltig.
+      additionalProperties: false
+
+    WebhookDelivery:
+      type: object
+      title: Zustellung
+      x-ticket: FB-030e
+      required: [id, event, status, attempts, created_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/ResourceId'
+        event:
+          $ref: '#/components/schemas/WebhookEvent'
+        status:
+          $ref: '#/components/schemas/WebhookDeliveryStatus'
+        response_code:
+          type: [integer, 'null']
+          description: HTTP-Status der Antwort des Empfaengers, oder `null` bei Timeout.
+        attempts:
+          type: integer
+          minimum: 1
+          maximum: 5
+        last_attempt_at:
+          type: [string, 'null']
+          format: date-time
+        next_attempt_at:
+          type: [string, 'null']
+          format: date-time
+          description: Zeitpunkt des naechsten Versuchs bei `pending`.
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    WebhookEnvelope:
+      type: object
+      title: Rahmen eines Ereignisses
+      description: |
+        Gemeinsamer Rahmen aller ausgehenden Ereignisse. `id` ist je Ereignis
+        eindeutig und erlaubt dem Empfaenger, Wiederholungen zu erkennen: Bei
+        einem erneuten Zustellversuch bleibt sie dieselbe.
+      required: [id, event, occurred_at, data]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Kennung des Ereignisses, ueber alle Versuche stabil.
+        event:
+          $ref: '#/components/schemas/WebhookEvent'
+        occurred_at:
+          type: string
+          format: date-time
+        funnel:
+          type: object
+          required: [public_token, name]
+          properties:
+            public_token:
+              $ref: '#/components/schemas/PublicToken'
+            name:
+              type: string
+          additionalProperties: false
+        data:
+          type: object
+          description: Nutzlast, abhaengig vom Ereignis.
+
+# =============================================================================
+# Berechtigungen (App\Constants\TenantApiAbility)
+#
+# Der Contract-Test haelt diese Liste und das Enum deckungsgleich: ein Wert hier
+# ohne Gegenstueck im Enum - oder umgekehrt - laesst den Test fehlschlagen.
+# =============================================================================
+
+x-abilities:
+  'funnels:read': Funnels und ihre Struktur lesen.
+  'funnels:write': Funnels anlegen, aendern, veroeffentlichen, archivieren und loeschen.
+  'leads:read': Leads lesen. Kontaktdaten erscheinen nur, soweit sie gekauft sind.
+  'webhooks:manage': Ereignis-Abonnements anlegen, aendern und loeschen.
