@@ -10,6 +10,7 @@ use App\Dto\FunnelSubmissionData;
 use App\Funnel\Conditions\StepResolver;
 use App\Funnel\QuestionTypes\QuestionTypeRegistry;
 use App\Funnel\Results\ResultResolver;
+use App\Funnel\Runtime\OriginCollector;
 use App\Funnel\Runtime\SubmissionReceiver;
 use App\Funnel\Scoring\ScoreCalculator;
 use App\Funnel\Snapshots\FunnelSnapshot;
@@ -80,7 +81,11 @@ class FunnelRunner extends Component
         }
 
         $sessions = app(PublicSessionService::class);
-        $session = $sessions->startOrResume($funnel->currentVersion, $this->sessionTokenFromCookie());
+        $session = $sessions->startOrResume(
+            $funnel->currentVersion,
+            $this->sessionTokenFromCookie(),
+            app(OriginCollector::class)->collect(request()),
+        );
 
         $this->session = $session;
         $this->sessionToken = $session->token;

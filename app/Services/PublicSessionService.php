@@ -31,7 +31,11 @@ class PublicSessionService
      * werden, und nach einer Neuveroeffentlichung passt der alte Fortschritt
      * nicht mehr zu den Fragen.
      */
-    public function startOrResume(FunnelVersion $version, ?string $token): PublicSession
+    /**
+     * @param  array<string, string|null>  $origin  Herkunft aus FB-022; wird nur
+     *                                              beim Anlegen uebernommen.
+     */
+    public function startOrResume(FunnelVersion $version, ?string $token, array $origin = []): PublicSession
     {
         $session = $token === null ? null : PublicSession::query()
             ->where('token', $token)
@@ -50,6 +54,8 @@ class PublicSessionService
             return $session;
         }
 
+        // Die Herkunft wird nur beim Anlegen geschrieben: Ein Reload ohne
+        // Kampagnenparameter darf die urspruengliche Quelle nicht ueberschreiben.
         $session = PublicSession::query()->create([
             'funnel_version_id' => $version->getKey(),
             'token' => (string) Str::ulid(),
@@ -57,6 +63,7 @@ class PublicSessionService
             'current_step' => null,
             'started_at' => now(),
             'last_activity_at' => now(),
+            ...$origin,
         ]);
 
         $this->record($session, SessionEventType::VIEW);

@@ -25,6 +25,15 @@ use Illuminate\Support\Carbon;
  * @property string $token
  * @property array<string, mixed>|null $answers
  * @property int|null $current_step
+ * @property string|null $utm_source
+ * @property string|null $utm_medium
+ * @property string|null $utm_campaign
+ * @property string|null $utm_term
+ * @property string|null $utm_content
+ * @property string|null $referrer
+ * @property string|null $embed_origin
+ * @property string|null $ip_hash
+ * @property string|null $user_agent
  * @property Carbon $started_at
  * @property Carbon $last_activity_at
  * @property Carbon|null $completed_at
@@ -40,6 +49,15 @@ class PublicSession extends Model
         'token',
         'answers',
         'current_step',
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_term',
+        'utm_content',
+        'referrer',
+        'embed_origin',
+        'ip_hash',
+        'user_agent',
         'started_at',
         'last_activity_at',
         'completed_at',

@@ -35,6 +35,7 @@ class AuditLogger
     public function __construct(
         private readonly Request $request,
         private readonly Application $app,
+        private readonly IpHasher $ipHasher,
     ) {}
 
     /**
@@ -73,11 +74,7 @@ class AuditLogger
      */
     public function hashIpAddress(?string $ipAddress): ?string
     {
-        if ($ipAddress === null || trim($ipAddress) === '') {
-            return null;
-        }
-
-        return hash('sha256', $this->ipSalt().'|'.$ipAddress);
+        return $this->ipHasher->hash($ipAddress);
     }
 
     /**
@@ -104,17 +101,6 @@ class AuditLogger
         }
 
         return $redacted;
-    }
-
-    private function ipSalt(): string
-    {
-        $salt = config('funnel.audit.ip_salt');
-
-        if (is_string($salt) && $salt !== '') {
-            return $salt;
-        }
-
-        return (string) config('app.key');
     }
 
     private function resolveTenant(): ?Tenant

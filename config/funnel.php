@@ -181,6 +181,16 @@ return [
         // Endkunde zurueck, laeuft dieselbe Sitzung weiter.
         'abandon_after_minutes' => (int) env('FUNNEL_PUBLIC_ABANDON_AFTER_MINUTES', 30),
 
+        // Maximale Laenge gespeicherter Herkunftsangaben (UTM-Parameter,
+        // Referrer, Embed-Origin). Laengere Werte werden gekuerzt -- sie kommen
+        // von aussen und sollen weder die Spalte sprengen noch als Ablage
+        // fuer fremde Inhalte taugen.
+        'origin_max_length' => (int) env('FUNNEL_PUBLIC_ORIGIN_MAX_LENGTH', 255),
+
+        // Maximale Laenge des gespeicherten User-Agent. Fuer die Auswertung
+        // (Geraetetyp, Browser) reicht der Anfang; der Rest ist Ballast.
+        'user_agent_max_length' => (int) env('FUNNEL_PUBLIC_USER_AGENT_MAX_LENGTH', 255),
+
     ],
 
     /*
