@@ -22,6 +22,7 @@ class PendingSubmissionReceiver implements SubmissionReceiver
         Log::info('Funnel-Einreichung ohne Empfaenger (FB-031 fehlt noch).', [
             'public_token' => $submission->publicToken,
             'funnel_version_id' => $submission->funnelVersionId,
+            'public_session_id' => $submission->publicSessionId,
             'score' => $submission->score,
             'result_key' => $submission->resultKey,
             'answered_fields' => array_keys($submission->answers),

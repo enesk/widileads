@@ -16,6 +16,7 @@ use App\Models\FunnelQuestion;
 use App\Models\FunnelResult;
 use App\Models\FunnelStep;
 use App\Models\FunnelVersion;
+use App\Models\PublicSession;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use stdClass;
@@ -116,7 +117,11 @@ class FunnelRunnerTest extends FeatureTest
         $this->assertSame($funnel->current_version_id, $received->funnelVersionId);
         $this->assertSame(5, $received->score);
         $this->assertSame('4-5', $received->resultKey);
-        $this->assertSame([1, 2], $received->visitedStepPositions);
+        // Der Verlauf steht seit FB-021 an der Sitzung, nicht im DTO.
+        $session = PublicSession::query()->findOrFail($received->publicSessionId);
+
+        $this->assertSame([1, 2], $session->load('events')->visitedStepPositions());
+        $this->assertNotNull($session->completed_at);
         // Normalisiert ueber die Fragetyp-Handler aus FB-011.
         $this->assertSame('anna@example.com', $received->answers['email']);
         $this->assertSame('+4915112345678', $received->answers['telefon']);

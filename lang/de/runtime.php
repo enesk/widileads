@@ -24,6 +24,8 @@ return [
 
     'errors' => [
         'phone_not_dialable' => 'Diese Telefonnummer konnten wir nicht lesen. Bitte gib sie mit Vorwahl an.',
+        'event_not_updatable' => 'Ein Ereignis im Sitzungsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
+        'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht geloescht werden.',
     ],
 
 ];
