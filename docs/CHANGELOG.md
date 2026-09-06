@@ -24,6 +24,42 @@ Weitere Konventionen:
 
 ## Einträge
 
+### FB-012 — Verzweigungslogik mit Priorität und Evaluator
+
+**Was:** `App\Funnel\Conditions\StepResolver` bestimmt den nächsten Schritt einer
+Funnel-Strecke: Unter den Regeln des aktuellen Schritts gewinnt die mit der höchsten
+Priorität, deren Bedingung zutrifft; greift keine, folgt der nächste Schritt in der
+gepflegten Reihenfolge. `path()` liefert den kompletten Weg und bricht mit
+`FunnelStepCycleException` ab, wenn die Regeln im Kreis führen. Je Operator gibt es
+eine Auswertungsklasse in `app/Funnel/Conditions/Comparisons`, aufgelöst über die
+`ConditionComparisonRegistry` nach Namenskonvention (`score_gte` →
+`ScoreGteComparison`) — wie schon bei den Fragetypen aus FB-011.
+
+**Warum:** Ein falsch ausgewerteter Operator schickt den Endkunden in den falschen
+Schritt, und der Lead entsteht mit den falschen Angaben. Die Auswertung vergleicht
+deshalb bewusst tolerant: `"7"` und `7` sind dieselbe Antwort, `"Hund"` und `"hund"`
+auch — ein Funnel-Ersteller pflegt Werte von Hand, ein Browser liefert alles als
+String. Eine Regel, die auf einen nicht vorhandenen Schritt zeigt, wird übersprungen
+statt den Endkunden ins Leere zu schicken.
+
+**Snapshot statt Datenbank:** Der Resolver arbeitet gegen die Value Objects in
+`app/Funnel/Snapshots` (`FunnelSnapshot::fromArray()`), nicht gegen Eloquent — er läuft
+damit ohne Datenbank, und FB-014 kann ihn unverändert mit echten Snapshots aus
+`funnel_versions` füttern. Das Format ist in
+[snapshot-format.md](funnel-builder/snapshot-format.md) festgehalten; adressiert wird
+über Schrittposition und Feldschlüssel, nie über IDs.
+
+**Neue Config-Keys:** `config/funnel.php` → `runtime.max_step_visit_factor` (2,
+`FUNNEL_RUNTIME_MAX_STEP_VISIT_FACTOR`) — Zyklenschutz: höchstens Schrittanzahl mal
+Faktor.
+
+**Migrationen:** keine.
+
+`FunnelVersion` gibt es noch nicht (FB-014); die Ticket-Signatur
+`next(FunnelVersion $v, …)` ist deshalb als `next(FunnelSnapshot $snapshot, …)`
+umgesetzt. Scoring bleibt FB-013: `score_gte` liest die Punktzahl aus dem Kontext,
+berechnet wird sie dort.
+
 ### FB-037 — Aufbewahrung und Anonymisierung
 
 **Was:** Ein täglicher Lauf (`app:apply-lead-retention`, Uhrzeit aus der Konfiguration)

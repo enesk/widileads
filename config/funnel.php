@@ -265,4 +265,20 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Auslieferung der Strecke (FB-012)
+    |--------------------------------------------------------------------------
+    */
+
+    'runtime' => [
+
+        // Zyklenschutz des StepResolver: Ein Weg durch den Funnel darf hoechstens
+        // so viele Schritte lang sein wie der Funnel Schritte hat, mal diesem
+        // Faktor. Fuehren die Verzweigungsregeln im Kreis, bricht die Auswertung
+        // danach ab, statt den Endkunden in einer Schleife haengen zu lassen.
+        'max_step_visit_factor' => (int) env('FUNNEL_RUNTIME_MAX_STEP_VISIT_FACTOR', 2),
+
+    ],
+
 ];
