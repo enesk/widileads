@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Marketplace;
 
+use App\Constants\FunnelFieldKey;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
 use App\Models\BuyerProfile;
@@ -44,6 +45,12 @@ class MarketplaceListing
     public const SORT_NEWEST = 'newest';
 
     public const SORT_SCORE = 'score';
+
+    /**
+     * Maskierzeichen fuer LIKE-Vergleiche. Ein Postleitzahl-Praefix besteht
+     * normalerweise aus Ziffern; das Zeichen kommt darin nicht vor.
+     */
+    private const LIKE_ESCAPE = '!';
 
     /**
      * Die Leads, die dieser Kaeufer sehen darf -- bereits gegen sein Profil
@@ -95,6 +102,8 @@ class MarketplaceListing
             $query->where('score', '>=', $profile->min_score);
         }
 
+        $this->restrictToPostalPrefixes($query, $profile->postalPrefixes());
+
         if ($onlyWatchlisted) {
             $query->whereIn('id', $this->watchlistedLeadIds($buyer));
         }
@@ -102,6 +111,63 @@ class MarketplaceListing
         $this->applySort($query, $sort);
 
         return $query->limit((int) config('funnel.marketplace.listing.candidate_limit'));
+    }
+
+    /**
+     * Verengt die Vorauswahl auf die Regionen des Profils.
+     *
+     * Die Postleitzahl steht nicht als Spalte am Lead, sondern als Antwort auf
+     * den reservierten Feldschluessel `plz` -- eine JSON-Spalte. Verglichen wird
+     * deshalb ueber JSON_UNQUOTE, und zwar auf dem getrimmten Wert, damit die
+     * Bedingung dasselbe bedeutet wie `trim()` im MatchableLead.
+     *
+     * **Konservativ:** Diese Bedingung darf nur ausschliessen, was der Matcher
+     * ohnehin ablehnen wuerde. Deshalb steht hier bewusst kein Nachbau der
+     * Regel, sondern nur ihre Vorauswahl -- der Matcher bleibt die einzige
+     * Instanz, die entscheidet. Ein Lead ohne `plz`-Antwort faellt in beiden
+     * Faellen heraus, eine Mehrfachantwort ebenfalls (JSON_UNQUOTE liefert dann
+     * den Listentext, der mit keiner Ziffernfolge beginnt -- und `is_scalar()`
+     * im MatchableLead ergibt null).
+     *
+     * Ein Praefix mit LIKE-Platzhaltern wird maskiert. Das macht die Bedingung
+     * genauer, nicht strenger: Der Matcher vergleicht mit `str_starts_with()`
+     * ebenfalls buchstaeblich.
+     *
+     * @param  Builder<Lead>  $query
+     * @param  list<string>  $prefixes
+     */
+    private function restrictToPostalPrefixes(Builder $query, array $prefixes): void
+    {
+        if ($prefixes === []) {
+            return;
+        }
+
+        $query->whereHas('answers', function (Builder $answer) use ($prefixes): void {
+            $answer->where('field_key', FunnelFieldKey::PLZ->value)
+                ->where(function (Builder $matching) use ($prefixes): void {
+                    foreach ($prefixes as $prefix) {
+                        $matching->orWhereRaw(
+                            'trim(json_unquote(`lead_answers`.`value`)) like ? escape ?',
+                            [self::escapeLikeWildcards($prefix).'%', self::LIKE_ESCAPE],
+                        );
+                    }
+                });
+        });
+    }
+
+    /**
+     * Maskiert die LIKE-Platzhalter eines Praefixes, damit er buchstaeblich
+     * verglichen wird. Als Maskierzeichen dient bewusst nicht der Backslash:
+     * er muesste durch PHP, den Query-Builder und MySQL geschleust werden und
+     * verliert dabei je nach Ebene eine Verdopplung.
+     */
+    private static function escapeLikeWildcards(string $prefix): string
+    {
+        return str_replace(
+            [self::LIKE_ESCAPE, '%', '_'],
+            [self::LIKE_ESCAPE.self::LIKE_ESCAPE, self::LIKE_ESCAPE.'%', self::LIKE_ESCAPE.'_'],
+            $prefix,
+        );
     }
 
     /**

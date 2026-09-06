@@ -119,6 +119,15 @@ class MarketplaceListingTest extends FeatureTest
         $unwanted = $this->funnelOf($operator, 'Zahnvorsorge');
 
         $matching = $this->lead($operator, $wanted, ['score' => 12]);
+
+        // Deckungsgleichheit von SQL-Vorauswahl und Matcher: Die Datenbank
+        // schraenkt die Region ueber ein LIKE auf dem getrimmten Wert vor, der
+        // Matcher vergleicht mit trim() und str_starts_with(). Ein Wert mit
+        // Leerraum muss deshalb durch beide Pruefungen kommen -- schluckte die
+        // Vorauswahl ihn, saehe der Kaeufer einen passenden Lead nie, und es
+        // faellt niemandem auf.
+        $paddedPostalCode = $this->lead($operator, $wanted, ['score' => 12], ['plz' => ' '.self::POSTAL_CODE.' ']);
+
         $wrongFunnel = $this->lead($operator, $unwanted, ['score' => 12]);
         $wrongRegion = $this->lead($operator, $wanted, ['score' => 12], ['plz' => '10115']);
         $tooLowScore = $this->lead($operator, $wanted, ['score' => 3]);
@@ -136,7 +145,11 @@ class MarketplaceListingTest extends FeatureTest
             ->pluck('id')
             ->all();
 
-        $this->assertSame([$matching->getKey()], $visible);
+        sort($visible);
+        $expected = [$matching->getKey(), $paddedPostalCode->getKey()];
+        sort($expected);
+
+        $this->assertSame($expected, $visible);
 
         foreach ([$wrongFunnel, $wrongRegion, $tooLowScore, $wrongAnswer] as $hidden) {
             $this->assertNotContains($hidden->getKey(), $visible);
