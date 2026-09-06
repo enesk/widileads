@@ -293,3 +293,32 @@ drei Läufe mit unterschiedlichen Seeds, gleiches Ergebnis — statt durch Wäch
 
 Unberührt bleibt: Wo Infrastrukturarbeit einen **fachlichen** Fehler behebt oder
 Fachcode ändert, gehört der Test dorthin, wo die Fachlogik liegt.
+
+### 9. Sammeldateien: anhängen statt einsortieren (2026-09-06)
+
+**Anlass:** Vier PRs in Folge mussten allein wegen derselben Sammeldateien rebasen. Die
+Ursache ist mechanisch, nicht inhaltlich: Wenn jedes Ticket seinen Abschnitt **oben** in
+`docs/CHANGELOG.md` einfügt, kollidieren zwei parallel laufende Tickets dort
+zwangsläufig — dieselbe Zeile, zwei Änderungen. Bei mehreren gleichzeitigen Sessions ist
+das ein Dauerzustand.
+
+**Verbindlich:**
+
+- **`docs/CHANGELOG.md` wird nicht mehr geändert.** Jedes Ticket legt stattdessen
+  `docs/changelog.d/FB-###.md` an — eine Datei je Ticket, damit sind Konflikte
+  ausgeschlossen. Format und Konventionen stehen in
+  [`docs/changelog.d/README.md`](../changelog.d/README.md). Die vorhandenen Einträge in
+  `docs/CHANGELOG.md` bleiben als Archiv stehen.
+- **`lang/de/funnel.php` und `lang/en/funnel.php`:** neue Blöcke ans **Dateiende**
+  anhängen, nicht thematisch einsortieren.
+- **`config/funnel.php`:** neue Keys als eigener Block ans **Ende der jeweiligen
+  Sektion**. Bestehende Zeilen werden nie umformatiert, auch nicht „nur schnell"
+  ausgerichtet — jede Umformatierung erzeugt einen Konflikt für jeden offenen PR.
+- **`docs/BACKLOG.md`:** neue Einträge ans Ende der Liste „Einträge". Ein erledigter
+  Eintrag wird als erledigt markiert, nicht gelöscht — sonst verschwindet er aus der
+  Historie des Tickets, das ihn aufgeschrieben hat.
+
+**Beim Auflösen eines Konflikts in einer dieser Dateien gilt:** rein additiv. Beide
+Seiten bleiben vollständig erhalten, kein fremder Eintrag wird geändert, gekürzt oder
+umformatiert. Im Zweifel lieber eine Dopplung melden als etwas wegwerfen.
+

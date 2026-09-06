@@ -170,4 +170,6 @@ Larastan laeuft auf Level 6. Die Fehler des Bestandscodes sind in
 `phpstan-baseline.neon` eingefroren, neuer Code wird voll geprueft. Die Baseline
 darf nur schrumpfen - Details und Abbauplan in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-Aenderungen werden in [docs/CHANGELOG.md](docs/CHANGELOG.md) festgehalten.
+Aenderungen werden je Ticket in [docs/changelog.d/](docs/changelog.d/) festgehalten
+(eine Datei `FB-###.md` je Ticket). Die aeltere Sammeldatei
+[docs/CHANGELOG.md](docs/CHANGELOG.md) bleibt als Archiv bestehen.

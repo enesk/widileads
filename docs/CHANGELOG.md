@@ -1,5 +1,11 @@
 # Changelog
 
+> **Neue Einträge gehören nicht mehr hierher.** Jedes Ticket legt seinen Eintrag als
+> eigene Datei unter [`docs/changelog.d/`](changelog.d/) ab — eine Datei je Ticket
+> (`FB-###.md`). Diese Sammeldatei hat bei parallel laufenden Tickets zwangsläufig
+> Merge-Konflikte erzeugt, weil jeder Eintrag oben eingefügt wurde. Die vorhandenen
+> Einträge bleiben als Archiv stehen.
+
 Ein Eintrag je abgeschlossenem Ticket. Der Eintrag ist Teil der Definition of Done —
 ein Ticket gilt ohne ihn nicht als fertig.
 
@@ -23,35 +29,6 @@ Weitere Konventionen:
 - Der Eintrag beschreibt das Ergebnis, nicht den Arbeitsweg.
 
 ## Einträge
-
-### FB-040 — Testdeterminismus
-
-**Was:** Die Testsuite läuft jetzt in zufälliger Reihenfolge (`executionOrder="random"`)
-und liefert dabei reproduzierbar dasselbe Ergebnis. `Tests\TestCase` leert vor und nach
-jedem Fall die statischen Caches der Anwendung und gibt jeder Arbeitskopie ihre eigene
-Test-Datenbank. Neu: `composer check:determinism` führt die Suite dreimal mit festen,
-unterschiedlichen Seeds aus.
-
-**Warum:** Zwei Ursachen machten das Ergebnis von Reihenfolge und Umgebung abhängig.
-Erstens überdauerten zwei statische Caches (`CurrencyService::$currency`,
-`TenantPermissionService::$permissionCache`) den einzelnen Testfall — belegt an einem
-Fall, der nur durchfiel, wenn ein bestimmter anderer vorher lief. Zweitens zeigten alle
-Arbeitskopien auf dieselbe Test-Datenbank und zogen sich gegenseitig per `migrate:fresh`
-die Tabellen weg. Beides erzeugt Fehler, die nichts mit dem geprüften Code zu tun haben.
-
-**Neue Config-Keys:** keine.
-
-**Migrationen:** keine.
-
-Die beiden Services haben dafür eine additive `flush`-Methode bekommen; sie ist auch
-produktiv sinnvoll, wenn sich `app.default_currency` zur Laufzeit ändert. Der
-Datenbankname wird aus dem Pfad der Arbeitskopie abgeleitet
-(`funnel_test_<verzeichnis>_<hash>`) und die Datenbank beim ersten Lauf angelegt; ein
-ausdrücklich gesetztes `DB_DATABASE` behält Vorrang. Damit ist auch der Backlog-Eintrag
-aus FB-010 erledigt. `php artisan test --parallel` läuft weiterhin (rund halbe Laufzeit).
-
-`Model::preventLazyLoading()` im Testing-Env wurde geprüft und wieder zurückgenommen —
-34 Treffer im Bestandscode, siehe [BACKLOG.md](BACKLOG.md); gehört zu FB-041.
 
 ### FB-036 — Manuelle Statussetzung durch Operator-Admins
 
