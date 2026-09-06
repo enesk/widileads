@@ -14,6 +14,7 @@ use App\Services\VerificationProviders\TwilioProvider;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Support\ServiceProvider;
+use libphonenumber\PhoneNumberUtil;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,6 +27,10 @@ class AppServiceProvider extends ServiceProvider
             $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);
             $this->app->register(TelescopeServiceProvider::class);
         }
+
+        // PhoneNumberUtil hat einen privaten Konstruktor und laesst sich deshalb
+        // nicht automatisch aufloesen (FB-011, E.164-Normalisierung).
+        $this->app->singleton(PhoneNumberUtil::class, static fn (): PhoneNumberUtil => PhoneNumberUtil::getInstance());
 
         // payment providers
         $this->app->tag([

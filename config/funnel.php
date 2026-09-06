@@ -228,4 +228,31 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Fragetypen (FB-011)
+    |--------------------------------------------------------------------------
+    |
+    | Grenzen und Muster, mit denen die Handler in app/Funnel/QuestionTypes die
+    | Antworten eines Endkunden pruefen und vereinheitlichen.
+    |
+    */
+
+    'question' => [
+
+        // Region, gegen die Telefonnummern ohne Landesvorwahl gelesen werden.
+        // Gespeichert wird immer E.164; "0151 1234567" ergibt "+491511234567".
+        'default_phone_region' => env('FUNNEL_QUESTION_DEFAULT_PHONE_REGION', 'DE'),
+
+        // Muster einer gueltigen Postleitzahl. Vorgabe: fuenf Ziffern (DE).
+        'postal_code_pattern' => env('FUNNEL_QUESTION_POSTAL_CODE_PATTERN', '/^[0-9]{5}$/'),
+
+        // Maximale Laenge einzeiliger Freitextantworten.
+        'text_max_length' => (int) env('FUNNEL_QUESTION_TEXT_MAX_LENGTH', 255),
+
+        // Maximale Laenge mehrzeiliger Freitextantworten.
+        'textarea_max_length' => (int) env('FUNNEL_QUESTION_TEXTAREA_MAX_LENGTH', 2000),
+
+    ],
+
 ];

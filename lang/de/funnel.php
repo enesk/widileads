@@ -157,7 +157,22 @@ return [
             'log_not_updatable' => 'Ein Eintrag im Zustandsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
             'log_not_deletable' => 'Ein Eintrag im Zustandsprotokoll kann nicht geloescht werden.',
         ],
+    ],
 
+    'question_type' => [
+        'single_choice' => 'Einfachauswahl',
+        'multi_choice' => 'Mehrfachauswahl',
+        'text' => 'Text (einzeilig)',
+        'textarea' => 'Text (mehrzeilig)',
+        'number' => 'Zahl',
+        'email' => 'E-Mail-Adresse',
+        'phone' => 'Telefonnummer',
+        'date' => 'Datum',
+        'postal_code' => 'Postleitzahl',
+        'image_choice' => 'Bildauswahl',
+        'slider' => 'Schieberegler',
+        'consent' => 'Einwilligung',
+        'info' => 'Hinweistext (ohne Eingabe)',
     ],
 
 ];

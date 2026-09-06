@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\FunnelFieldKey;
+use App\Constants\QuestionType;
 use Database\Factories\FunnelQuestionFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $funnel_id
  * @property int $step_id
  * @property int $position
- * @property string $type
+ * @property QuestionType $type
  * @property string $field_key
  * @property string $label
  * @property string|null $help_text
@@ -99,6 +100,7 @@ class FunnelQuestion extends Model
     protected function casts(): array
     {
         return [
+            'type' => QuestionType::class,
             'position' => 'integer',
             'required' => 'boolean',
             'validation' => 'array',

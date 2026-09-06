@@ -157,7 +157,22 @@ return [
             'log_not_updatable' => 'An entry in the state log cannot be changed after it has been created.',
             'log_not_deletable' => 'An entry in the state log cannot be deleted.',
         ],
+    ],
 
+    'question_type' => [
+        'single_choice' => 'Single choice',
+        'multi_choice' => 'Multiple choice',
+        'text' => 'Text (single line)',
+        'textarea' => 'Text (multi line)',
+        'number' => 'Number',
+        'email' => 'Email address',
+        'phone' => 'Phone number',
+        'date' => 'Date',
+        'postal_code' => 'Postal code',
+        'image_choice' => 'Image choice',
+        'slider' => 'Slider',
+        'consent' => 'Consent',
+        'info' => 'Info text (no input)',
     ],
 
 ];
