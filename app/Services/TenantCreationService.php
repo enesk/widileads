@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Constants\SubscriptionConstants;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantConstants;
+use App\Constants\TenantType;
 use App\Events\Tenant\TenantCreated;
 use App\Models\Plan;
 use App\Models\Tenant;
@@ -115,8 +116,21 @@ class TenantCreationService
         return $tenants->filter(fn ($tenant) => $tenant->users_count <= $plan->max_users_per_tenant);
     }
 
-    public function createTenant(User $user, ?string $tenantName = null): Tenant
-    {
+    /**
+     * Legt einen Mandanten an, haengt den Benutzer daran und gibt ihm dort eine
+     * Rolle.
+     *
+     * Typ und Rolle sind seit FB-050 waehlbar, damit die Kaeufer-Registrierung
+     * denselben Weg nimmt wie jede andere Mandantenanlage. Die Vorgabewerte
+     * entsprechen dem bisherigen Verhalten: ein Betreiber-Mandant, dessen
+     * Ersteller ihn verwalten darf.
+     */
+    public function createTenant(
+        User $user,
+        ?string $tenantName = null,
+        TenantType $type = TenantType::OPERATOR,
+        string $role = TenancyPermissionConstants::TENANT_CREATOR_ROLE,
+    ): Tenant {
         // add an enumeration to the name to avoid name conflicts
 
         $latestUserTenant = $user->tenants()->latest()->first();
@@ -138,6 +152,7 @@ class TenantCreationService
 
         $tenant = Tenant::create([
             'name' => $name,
+            'type' => $type,
             'uuid' => (string) Str::uuid(),
             'is_name_auto_generated' => $tenantName === null,
             'created_by' => $user->id,
@@ -145,7 +160,7 @@ class TenantCreationService
 
         $tenant->users()->attach($user);
 
-        $this->tenantPermissionService->assignTenantUserRole($tenant, $user, TenancyPermissionConstants::TENANT_CREATOR_ROLE);
+        $this->tenantPermissionService->assignTenantUserRole($tenant, $user, $role);
 
         TenantCreated::dispatch($tenant, $user);
 

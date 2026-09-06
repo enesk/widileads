@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\BlockedUser;
+use App\Http\Middleware\EnsureMarketplaceAccess;
 use App\Http\Middleware\EnsureTenantType;
 use App\Http\Middleware\ResolveTenantFromToken;
 use App\Http\Middleware\Sitemapped;
@@ -33,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'sitemapped' => Sitemapped::class,
             'tenant.type' => EnsureTenantType::class,
+            'marketplace.access' => EnsureMarketplaceAccess::class,
             'tenant.from-token' => ResolveTenantFromToken::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,

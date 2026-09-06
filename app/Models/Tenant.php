@@ -79,6 +79,29 @@ class Tenant extends Model
         return $query->where('type', TenantType::BUYER);
     }
 
+    /**
+     * Registrierung und Freischaltungsstand eines Kaeufer-Mandanten (FB-050).
+     * Bei Betreiber-Mandanten immer null.
+     *
+     * @return HasOne<BuyerRegistration, $this>
+     */
+    public function buyerRegistration(): HasOne
+    {
+        return $this->hasOne(BuyerRegistration::class);
+    }
+
+    /**
+     * Ist dieser Mandant ein vom Plattform-Admin freigeschalteter Kaeufer?
+     *
+     * Der Typ allein genuegt seit FB-050 nicht: ein Kaeufer entsteht durch
+     * Selbstregistrierung und ist bis zur Entscheidung des Plattform-Admins
+     * gesperrt.
+     */
+    public function isApprovedBuyer(): bool
+    {
+        return $this->isBuyer() && ($this->buyerRegistration?->isApproved() ?? false);
+    }
+
     public function invitations(): HasMany
     {
         return $this->hasMany(Invitation::class);

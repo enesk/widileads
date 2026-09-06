@@ -33,9 +33,25 @@ class TenantTypeService
         return $this->typeOf($tenant)?->canManageFunnels() ?? false;
     }
 
+    /**
+     * Darf dieser Mandant den Lead-Marktplatz nutzen?
+     *
+     * Zwei Bedingungen, beide notwendig: der Typ muss `buyer` sein (FB-002) und
+     * die Registrierung freigeschaltet (FB-050). Der Typ allein genuegt nicht --
+     * ein Kaeufer entsteht durch Selbstregistrierung, und bis der
+     * Plattform-Admin entschieden hat, kommt er an keinen Lead.
+     *
+     * Die Regel steht bewusst nur hier: Gate, Middleware und Navigation fragen
+     * dieselbe Methode, damit die Sperre nicht an einer Stelle wirkt und an
+     * einer anderen fehlt.
+     */
     public function canAccessMarketplace(?Tenant $tenant): bool
     {
-        return $this->typeOf($tenant)?->canAccessMarketplace() ?? false;
+        if (! ($this->typeOf($tenant)?->canAccessMarketplace() ?? false)) {
+            return false;
+        }
+
+        return $tenant?->isApprovedBuyer() ?? false;
     }
 
     public function isOperator(?Tenant $tenant): bool
