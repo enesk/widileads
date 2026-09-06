@@ -1,0 +1,69 @@
+name: CI
+
+# Laeuft bei jedem Pull Request und auf main. Grund: Zwei Pull Requests koennen
+# einzeln gruen sein und sich erst zusammen widersprechen -- etwa wenn der eine
+# eine Spalte anlegt, auf deren Fehlen der andere prueft. Merge-Konflikte faengt
+# GitHub, diesen Fall nicht. Ohne Lauf gegen den aktuellen main faellt so etwas
+# erst auf, wenn die naechste Session einen roten composer check meldet.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # Ein neuer Push auf denselben Branch macht den vorherigen Lauf ueberfluessig.
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: composer check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: saasykit_tenancy_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      # .env.testing zeigt auf localhost; im Runner geht die Verbindung nur
+      # ueber 127.0.0.1, weil localhost dort auf einen Socket aufloest.
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP einrichten
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath, curl, dom, exif, gd, intl, mbstring, mysql, pcntl, redis, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer-Cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.4-
+
+      - name: Abhaengigkeiten installieren
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Die Testsuite baut ihre Datenbank selbst auf (RefreshDatabase). Der
+      # DestructiveCommandGuard laesst das nur in der Testumgebung und nur mit
+      # diesem Schalter zu -- beides setzt bereits phpunit.xml.
+      - name: composer check (Pint, PHPStan, Tests)
+        run: composer check
