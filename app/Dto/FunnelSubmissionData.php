@@ -20,6 +20,10 @@ namespace App\Dto;
  *
  * Bewusst nicht enthalten: die IP-Adresse. Herkunftsdaten samt IP-Hash sind
  * FB-022.
+ *
+ * Die Spam-Signale aus FB-023 sind Beobachtungen, kein Urteil: Der Lead entsteht
+ * auch bei Verdacht, mit lead_state = neu. Ob daraus ein ungueltiger Lead wird,
+ * entscheidet der Pruefjob in FB-033.
  */
 class FunnelSubmissionData
 {
@@ -29,6 +33,8 @@ class FunnelSubmissionData
      * @param  int  $publicSessionId  Sitzung mit Antworten, Zeitstempeln und Verlauf
      * @param  array<string, mixed>  $answers  field_key => normalisierter Wert
      * @param  string|null  $resultKey  Ergebnisschluessel aus dem Snapshot ("0-3"), nicht die funnel_results-ID
+     * @param  array<string, mixed>  $spamSignals  Beobachtungen aus FB-023, unbewertet
+     * @param  int|null  $duplicateOfLeadId  moeglicher Vorgaenger mit denselben Kontaktdaten
      */
     public function __construct(
         public readonly string $publicToken,
@@ -37,5 +43,7 @@ class FunnelSubmissionData
         public readonly array $answers,
         public readonly int $score,
         public readonly ?string $resultKey,
+        public readonly array $spamSignals = [],
+        public readonly ?int $duplicateOfLeadId = null,
     ) {}
 }

@@ -11,6 +11,8 @@ use App\Funnel\Conditions\StepResolver;
 use App\Funnel\QuestionTypes\QuestionTypeRegistry;
 use App\Funnel\Results\ResultResolver;
 use App\Funnel\Runtime\OriginCollector;
+use App\Funnel\Runtime\SpamAssessment;
+use App\Funnel\Runtime\SpamGuard;
 use App\Funnel\Runtime\SubmissionReceiver;
 use App\Funnel\Scoring\ScoreCalculator;
 use App\Funnel\Snapshots\FunnelSnapshot;
@@ -57,6 +59,15 @@ class FunnelRunner extends Component
 
     /** Token der laufenden Sitzung (public_sessions.token). */
     public string $sessionToken = '';
+
+    /**
+     * Honigtopf: Das Feld ist im Formular per CSS versteckt und traegt einen
+     * unverdaechtigen Namen. Ein Mensch sieht es nie, ein Bot fuellt es aus.
+     */
+    public string $website = '';
+
+    /** Meldung, wenn die Einreichung nicht angenommen wurde (Rate-Limit). */
+    public ?string $submissionBlockedReason = null;
 
     /** questions | result | contact | done */
     public string $phase = 'questions';
@@ -201,6 +212,30 @@ class FunnelRunner extends Component
         $this->finish();
     }
 
+    /**
+     * Prueft die Einreichung und haelt das Ergebnis an der Sitzung fest.
+     *
+     * Nur das Rate-Limit stoppt hier etwas. Honeypot und Zeitfalle werden still
+     * vermerkt und spaeter bewertet (FB-033) -- der Lead entsteht trotzdem, denn
+     * eine zu Unrecht verworfene Anfrage ist verloren, eine zu Unrecht
+     * angenommene laesst sich noch aussortieren.
+     */
+    private function assessSubmission(): SpamAssessment
+    {
+        $session = $this->session();
+
+        $assessment = app(SpamGuard::class)->assess(
+            $session,
+            $this->answers,
+            $this->website,
+            $this->funnel()->getKey(),
+        );
+
+        $session->forceFill(['spam_signals' => $assessment->toArray()])->save();
+
+        return $assessment;
+    }
+
     public function isArchived(): bool
     {
         return $this->funnel()->status === FunnelStatus::ARCHIVED;
@@ -208,6 +243,16 @@ class FunnelRunner extends Component
 
     private function finish(): void
     {
+        $assessment = $this->assessSubmission();
+
+        if ($assessment->blocksSubmission()) {
+            // Die Sitzung bleibt offen: Wer zu Unrecht getroffen wurde, kann es
+            // spaeter erneut versuchen, ohne von vorn anzufangen.
+            $this->submissionBlockedReason = __('runtime.errors.rate_limited');
+
+            return;
+        }
+
         $this->prepareResult();
         $this->phase = 'done';
 
@@ -225,6 +270,8 @@ class FunnelRunner extends Component
             answers: $this->answers,
             score: $this->score,
             resultKey: $this->resultKey,
+            spamSignals: $assessment->toArray(),
+            duplicateOfLeadId: $assessment->duplicateOfLeadId,
         ));
     }
 

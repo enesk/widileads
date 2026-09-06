@@ -34,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $embed_origin
  * @property string|null $ip_hash
  * @property string|null $user_agent
+ * @property array<string, mixed>|null $spam_signals
  * @property Carbon $started_at
  * @property Carbon $last_activity_at
  * @property Carbon|null $completed_at
@@ -58,6 +59,7 @@ class PublicSession extends Model
         'embed_origin',
         'ip_hash',
         'user_agent',
+        'spam_signals',
         'started_at',
         'last_activity_at',
         'completed_at',
@@ -121,6 +123,7 @@ class PublicSession extends Model
     {
         return [
             'answers' => 'array',
+            'spam_signals' => 'array',
             'current_step' => 'integer',
             'started_at' => 'datetime',
             'last_activity_at' => 'datetime',
