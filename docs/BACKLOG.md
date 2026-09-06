@@ -19,6 +19,20 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Verzweigungsregeln greifen nur im Schritt ihrer Ausgangsfrage** — `StepResolver`
+  wertet über `FunnelSnapshot::conditionsForStep()` nur die Regeln aus, deren
+  `source_field_key` zu einer Frage des gerade verlassenen Schritts gehört. Eine Regel
+  an einer früheren Antwort wird nie betrachtet, obwohl alle bisherigen Antworten
+  vorliegen. Beim Pfotencheck heißt das: „Tierart = Sonstige überspringt Rasse/Größe"
+  (Tierart in Schritt 1, Rasse in Schritt 3) ist nicht abbildbar, ohne auch das Alter in
+  Schritt 2 zu überspringen. Ursache ist eine Lücke im Datenmodell aus FB-010: Es sagt,
+  **an welcher Frage** eine Regel hängt, aber nicht, **wann** sie ausgewertet wird.
+  Möglicher Fix: nullable Spalte `evaluate_at_step_position` an `funnel_conditions`
+  (Vorgabe: Schritt der Ausgangsfrage); `conditionsForStep()` filtert dann darauf.
+  Auswertung, Operatoren und Zyklenschutz blieben unverändert. Vor FB-016
+  (Conditions-Editor) zu entscheiden. Aufgefallen bei: FB-012, gemeldet über FB-019.
+  Datum: 2026-09-06.
+
 - **Leads in `neu` oder `reserviert` erreichen die Aufbewahrungsfrist nie** — FB-037
   lässt nur `verfuegbar` ablaufen und anonymisiert nur Endzustände. Bleibt ein Lead
   hängen (Prüfjob aus FB-033 fehlgeschlagen, Reservierung nicht aufgeräumt), wird er
