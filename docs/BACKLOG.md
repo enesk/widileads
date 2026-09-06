@@ -19,6 +19,17 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Marktplatz filtert in PHP und ist deshalb gedeckelt** — der `LeadMatcher` ist eine reine
+  Funktion (Zusage aus FB-051), also lassen sich Regionen- und Antwortfilter nicht in SQL
+  ausdrücken. `MarketplaceListing` schränkt in der Datenbank vor, was sie sicher kann
+  (Zustand, Betreiber, Funnelauswahl, Mindestpunktzahl), und prüft danach höchstens
+  `marketplace.listing.candidate_limit` Leads (Vorgabe 500) mit dem Matcher. Ein Käufer mit
+  sehr engen Kriterien und sehr vielen verfügbaren Leads sieht dadurch möglicherweise nicht
+  alle Treffer. Bei den erwarteten Größenordnungen unkritisch; wächst der Bestand, sind die
+  Optionen: Antwortfilter als generierte Spalten oder JSON-Index abbilden, oder passende
+  Leads je Profil vorberechnen (dann aber die Deckungsgleichheit mit dem Matcher absichern,
+  sonst laufen Anzeige und Autokauf auseinander).
+  Aufgefallen bei: FB-053. Datum: 2026-09-07.
 - **`Order`-Beziehungen sind nicht typisiert** — `Order::items()` und `Order::tenant()` tragen
   keine Generics, deshalb liefert PHPStan dort `Model` statt `OrderItem`/`Tenant`. Der Versuch,
   das nachzuziehen, legt in `StripeProvider` und Umgebung rund 50 bislang von der Baseline
