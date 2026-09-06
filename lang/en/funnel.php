@@ -69,4 +69,36 @@ return [
 
     ],
 
+    'api_token' => [
+        'heading' => 'API access',
+        'nav_label' => 'API access',
+        'description' => 'Tokens belong to this workspace and can only reach its data.',
+        'empty' => 'No API access created yet.',
+        'name' => 'Label',
+        'name_placeholder' => 'e.g. Website embed',
+        'name_helper' => 'What is this token used for? For example "Website embed" or "CRM integration".',
+        'abilities' => 'Abilities',
+        'abilities_helper' => 'Only the abilities selected here are possible with this token.',
+        'last_used_at' => 'Last used',
+        'never_used' => 'Never used',
+        'created_at' => 'Created at',
+        'create' => 'Create token',
+        'created' => 'Token has been created.',
+        'revoke' => 'Revoke',
+        'revoke_confirm' => 'The token becomes invalid immediately. Applications using it will lose access.',
+        'revoked' => 'Token has been revoked.',
+        'revoke_failed' => 'Token could not be revoked.',
+        'plain_text_heading' => 'Token visible only now',
+        'plain_text_hint' => 'Copy the token now. Only a hash is stored, so it cannot be shown again later.',
+        'plain_text_dismiss' => 'Understood, hide it',
+        'limit_reached' => 'A workspace can have at most :limit valid tokens at a time. Revoke an existing token first.',
+        'no_tenant_token' => 'The token used does not belong to any workspace.',
+        'ability' => [
+            'funnels_read' => 'Read funnels',
+            'funnels_write' => 'Write funnels',
+            'leads_read' => 'Read leads',
+            'webhooks_manage' => 'Manage webhooks',
+        ],
+    ],
+
 ];

@@ -29,6 +29,8 @@ class FunnelConfigTest extends TestCase
             'call.min_gap_hours' => ['funnel.call.min_gap_hours', 2],
             'call.min_days' => ['funnel.call.min_days', 2],
             'call.deadline_days' => ['funnel.call.deadline_days', 7],
+            'api.token_expiration_days' => ['funnel.api.token_expiration_days', 0],
+            'api.max_tokens_per_tenant' => ['funnel.api.max_tokens_per_tenant', 10],
         ];
     }
 
@@ -60,6 +62,8 @@ class FunnelConfigTest extends TestCase
             'features.announcements' => ['funnel.features.announcements', 'FUNNEL_FEATURE_ANNOUNCEMENTS_ENABLED'],
             'features.referral' => ['funnel.features.referral', 'FUNNEL_FEATURE_REFERRAL_ENABLED'],
             'allow_destructive_commands' => ['funnel.allow_destructive_commands', 'FUNNEL_ALLOW_DESTRUCTIVE'],
+            'api.token_expiration_days' => ['funnel.api.token_expiration_days', 'FUNNEL_API_TOKEN_EXPIRATION_DAYS'],
+            'api.max_tokens_per_tenant' => ['funnel.api.max_tokens_per_tenant', 'FUNNEL_API_MAX_TOKENS_PER_TENANT'],
         ];
     }
 

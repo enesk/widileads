@@ -10,12 +10,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property TenantType $type
  */
 class Tenant extends Model
 {
+    /**
+     * API-Tokens gehoeren dem Tenant, nicht einem einzelnen Nutzer (FB-006):
+     * ein Token ueberlebt den Weggang des Nutzers, der es angelegt hat, und
+     * kommt nur an die Daten seines eigenen Tenants.
+     */
+    use HasApiTokens;
+
     use HasFactory;
 
     protected $fillable = [
