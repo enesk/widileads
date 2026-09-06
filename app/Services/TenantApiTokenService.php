@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\AuditAction;
 use App\Constants\TenantApiAbility;
 use App\Exceptions\TenantApiTokenLimitReachedException;
 use App\Models\Tenant;
@@ -18,9 +19,15 @@ use Laravel\Sanctum\PersonalAccessToken;
  * Tokens haengen am Tenant, nicht am Nutzer. Der Klartext des Tokens existiert
  * nur im Rueckgabewert von create() - gespeichert wird ausschliesslich der Hash.
  * Ablauf und Obergrenze kommen aus config/funnel.php.
+ *
+ * Anlegen und Widerrufen sind Pflichtereignisse des Audit-Logs (FB-005). Der
+ * Klartext des Tokens wird dabei nie protokolliert - nur Bezeichnung, Abilities
+ * und die Token-ID.
  */
 class TenantApiTokenService
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     /**
      * @param  list<string>  $abilities
      *
@@ -34,11 +41,22 @@ class TenantApiTokenService
             throw new TenantApiTokenLimitReachedException($limit);
         }
 
-        return $tenant->createToken(
-            $name,
-            $this->sanitizeAbilities($abilities),
-            $this->expiresAt(),
+        $abilities = $this->sanitizeAbilities($abilities);
+
+        $token = $tenant->createToken($name, $abilities, $this->expiresAt());
+
+        $this->auditLogger->log(
+            AuditAction::API_TOKEN_CREATED,
+            subject: $token->accessToken,
+            payload: [
+                'name' => $name,
+                'abilities' => $abilities,
+                'expires_at' => $token->accessToken->expires_at?->toIso8601String(),
+            ],
+            tenant: $tenant,
         );
+
+        return $token;
     }
 
     /**
@@ -58,7 +76,32 @@ class TenantApiTokenService
      */
     public function revoke(Tenant $tenant, int $tokenId): bool
     {
-        return $tenant->tokens()->whereKey($tokenId)->delete() > 0;
+        /** @var PersonalAccessToken|null $token */
+        $token = $tenant->tokens()->whereKey($tokenId)->first();
+
+        if ($token === null) {
+            return false;
+        }
+
+        // Bezeichnung und Abilities vor dem Loeschen sichern, damit der
+        // Audit-Eintrag den widerrufenen Zugang noch beschreiben kann.
+        $payload = [
+            'name' => $token->name,
+            'abilities' => $token->abilities ?? [],
+        ];
+
+        if ($token->delete() !== true) {
+            return false;
+        }
+
+        $this->auditLogger->log(
+            AuditAction::API_TOKEN_DELETED,
+            subject: $token,
+            payload: $payload,
+            tenant: $tenant,
+        );
+
+        return true;
     }
 
     public function maxTokensPerTenant(): int
