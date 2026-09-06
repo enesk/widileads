@@ -6,7 +6,6 @@ namespace Tests\Feature\Funnel;
 
 use App\Actions\CreateLeadFromSession;
 use App\Actions\PublishFunnel;
-use App\Constants\LeadState;
 use App\Constants\TenantType;
 use App\Dto\FunnelSubmissionData;
 use App\Models\Lead;
@@ -73,6 +72,11 @@ class LeadPersonalDataTest extends FeatureTest
         $this->assertSame('jonas.weber@example.com', $lead->email_normalized);
         $this->assertSame('+493087654321', $lead->phone_e164);
 
+        // Seit FB-033 prueft ein Job jeden neuen Lead sofort -- welchen Zustand
+        // er dabei bekommt, ist hier egal. Entscheidend ist, dass die
+        // Anonymisierung ihn nicht anfasst.
+        $stateBefore = $lead->fresh()->lead_state;
+
         $this->assertTrue(app(LeadAnonymizer::class)->anonymize($lead));
 
         $lead->refresh();
@@ -95,7 +99,7 @@ class LeadPersonalDataTest extends FeatureTest
         $this->assertSame(['zaehne'], $answers['vorerkrankungen']);
 
         // Und die Zaehl- und Preisdaten stehen weiterhin (FB-037).
-        $this->assertSame(LeadState::NEU, $lead->lead_state);
+        $this->assertSame($stateBefore, $lead->lead_state);
         $this->assertSame('15.00', $lead->price_at_creation);
     }
 

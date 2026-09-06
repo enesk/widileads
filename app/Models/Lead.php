@@ -41,6 +41,11 @@ use Illuminate\Support\Carbon;
  * @property int|null $funnel_id
  * @property int|null $funnel_version_id
  * @property int|null $public_session_id
+ * @property int|null $duplicate_of_lead_id
+ * @property-read Funnel|null $funnel
+ * @property-read FunnelVersion|null $funnelVersion
+ * @property-read PublicSession|null $publicSession Null, sobald die Sitzung aufgeraeumt wurde.
+ * @property-read Lead|null $duplicateOf
  * @property LeadState $lead_state
  * @property int $score
  * @property string|null $result_key
@@ -112,6 +117,17 @@ class Lead extends Model
     public function publicSession(): BelongsTo
     {
         return $this->belongsTo(PublicSession::class);
+    }
+
+    /**
+     * Frueherer Lead mit denselben Kontaktdaten, falls FB-023 einen gefunden
+     * hat. Ein Verweis, kein Urteil -- entschieden wird im Pruefjob (FB-033).
+     *
+     * @return BelongsTo<Lead, $this>
+     */
+    public function duplicateOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'duplicate_of_lead_id');
     }
 
     /**
