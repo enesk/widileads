@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Constants\ConditionOperator;
 use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
 use App\Models\Funnel;
@@ -163,9 +164,29 @@ class FunnelSchemaTest extends FeatureTest
 
         $this->assertSame($condition->funnel_id, $condition->sourceQuestion->funnel_id);
         $this->assertSame($condition->funnel_id, $condition->targetStep->funnel_id);
+        $this->assertSame(ConditionOperator::EQUALS, $condition->operator);
         $this->assertSame(['ja'], $condition->value);
         $this->assertSame(10, $condition->priority);
         $this->assertSame([$condition->id], $condition->funnel->conditions()->pluck('id')->all());
+    }
+
+    public function test_every_condition_operator_is_persistable_and_labelled(): void
+    {
+        $this->assertSame(
+            ['equals', 'not_equals', 'in', 'gt', 'lt', 'contains', 'answered', 'score_gte'],
+            ConditionOperator::values(),
+        );
+
+        foreach (ConditionOperator::cases() as $operator) {
+            $condition = FunnelCondition::factory()->withOperator($operator)->create();
+
+            $this->assertSame($operator, $condition->refresh()->operator);
+            $this->assertNotSame(
+                'funnel.condition_operator.'.$operator->value,
+                $operator->label(),
+                sprintf('Fuer den Operator "%s" fehlt eine Beschriftung in lang/de/funnel.php.', $operator->value),
+            );
+        }
     }
 
     public function test_results_carry_their_score_range(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Constants\ConditionOperator;
 use Database\Factories\FunnelConditionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $funnel_id
  * @property int $source_question_id
- * @property string $operator
+ * @property ConditionOperator $operator
  * @property array<array-key, mixed>|string|int|float|bool|null $value
  * @property int $target_step_id
  * @property int $priority
@@ -72,6 +73,7 @@ class FunnelCondition extends Model
     protected function casts(): array
     {
         return [
+            'operator' => ConditionOperator::class,
             'value' => 'array',
             'priority' => 'integer',
         ];

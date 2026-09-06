@@ -107,4 +107,15 @@ return [
         'archived' => 'Archived',
     ],
 
+    'condition_operator' => [
+        'equals' => 'equals',
+        'not_equals' => 'does not equal',
+        'in' => 'is one of',
+        'gt' => 'is greater than',
+        'lt' => 'is less than',
+        'contains' => 'contains',
+        'answered' => 'was answered',
+        'score_gte' => 'score at least',
+    ],
+
 ];

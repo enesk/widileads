@@ -107,4 +107,15 @@ return [
         'archived' => 'Archiviert',
     ],
 
+    'condition_operator' => [
+        'equals' => 'ist gleich',
+        'not_equals' => 'ist ungleich',
+        'in' => 'ist eine von',
+        'gt' => 'ist groesser als',
+        'lt' => 'ist kleiner als',
+        'contains' => 'enthaelt',
+        'answered' => 'wurde beantwortet',
+        'score_gte' => 'Punktzahl mindestens',
+    ],
+
 ];

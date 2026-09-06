@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Constants\ConditionOperator;
 use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
 use App\Constants\TenantType;
@@ -119,7 +120,7 @@ class FunnelExampleSeeder extends Seeder
         FunnelCondition::query()->create([
             'funnel_id' => $funnel->id,
             'source_question_id' => $animalQuestion->id,
-            'operator' => 'equals',
+            'operator' => ConditionOperator::EQUALS,
             'value' => ['anderes'],
             'target_step_id' => $contactStep->id,
             'priority' => 10,

@@ -29,7 +29,9 @@ Weitere Konventionen:
 **Was:** Sechs neue Tabellen (`funnels`, `funnel_steps`, `funnel_questions`,
 `funnel_options`, `funnel_conditions`, `funnel_results`) mit Models, Factories und einem
 Beispiel-Seeder. `funnel_conditions` und `funnel_results` bringen nur die Struktur mit —
-StepResolver (FB-012) und ResultResolver (FB-013) kommen später. Ein Funnel wird
+StepResolver (FB-012), ResultResolver und die Publish-Validierung der Score-Bereiche
+(FB-013) kommen später. Die Vergleichsoperatoren liegen als Enum `ConditionOperator`
+(`equals`, `not_equals`, `in`, `gt`, `lt`, `contains`, `answered`, `score_gte`) fest. Ein Funnel wird
 öffentlich ausschließlich über `public_token` (ULID, automatisch vergeben, zugleich
 Route-Key) adressiert, nie über die ID. Der Feldschlüssel einer Frage wird beim
 Speichern normalisiert („E-Mail" → `e_mail`) und ist je Funnel eindeutig — dafür trägt
