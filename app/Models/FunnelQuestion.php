@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Eine Frage innerhalb eines Funnel-Schritts (FB-010).
  *
  * Der Feldschluessel ist der Name, unter dem die Antwort spaeter am Lead
- * haengt. Er wird beim Speichern normalisiert ("E-Mail" -> "e_mail") und ist je
+ * haengt. Er wird beim Speichern vereinheitlicht und auf die reservierten
+ * Kontakt-Feldschluessel abgebildet ("E-Mail" -> "e_mail" -> "email") und ist je
  * Funnel eindeutig -- dafuer traegt die Frage neben step_id auch funnel_id.
  *
  * @property int $id
@@ -82,13 +83,14 @@ class FunnelQuestion extends Model
     }
 
     /**
-     * Normalisiert den Feldschluessel bei jedem Setzen.
+     * Vereinheitlicht den Feldschluessel bei jedem Setzen und loest gebraeuchliche
+     * Schreibweisen auf den reservierten Schluessel auf.
      *
      * @return Attribute<string, string>
      */
     protected function fieldKey(): Attribute
     {
-        return Attribute::set(fn (string $value): string => FunnelFieldKey::normalize($value));
+        return Attribute::set(fn (string $value): string => FunnelFieldKey::resolve($value));
     }
 
     /**

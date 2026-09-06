@@ -180,4 +180,52 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Feldschluessel-Aliase (FB-010)
+    |--------------------------------------------------------------------------
+    |
+    | Der Feldschluessel einer Frage wird beim Speichern normalisiert (Label
+    | "E-Mail" ergibt zunaechst "e_mail"). Danach wird er ueber diese Tabelle auf
+    | den reservierten Kontakt-Feldschluessel abgebildet, damit ein Funnel den
+    | Kontakt auch dann liefert, wenn sein Ersteller eine gebraeuchliche
+    | Schreibweise gewaehlt hat.
+    |
+    | Ohne diese Aufloesung entstuende ein Lead ohne aufloesbare Kontaktdaten:
+    | LeadContact (FB-032) sucht nach "email", die Frage hiesse aber "e_mail".
+    | Der Fehler faellt erst in Produktion auf, wenn die unbrauchbaren Leads
+    | bereits in der Datenbank liegen.
+    |
+    | Schluessel = normalisierte Schreibweise, Wert = reservierter Feldschluessel
+    | aus App\Constants\FunnelFieldKey. Ziele, die dort nicht existieren, werden
+    | ignoriert.
+    |
+    */
+
+    'field_key_aliases' => [
+
+        'e_mail' => 'email',
+        'mail' => 'email',
+        'email_adresse' => 'email',
+        'e_mail_adresse' => 'email',
+
+        'telefonnummer' => 'telefon',
+        'tel' => 'telefon',
+        'mobil' => 'telefon',
+        'handy' => 'telefon',
+
+        'postleitzahl' => 'plz',
+        'plz_ort' => 'plz',
+
+        'vor_name' => 'vorname',
+
+        'nach_name' => 'nachname',
+        'familienname' => 'nachname',
+
+        'datenschutz' => 'einwilligung',
+        'zustimmung' => 'einwilligung',
+        'einwilligung_datenschutz' => 'einwilligung',
+
+    ],
+
 ];

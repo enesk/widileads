@@ -197,3 +197,31 @@ Referenz: `App\Filament\Dashboard\Pages\ApiTokens` (Hülle) und
 Gilt genauso für FB-015 (Builder), FB-034 (Lead-Liste) und FB-053 (Marktplatz).
 
 Im Admin-Panel (`/admin`) bleibt Filament uneingeschränkt das Mittel der Wahl.
+
+### 5. Feldschlüssel: Normalisierung **und** Alias-Auflösung
+
+**Ursprungsdokument:** FB-010 verlangt, dass der Feldschlüssel beim Speichern
+normalisiert wird, mit dem Beispiel „E-Mail" → „e_mail", und nennt separat die
+reservierten Feldschlüssel `vorname`, `nachname`, `name`, `email`, `telefon`, `plz`,
+`einwilligung`.
+
+**Verbindlich:** Beide Vorgaben zusammen ergeben eine Falle mit Datenfolge. Ein
+Funnel-Ersteller beschriftet sein Kontaktfeld naheliegend mit „E-Mail", der Schlüssel
+wird zu `e_mail` — und trifft damit den reservierten Schlüssel `email` nicht. Alles
+sieht richtig aus, aber `LeadContact` (FB-032) findet später keine E-Mail-Adresse; der
+Lead entsteht ohne auflösbaren Kontakt und ist wertlos. Auffallen würde das erst in
+Produktion, wenn die unbrauchbaren Leads bereits gespeichert sind.
+
+Deshalb entsteht ein Feldschlüssel in **zwei** Schritten:
+
+1. `FunnelFieldKey::normalize()` vereinheitlicht die Schreibweise — unverändert die
+   Regel aus dem Ticket, „E-Mail" ergibt „e_mail".
+2. `FunnelFieldKey::resolve()` bildet das Ergebnis anschließend über
+   `config('funnel.field_key_aliases')` auf den reservierten Schlüssel ab, „e_mail"
+   wird zu „email". Ohne hinterlegten Alias bleibt der normalisierte Schlüssel stehen.
+
+Gespeichert wird das Ergebnis aus Schritt 2. Die Alias-Tabelle steht in
+`config/funnel.php` und ist damit ohne Codeänderung erweiterbar; Aliase, die auf einen
+nicht existierenden reservierten Schlüssel zeigen, werden ignoriert.
+
+Umgesetzt in FB-010.

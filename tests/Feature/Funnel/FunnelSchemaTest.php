@@ -17,6 +17,7 @@ use Database\Seeders\FunnelExampleSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTest;
 
 /**
@@ -64,14 +65,102 @@ class FunnelSchemaTest extends FeatureTest
 
     public function test_field_key_is_normalized_on_save(): void
     {
+        $question = FunnelQuestion::factory()->create(['field_key' => 'Alter In Jahren']);
+
+        $this->assertSame('alter_in_jahren', $question->field_key);
+        $this->assertDatabaseHas('funnel_questions', ['id' => $question->id, 'field_key' => 'alter_in_jahren']);
+
+        $question->update(['field_key' => '  Groesse Des Tieres ']);
+
+        $this->assertSame('groesse_des_tieres', $question->refresh()->field_key);
+    }
+
+    public function test_a_contact_field_labelled_e_mail_ends_up_as_the_reserved_key(): void
+    {
         $question = FunnelQuestion::factory()->create(['field_key' => 'E-Mail']);
 
-        $this->assertSame('e_mail', $question->field_key);
-        $this->assertDatabaseHas('funnel_questions', ['id' => $question->id, 'field_key' => 'e_mail']);
+        // Erster Schritt bleibt die Normalisierung aus dem Ticket ...
+        $this->assertSame('e_mail', FunnelFieldKey::normalize('E-Mail'));
 
-        $question->update(['field_key' => '  Alter In Jahren ']);
+        // ... zweiter Schritt loest den Alias auf, sonst faende LeadContact
+        // (FB-032) spaeter keine E-Mail-Adresse an diesem Lead.
+        $this->assertSame('email', $question->field_key);
+        $this->assertDatabaseHas('funnel_questions', ['id' => $question->id, 'field_key' => 'email']);
+        $this->assertTrue($question->hasReservedFieldKey());
+    }
 
-        $this->assertSame('alter_in_jahren', $question->refresh()->field_key);
+    /**
+     * Schreibweisen, die zwingend aufgeloest werden muessen. Die Liste ist die
+     * Vorgabe an config('funnel.field_key_aliases') -- dort duerfen weitere
+     * Aliase stehen, diese hier aber nicht fehlen.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function aliasProvider(): array
+    {
+        return [
+            'e_mail' => ['E-Mail', 'email'],
+            'mail' => ['Mail', 'email'],
+            'email_adresse' => ['Email Adresse', 'email'],
+            'telefonnummer' => ['Telefonnummer', 'telefon'],
+            'tel' => ['Tel', 'telefon'],
+            'mobil' => ['Mobil', 'telefon'],
+            'handy' => ['Handy', 'telefon'],
+            'postleitzahl' => ['Postleitzahl', 'plz'],
+            'plz_ort' => ['PLZ Ort', 'plz'],
+            'vor_name' => ['Vor Name', 'vorname'],
+            'nach_name' => ['Nach Name', 'nachname'],
+            'familienname' => ['Familienname', 'nachname'],
+            'datenschutz' => ['Datenschutz', 'einwilligung'],
+            'zustimmung' => ['Zustimmung', 'einwilligung'],
+            'einwilligung_datenschutz' => ['Einwilligung Datenschutz', 'einwilligung'],
+        ];
+    }
+
+    #[DataProvider('aliasProvider')]
+    public function test_each_required_alias_resolves_to_its_reserved_key(string $label, string $reservedKey): void
+    {
+        $this->assertSame($reservedKey, FunnelFieldKey::resolve($label));
+        $this->assertTrue(FunnelFieldKey::isReserved($label));
+
+        $question = FunnelQuestion::factory()->create(['field_key' => $label]);
+
+        $this->assertSame($reservedKey, $question->field_key);
+    }
+
+    public function test_every_configured_alias_points_at_a_reserved_key(): void
+    {
+        /** @var array<string, string> $aliases */
+        $aliases = config('funnel.field_key_aliases');
+
+        $this->assertNotSame([], $aliases);
+
+        foreach ($aliases as $alias => $reservedKey) {
+            $this->assertSame(
+                $alias,
+                FunnelFieldKey::normalize($alias),
+                sprintf('Der Alias "%s" ist selbst nicht normalisiert und wuerde nie greifen.', $alias),
+            );
+            $this->assertNotNull(FunnelFieldKey::tryFrom($reservedKey), sprintf(
+                'Der Alias "%s" zeigt auf "%s" - das ist kein reservierter Feldschluessel.',
+                $alias,
+                $reservedKey,
+            ));
+        }
+    }
+
+    public function test_unknown_field_keys_stay_untouched(): void
+    {
+        $this->assertSame('tierart', FunnelFieldKey::resolve('Tierart'));
+        $this->assertFalse(FunnelFieldKey::isReserved('Tierart'));
+    }
+
+    public function test_an_alias_pointing_at_an_unknown_key_is_ignored(): void
+    {
+        config()->set('funnel.field_key_aliases', ['wunschtermin' => 'gibt_es_nicht']);
+
+        $this->assertSame('wunschtermin', FunnelFieldKey::resolve('Wunschtermin'));
+        $this->assertFalse(FunnelFieldKey::isReserved('Wunschtermin'));
     }
 
     public function test_question_inherits_the_funnel_from_its_step(): void
@@ -226,11 +315,6 @@ class FunnelSchemaTest extends FeatureTest
         $this->assertTrue(FunnelFieldKey::isReserved('Email'));
         $this->assertTrue(FunnelFieldKey::isReserved('Vorname'));
         $this->assertFalse(FunnelFieldKey::isReserved('tierart'));
-
-        // "E-Mail" normalisiert zu "e_mail" und ist damit bewusst NICHT der
-        // reservierte Schluessel "email" -- beide Vorgaben stehen so im Ticket.
-        $this->assertSame('e_mail', FunnelFieldKey::normalize('E-Mail'));
-        $this->assertFalse(FunnelFieldKey::isReserved('E-Mail'));
 
         $question = FunnelQuestion::factory()->create(['field_key' => 'Telefon']);
 
