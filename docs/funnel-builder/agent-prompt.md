@@ -169,3 +169,31 @@ eingetragenen Level. Ab Abschluss von FB-001 gilt Level 6 für alle Folgetickets
 Im Ursprungsdokument verweist die Arbeitsweise auf „Teil 2 dieses Dokuments". Da das
 Dokument hier auf mehrere Dateien aufgeteilt ist, verweist der Prompt stattdessen auf
 `docs/funnel-builder/datenmodell.md`. Inhaltlich unverändert.
+
+### 5. „Kein Filament im Tenant-Dashboard" — Zuschnitt
+
+**Ursprungsdokument:** „Keine Filament-Nutzung im Tenant-Dashboard." (FB-015)
+
+**Verbindlich:** Gemeint sind **keine Filament-Formular- und Tabellen-Builder für
+Tenant-Oberflächen** — nicht „am Panel vorbei routen". Das Tenant-Dashboard *ist* in
+SaasyKit ein Filament-Panel; Routing, Navigation und Tenant-Switcher hängen daran.
+Eine eigene Route außerhalb des Panels wäre die Parallelstruktur, die der Master-Prompt
+untersagt.
+
+Der gewünschte Zuschnitt, erstmals in FB-006 umgesetzt:
+
+- **Hülle:** eine dünne `Filament\Pages\Page` in `app/Filament/Dashboard/Pages/`, die
+  nur Routing, Navigationseintrag, Titel und `canAccess()` beisteuert. Ihr Blade-View
+  enthält ausschließlich `<x-filament-panels::page>` und das eingebettete Livewire.
+- **Inhalt:** eine gewöhnliche Livewire-Komponente in `app/Livewire/Dashboard/` mit
+  Blade, Tailwind und daisyUI. Keine `InteractsWithTable`, `InteractsWithForms` oder
+  `Filament\Actions` — Formulare, Tabellen und Bestätigungsdialoge werden mit
+  Livewire-Bordmitteln gebaut (`wire:model`, `wire:submit`, `wire:confirm`,
+  `$this->validate()`).
+
+Referenz: `App\Filament\Dashboard\Pages\ApiTokens` (Hülle) und
+`App\Livewire\Dashboard\ApiTokens` (Inhalt).
+
+Gilt genauso für FB-015 (Builder), FB-034 (Lead-Liste) und FB-053 (Marktplatz).
+
+Im Admin-Panel (`/admin`) bleibt Filament uneingeschränkt das Mittel der Wahl.

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Funnel;
 
+use App\Constants\AuditAction;
 use App\Constants\TenantApiAbility;
 use App\Exceptions\TenantApiTokenLimitReachedException;
+use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Services\TenantApiTokenService;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -225,6 +227,70 @@ class TenantApiTokenTest extends FeatureTest
         $this->expectException(TenantApiTokenLimitReachedException::class);
 
         $service->create($tenant, 'Drei', TenantApiAbility::values());
+    }
+
+    public function test_creating_a_token_is_written_to_the_audit_log(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = $this->createUser($tenant);
+        $this->actingAs($user);
+
+        $token = app(TenantApiTokenService::class)->create($tenant, 'CRM-Anbindung', [
+            TenantApiAbility::LEADS_READ->value,
+            'leads:delete-everything',
+        ]);
+
+        $entry = AuditLog::query()->where('action', AuditAction::API_TOKEN_CREATED)->sole();
+
+        $this->assertSame($tenant->id, $entry->tenant_id);
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame((string) $token->accessToken->id, $entry->subject_id);
+        $this->assertSame('CRM-Anbindung', $entry->payload['name']);
+
+        // Nur bereinigte Abilities, und niemals der Klartext des Tokens.
+        $this->assertSame([TenantApiAbility::LEADS_READ->value], $entry->payload['abilities']);
+        $this->assertStringNotContainsString(
+            $token->plainTextToken,
+            (string) json_encode($entry->payload),
+        );
+    }
+
+    public function test_revoking_a_token_is_written_to_the_audit_log(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = $this->createUser($tenant);
+        $this->actingAs($user);
+
+        $service = app(TenantApiTokenService::class);
+        $service->create($tenant, 'Widerruf-Kandidat', [TenantApiAbility::FUNNELS_READ->value]);
+        $tokenId = $tenant->tokens()->firstOrFail()->id;
+
+        $this->assertTrue($service->revoke($tenant, $tokenId));
+
+        $entry = AuditLog::query()->where('action', AuditAction::API_TOKEN_DELETED)->sole();
+
+        $this->assertSame($tenant->id, $entry->tenant_id);
+        $this->assertSame($user->id, $entry->user_id);
+        $this->assertSame((string) $tokenId, $entry->subject_id);
+        $this->assertSame('Widerruf-Kandidat', $entry->payload['name']);
+        $this->assertSame([TenantApiAbility::FUNNELS_READ->value], $entry->payload['abilities']);
+    }
+
+    public function test_a_failed_revocation_writes_no_audit_entry(): void
+    {
+        $own = Tenant::factory()->create();
+        $foreign = Tenant::factory()->create();
+
+        $service = app(TenantApiTokenService::class);
+        $service->create($foreign, 'Fremdes Token', TenantApiAbility::values());
+        $foreignTokenId = $foreign->tokens()->firstOrFail()->id;
+
+        $this->assertFalse($service->revoke($own, $foreignTokenId));
+
+        $this->assertSame(
+            0,
+            AuditLog::query()->where('action', AuditAction::API_TOKEN_DELETED)->count(),
+        );
     }
 
     /**

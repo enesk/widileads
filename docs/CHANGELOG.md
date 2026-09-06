@@ -49,6 +49,11 @@ Seeder der Tenant-Rolle `admin` zugewiesen. `GET /api/v1/me` gibt den Tenant des
 verwendeten Tokens samt Abilities zurück; `GET /api/v1/ping/leads` ist eine minimale
 Sonde für die Ability-Prüfung. Fachliche Endpunkte kommen ab FB-030.
 
+Anlegen und Widerrufen sind über `AuditLogger::log()` als Pflichtereignisse aus FB-005
+verdrahtet (`AuditAction::API_TOKEN_CREATED` und `API_TOKEN_DELETED`). Protokolliert
+werden Bezeichnung, bereinigte Abilities und Token-ID — nie der Klartext des Tokens.
+Ein fehlgeschlagener Widerruf (fremdes Token) schreibt keinen Eintrag.
+
 ### FB-005 — Audit-Log
 
 **Was:** Neue Tabelle `audit_logs` und der Dienst `App\Services\AuditLogger` halten
