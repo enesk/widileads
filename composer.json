@@ -98,10 +98,16 @@
         ],
         "check:pint": "vendor/bin/pint --test",
         "check:phpstan": "vendor/bin/phpstan analyse --no-progress",
-        "check:test": "@php artisan test --compact"
+        "check:test": "@php artisan test --compact",
+        "check:determinism": [
+            "@php artisan test --compact --order-by=random --random-order-seed=1",
+            "@php artisan test --compact --order-by=random --random-order-seed=2",
+            "@php artisan test --compact --order-by=random --random-order-seed=3"
+        ]
     },
     "scripts-descriptions": {
-        "check": "Runs the full quality gate: Pint (dry run), PHPStan and the PHPUnit test suite."
+        "check": "Runs the full quality gate: Pint (dry run), PHPStan and the PHPUnit test suite.",
+        "check:determinism": "Runs the test suite three times with fixed but different random-order seeds. All three runs must report the same result."
     },
     "extra": {
         "laravel": {

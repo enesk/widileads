@@ -10,6 +10,20 @@ class CurrencyService
 {
     private static ?Currency $currency = null;
 
+    /**
+     * Verwirft die zwischengespeicherte Waehrung.
+     *
+     * Noetig, wenn sich app.default_currency zur Laufzeit aendert - etwa nach
+     * dem Speichern der Einstellungen im Admin-Panel oder zwischen zwei Tests
+     * (siehe Tests\TestCase, FB-040).
+     */
+    public static function flushCache(): void
+    {
+        // Bewusst self:: statt static:: - die Eigenschaft ist private, ein
+        // Zugriff ueber static:: waere in einer Unterklasse nicht aufloesbar.
+        self::$currency = null;
+    }
+
     public function getCurrency(): Currency
     {
         if (static::$currency !== null) {

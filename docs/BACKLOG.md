@@ -33,11 +33,23 @@ Ein Eintrag je Zeile bzw. Absatz:
   Einwilligung `accepted` verlangt, `multi_choice` immer eine Liste liefert oder
   `date` auf ISO-8601 vereinheitlicht. Aufgefallen bei: FB-011. Datum: 2026-09-06.
 
-- **Test-Datenbank ist zwischen Sessions geteilt** — `.env.testing` zeigt fest auf
-  `saasykit_tenancy_test`. Laufen zwei Sessions gleichzeitig `php artisan test`, brechen
-  die Läufe gegenseitig ab („Table 'permissions' already exists"). Abhilfe wäre eine
-  DB je Arbeitskopie (z. B. Suffix aus `APP_ENV`/Worktree-Name) oder konsequent
-  `php artisan test --parallel`. Aufgefallen bei: FB-010. Datum: 2026-09-06.
+- **~~Test-Datenbank ist zwischen Sessions geteilt~~ (erledigt in FB-040)** — `.env.testing`
+  zeigte fest auf `saasykit_tenancy_test`. Liefen zwei Sessions gleichzeitig
+  `php artisan test`, brachen die Läufe gegenseitig ab („Table 'permissions' already
+  exists", „Unknown column 'uuid'"). `Tests\TestCase` leitet den Datenbanknamen jetzt
+  aus dem Pfad der Arbeitskopie ab und legt die Datenbank beim ersten Lauf selbst an;
+  ein ausdrücklich gesetztes `DB_DATABASE` behält Vorrang.
+  Aufgefallen bei: FB-010. Erledigt in: FB-040. Datum: 2026-09-06.
+
+- **`Model::preventLazyLoading()` im Testing-Env erzeugt 34 Fehler** — in FB-040
+  probeweise aktiviert und wieder zurückgenommen, weil die Treffer ausschließlich im
+  Bestandscode liegen und ein Umbau laut Ticket FB-041 überlassen ist. Verteilung:
+  27× `[roles]` auf `App\Models\User` (Spatie `HasRoles` lädt die Rollen bei jeder
+  Berechtigungsprüfung nach, u. a. im Filament-Admin-Panel), 2× `[plan]` auf
+  `App\Models\Subscription` (`SubscriptionService.php:467`), Rest verteilt.
+  Betroffen sind ~20 Testklassen quer durch Admin-Resources und Services. Der Hebel
+  liegt beim `roles`-Fall: einmal gelöst, bleibt fast nichts übrig.
+  Aufgefallen bei: FB-040. Datum: 2026-09-06.
 
 - **Horizon: `horizon:snapshot` ist nicht eingeplant** — ohne
   `Schedule::command('horizon:snapshot')->everyFiveMinutes()` in `routes/console.php`
