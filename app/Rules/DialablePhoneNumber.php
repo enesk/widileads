@@ -26,7 +26,7 @@ class DialablePhoneNumber implements ValidationRule
         }
 
         if (! is_string($value) || $this->phoneType->toE164($value) === null) {
-            $fail(__('funnel.runtime.errors.phone_not_dialable'))->translate();
+            $fail(__('runtime.errors.phone_not_dialable'))->translate();
         }
     }
 }
