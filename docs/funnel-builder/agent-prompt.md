@@ -96,6 +96,16 @@ entstehenden Leads an Käufer (zunächst Versicherungsagenturen) verkauft werden
   Das ist kein Formalismus. Es ist die einzige Prüfung, die eine Kette **von außen**
   abgeht, statt jedes Ticket von innen.
 
+- **Und jeder Test über Käufer- oder Betreiberverhalten läuft im echten
+  Mandantenkontext** — `actingAs` **und** `Filament::setTenant` — **und über den echten
+  Weg**: über die Action oder die Seite, nicht direkt gegen den Dienst. Sonst prüft er
+  eine Welt ohne Mandanten-Scope, die es in Produktion nicht gibt.
+
+  Die beiden Regeln gehören zusammen: Die obere sagt, dass die Kette **von außen**
+  abgegangen werden muss, diese sagt, **in welchem Kontext**. Begründung und die drei
+  Belege stehen in Abschnitt 8 unter „Im echten Mandantenkontext und über den echten Weg
+  prüfen".
+
 ## Arbeitsweise
 - Lies das Ticket vollständig. Prüfe die „Abhängigkeiten" — existiert der referenzierte
   Code, baue darauf auf; erfinde keine Parallelstrukturen.
@@ -379,6 +389,45 @@ Umgesetzt in `tests/Feature/Funnel/PanelSmokeTest.php`: drei Tests, Admin-Panel 
 Dashboard eines Betreiber- und eines Käufer-Mandanten. Anlass waren zwei Fehler, die
 jede Seite eines Panels gleichzeitig getroffen haben und trotzdem grün ausgeliefert
 worden wären — beide stehen in Abschnitt 12.
+
+#### Im echten Mandantenkontext und über den echten Weg prüfen (2026-09-07)
+
+Diese Regel ist aus den drei teuersten Fehlern dieses Projekts entstanden. Sie gilt für
+jeden Test, den die Liste oben überhaupt zulässt.
+
+**Verbindlich:** Wer Käufer- oder Betreiberverhalten prüft, **muss den Filament-Mandanten
+setzen** — `actingAs($user)` **und** `Filament::setTenant($tenant)` — und **über den
+echten Weg gehen**: über die Action oder die Seite, nicht direkt gegen den Dienst.
+
+Sonst prüft der Test eine Welt ohne Mandanten-Scope. Die gibt es in Produktion nicht.
+
+**Die Fehlerklasse ist nicht „falsch getestet", sondern „in einer Umgebung getestet, die
+es so nicht gibt".** Darauf kommt es an: Ein falsch geschriebener Test wird rot und meldet
+sich. Ein Test in der falschen Umgebung ist grün und beweist nichts — er belegt nur, dass
+der Code in einer Welt funktioniert, in die er nie kommt.
+
+Drei Belege aus diesem Projekt:
+
+- **Der Kauf war in Produktion von Anfang an unbenutzbar.**
+  `LeadStateService::transition()` sperrte den Lead mit Mandanten-Scope. Im Käufer-Kontext
+  zielt der auf die `tenant_id` des **Käufers** — der Lead gehört aber dem **Betreiber**.
+  Jeder Kauf durch einen eingeloggten Käufer scheiterte; FB-054 lag ab dem Merge auf
+  `main` und hat dort nie funktioniert. Sämtliche Tests riefen den Kauf direkt über die
+  Action auf, ohne gesetzten Mandanten, und waren grün. Gefunden erst, als ein Test den
+  Filament-Mandanten setzte (FB-055a).
+- **Ein Cross-Tenant-Test war fälschlich grün, weil der Container den Tenant behielt.**
+  Ein vorheriger Request der Management-API hinterließ den Tenant im Container, der
+  folgende Test lief darauf weiter. In Produktion ist jeder Request frisch; dort war die
+  vermeintlich belegte Mandantentrennung wirkungslos (FB-030b).
+- **Eine Assertion, die an der falschen Stelle gemessen hätte.** Vorgeschlagen war
+  „irgendwo ein `FOR UPDATE` im Abfragemitschnitt". Sie wäre stillschweigend grün
+  geblieben, weil der Kaufschritt ohnehin sperrt — auch dann, wenn die Sperre an der
+  entscheidenden Stelle fehlt. Erst die Prüfung der **Reihenfolge** — Sperre **vor**
+  Zustandswechsel — fängt den Fehler (FB-054).
+
+Alle drei sind derselbe Fund: Der Test lief in einer Umgebung oder an einer Stelle, die
+mit der Produktion nicht deckungsgleich war. Dagegen hilft kein zusätzlicher Test, sondern
+nur der richtige Kontext und der echte Weg.
 
 ### 9. Sammeldateien vermeiden: eine Datei je Zuständigkeit (2026-09-06)
 
