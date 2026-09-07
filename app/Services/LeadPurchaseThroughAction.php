@@ -39,7 +39,7 @@ class LeadPurchaseThroughAction implements LeadPurchaseAction
             && $this->tenantTypes->canAccessMarketplace($buyer);
     }
 
-    public function purchase(Tenant $buyer, Lead $lead, User $actor): void
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void
     {
         $this->purchaseLead->handle($buyer, $lead, $actor);
     }

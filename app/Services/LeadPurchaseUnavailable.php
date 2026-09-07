@@ -29,7 +29,7 @@ class LeadPurchaseUnavailable implements LeadPurchaseAction
         return false;
     }
 
-    public function purchase(Tenant $buyer, Lead $lead, User $actor): void
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void
     {
         throw LeadPurchaseNotAvailableException::notImplementedYet();
     }

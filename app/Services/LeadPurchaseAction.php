@@ -41,5 +41,5 @@ interface LeadPurchaseAction
     /**
      * Fuehrt den Kauf aus.
      */
-    public function purchase(Tenant $buyer, Lead $lead, User $actor): void;
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void;
 }
