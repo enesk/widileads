@@ -1,4 +1,5 @@
 {
+    "name": "widileads",
     "private": true,
     "type": "module",
     "scripts": {
