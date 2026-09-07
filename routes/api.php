@@ -3,6 +3,13 @@
 use App\Constants\TenantApiAbility;
 use App\Http\Controllers\Api\PublicV1\FunnelSessionController;
 use App\Http\Controllers\Api\PublicV1\FunnelStructureController;
+use App\Http\Controllers\Api\V1\FunnelConditionController;
+use App\Http\Controllers\Api\V1\FunnelController;
+use App\Http\Controllers\Api\V1\FunnelOptionController;
+use App\Http\Controllers\Api\V1\FunnelQuestionController;
+use App\Http\Controllers\Api\V1\FunnelResultController;
+use App\Http\Controllers\Api\V1\FunnelStepController;
+use App\Http\Controllers\Api\V1\FunnelStructureController as ManagementFunnelStructureController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
@@ -72,6 +79,65 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
         Route::get('/ping/leads', [TenantController::class, 'ping'])
             ->middleware('ability:'.TenantApiAbility::LEADS_READ->value)
             ->name('ping.leads');
+
+        /*
+        | FB-030b: Funnels und ihre Bausteine.
+        |
+        | Der Funnel wird ueber seinen public_token gebunden, die Bausteine
+        | ueber ihre ID -- und zwar mit scopeBindings(): Ein Schritt einer
+        | fremden Strecke fuehrt damit zu 404, statt still bearbeitet zu werden.
+        | Den Mandantenfilter setzt der Global Scope aus BelongsToTenant, den
+        | tenant.from-token fuellt.
+        */
+        Route::middleware('ability:'.TenantApiAbility::FUNNELS_READ->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::get('/funnels', [FunnelController::class, 'index'])->name('funnels.index');
+                Route::get('/funnels/{funnel:public_token}', [FunnelController::class, 'show'])->name('funnels.show');
+                Route::get('/funnels/{funnel:public_token}/structure', [ManagementFunnelStructureController::class, 'show'])->name('funnels.structure.show');
+
+                Route::get('/funnels/{funnel:public_token}/steps', [FunnelStepController::class, 'index'])->name('steps.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'show'])->name('steps.show');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions', [FunnelQuestionController::class, 'index'])->name('questions.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'show'])->name('questions.show');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options', [FunnelOptionController::class, 'index'])->name('options.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'show'])->name('options.show');
+
+                Route::get('/funnels/{funnel:public_token}/conditions', [FunnelConditionController::class, 'index'])->name('conditions.index');
+                Route::get('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'show'])->name('conditions.show');
+
+                Route::get('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'index'])->name('results.index');
+                Route::get('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'show'])->name('results.show');
+            });
+
+        Route::middleware('ability:'.TenantApiAbility::FUNNELS_WRITE->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::post('/funnels', [FunnelController::class, 'store'])->name('funnels.store');
+                Route::patch('/funnels/{funnel:public_token}', [FunnelController::class, 'update'])->name('funnels.update');
+                Route::delete('/funnels/{funnel:public_token}', [FunnelController::class, 'destroy'])->name('funnels.destroy');
+                Route::put('/funnels/{funnel:public_token}/structure', [ManagementFunnelStructureController::class, 'update'])->name('funnels.structure.update');
+
+                Route::post('/funnels/{funnel:public_token}/steps', [FunnelStepController::class, 'store'])->name('steps.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'update'])->name('steps.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'destroy'])->name('steps.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/steps/{step}/questions', [FunnelQuestionController::class, 'store'])->name('questions.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'update'])->name('questions.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'destroy'])->name('questions.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options', [FunnelOptionController::class, 'store'])->name('options.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'update'])->name('options.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'destroy'])->name('options.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/conditions', [FunnelConditionController::class, 'store'])->name('conditions.store');
+                Route::patch('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'update'])->name('conditions.update');
+                Route::delete('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'destroy'])->name('conditions.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'store'])->name('results.store');
+                Route::patch('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'update'])->name('results.update');
+                Route::delete('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'destroy'])->name('results.destroy');
+            });
     });
 
 /*

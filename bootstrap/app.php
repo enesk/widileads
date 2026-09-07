@@ -8,9 +8,12 @@ use App\Http\Middleware\Sitemapped;
 use App\Http\Middleware\TrackCouponCode;
 use App\Http\Middleware\TrackReferralCode;
 use App\Http\Middleware\UpdateUserLastSeenAt;
+use App\Http\Responses\ApiProblemRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -42,4 +45,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions) {})->create();
+    ->withExceptions(function (Exceptions $exceptions) {
+        // FB-030b: Die Management-API antwortet nach RFC 9457. Ohne diese
+        // Uebersetzung lieferte Laravel sein eigenes Fehlerformat, und die
+        // Spezifikation waere an dieser Stelle unwahr.
+        $exceptions->render(function (Throwable $exception, Request $request): ?JsonResponse {
+            if (! $request->is('api/v1/*')) {
+                return null;
+            }
+
+            return ApiProblemRenderer::render($exception);
+        });
+    })->create();
