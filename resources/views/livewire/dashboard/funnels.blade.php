@@ -73,6 +73,11 @@
                                    href="{{ \App\Filament\Dashboard\Pages\ThemeEditor::getUrl(['funnel' => $funnel], panel: 'dashboard', tenant: $tenant) }}">
                                     {{ __('builder.funnels.open_theme') }}
                                 </a>
+                                {{-- FB-055a: ohne diesen Weg waere die Verkaufsart nur ueber einen Seeder erreichbar. --}}
+                                <a class="btn btn-xs"
+                                   href="{{ \App\Filament\Dashboard\Pages\FunnelSaleSettings::getUrl(['funnel' => $funnel], panel: 'dashboard', tenant: $tenant) }}">
+                                    {{ __('builder.funnels.open_sale') }}
+                                </a>
                             </div>
                         </td>
                         <td>

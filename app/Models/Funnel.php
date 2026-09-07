@@ -190,10 +190,20 @@ class Funnel extends Model
      */
     public function effectivePriceForSale(): float
     {
-        if (! $this->sale_mode->isShared()) {
-            return $this->effectiveLeadPrice();
-        }
+        return $this->sale_mode->isShared()
+            ? $this->effectiveSharedPrice()
+            : $this->effectiveLeadPrice();
+    }
 
+    /**
+     * Anteilspreis eines Leads aus diesem Funnel -- unabhaengig davon, ob der
+     * Funnel gerade auf Mehrfachverkauf steht.
+     *
+     * Wird beim Anlegen eines Leads festgeschrieben (FB-055a), damit eine
+     * spaetere Preisaenderung nicht rueckwirkend gilt.
+     */
+    public function effectiveSharedPrice(): float
+    {
         if ($this->shared_price !== null) {
             return (float) $this->shared_price;
         }

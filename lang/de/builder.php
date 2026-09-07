@@ -142,6 +142,7 @@ return [
         'open_builder' => 'Schritte & Fragen',
         'open_rules' => 'Verzweigungen',
         'open_theme' => 'Erscheinungsbild',
+        'open_sale' => 'Verkauf',
         'publish' => 'Veroeffentlichen',
         'publish_named' => ':name veroeffentlichen',
         'not_publishable' => 'Noch nicht veroeffentlichbar:',
@@ -165,6 +166,29 @@ return [
         'marketplace' => 'Marktplatz',
         'security' => 'Sicherheit',
         'settings' => 'Einstellungen',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verkaufseinstellungen (FB-055a)
+    |--------------------------------------------------------------------------
+    */
+
+    'sale' => [
+        'title' => 'Verkauf: :funnel',
+        'nav_label' => 'Verkauf',
+        'section' => 'Verkaufsart und Preise',
+        'description' => 'Legt fest, wie oft ein Lead aus diesem Fragebogen verkauft wird und was ein Kaeufer dafuer zahlt.',
+        'mode' => 'Verkaufsart',
+        'mode_help' => 'Exklusiv: ein Lead, ein Kaeufer. Mehrfachverkauf: derselbe Lead geht an mehrere Kaeufer zu einem niedrigeren Preis.',
+        'lead_price' => 'Preis je Lead (exklusiv)',
+        'lead_price_help' => 'Leer: es gilt der Standardpreis aus der Konfiguration.',
+        'max_buyers' => 'Hoechstzahl Kaeufer',
+        'max_buyers_help' => 'Ab wie vielen Kaeufern der Lead aus dem Angebot verschwindet. Mindestens zwei - bei einem waere es Exklusivverkauf.',
+        'shared_price' => 'Preis je Kaeufer (Mehrfachverkauf)',
+        'shared_price_help' => 'Leer: es gilt der Vorgabewert aus der Konfiguration. Der Preis wird beim Entstehen eines Leads festgeschrieben; eine spaetere Aenderung gilt nur fuer neue Leads.',
+        'submit' => 'Speichern',
+        'saved' => 'Verkaufseinstellungen gespeichert.',
     ],
 
 ];

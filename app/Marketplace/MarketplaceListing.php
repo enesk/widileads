@@ -12,6 +12,7 @@ use App\Models\Lead;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 
 /**
@@ -87,7 +88,14 @@ class MarketplaceListing
             // Der Kaeufer besitzt keinen dieser Leads -- ohne das Abschalten
             // des Mandanten-Scopes waere der Marktplatz immer leer.
             ->withoutGlobalScope('tenant')
-            ->with(['answers', 'funnel'])
+            // Der Funnel gehoert dem Betreiber, gelesen wird im Kontext des
+            // Kaeufers -- ohne das Abschalten des Scopes kaeme hier null heraus,
+            // und der Marktplatz zeigte statt des Fragebogennamens einen
+            // Platzhalter (FB-055a).
+            ->with([
+                'answers',
+                'funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScope('tenant'),
+            ])
             ->whereIn('lead_state', [LeadState::VERFUEGBAR->value, LeadState::RESERVIERT->value])
             ->whereNull('anonymized_at')
             ->whereHas('tenant', static fn (Builder $tenant) => $tenant->where('type', TenantType::OPERATOR->value));

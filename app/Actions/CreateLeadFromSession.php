@@ -99,6 +99,13 @@ class CreateLeadFromSession implements SubmissionReceiver
                 // Betreiber ihn spaeter, gilt fuer diesen Lead weiterhin, was
                 // zum Zeitpunkt der Anfrage galt.
                 'price_at_creation' => $funnel->effectiveLeadPrice(),
+
+                // Der Anteilspreis des Mehrfachverkaufs wird ebenso
+                // festgeschrieben (FB-055a). Beide Preise stehen nebeneinander,
+                // weil sich die Verkaufsart eines Funnels aendern kann -- welcher
+                // beim Kauf gilt, entscheidet dann der Zustand von damals nicht,
+                // sondern die Verkaufsart von jetzt.
+                'shared_price_at_creation' => $funnel->effectiveSharedPrice(),
                 'phone_e164' => $this->contactValue($submission, FunnelFieldKey::TELEFON),
                 'email_normalized' => $this->contactValue($submission, FunnelFieldKey::EMAIL),
                 // Steht auch in lead_answers -- hier zusaetzlich als Spalte, damit
