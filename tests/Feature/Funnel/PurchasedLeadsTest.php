@@ -7,7 +7,7 @@ namespace Tests\Feature\Funnel;
 use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
-use App\Livewire\Dashboard\PurchasedLeads;
+use App\Filament\Dashboard\Pages\PurchasedLeads;
 use App\Models\BuyerRegistration;
 use App\Models\Funnel;
 use App\Models\Lead;
@@ -15,6 +15,7 @@ use App\Models\LeadAnswer;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
@@ -83,6 +84,7 @@ class PurchasedLeadsTest extends FeatureTest
         $foreignPurchase = $this->purchasedLead($theirs);
 
         $this->actingAs($myUser);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($mine);
 
         $html = Livewire::actingAs($myUser)->test(PurchasedLeads::class)->assertSuccessful()->html();
@@ -95,14 +97,19 @@ class PurchasedLeadsTest extends FeatureTest
         // Genau ein Eintrag: der fremde Kauf taucht nicht auf.
         $this->assertSame(1, substr_count($html, 'Pfotencheck'));
 
-        // Und die Rueckmeldung laesst sich nur am eigenen Kauf setzen.
+        // Die Tabelle fuehrt nur den eigenen Kauf -- und weil eine
+        // Tabellenaktion ihren Datensatz aus genau dieser Abfrage holt, ist der
+        // fremde Kauf auch fuer die Rueckmeldung nicht erreichbar.
         Livewire::actingAs($myUser)->test(PurchasedLeads::class)
-            ->call('setFeedback', $foreignPurchase->getKey(), 'interested');
+            ->assertCanSeeTableRecords([$ownPurchase])
+            ->assertCanNotSeeTableRecords([$foreignPurchase]);
 
         $this->assertNull($foreignPurchase->fresh()->buyer_feedback);
 
         Livewire::actingAs($myUser)->test(PurchasedLeads::class)
-            ->call('setFeedback', $ownPurchase->getKey(), 'interested');
+            ->callAction(TestAction::make('feedback')->table($ownPurchase), [
+                'buyer_feedback' => 'interested',
+            ]);
 
         $this->assertNotNull($ownPurchase->fresh()->buyer_feedback);
     }
@@ -116,6 +123,7 @@ class PurchasedLeadsTest extends FeatureTest
         $this->purchasedLead($theirs);
 
         $this->actingAs($myUser);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($mine);
 
         $csv = $this->captureDownload($myUser);

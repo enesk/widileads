@@ -1,6 +1,7 @@
 <x-filament-panels::page>
-    {{-- Die Filament-Page ist nur die Huelle fuer Routing und Navigation des
-         Dashboard-Panels. Der Inhalt ist reines Livewire (siehe Master-Prompt:
-         kein Filament im Tenant-Dashboard). --}}
-    @livewire('dashboard.marketplace')
+    {{-- FB-090: Marktplatzliste als Filament-Tabelle. Kontaktdaten stehen dort
+         ausschliesslich als LeadPresenter-Werte -- bereits fertig maskiert
+         (FB-032). Weder hier noch in der Tabelle wird entschieden, was ein
+         Kaeufer sehen darf. --}}
+    {{ $this->table }}
 </x-filament-panels::page>
