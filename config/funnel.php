@@ -101,6 +101,17 @@ return [
         // Ablauf, das Token gilt bis es widerrufen wird.
         'token_expiration_days' => (int) env('FUNNEL_API_TOKEN_EXPIRATION_DAYS', 0),
 
+        // FB-030f: Anfragen je Token und Minute. Begrenzt wird je Token statt
+        // je IP -- hinter einer IP koennen viele Kunden sitzen, und ein Token
+        // gehoert genau einem Workspace.
+        'rate_limit_per_minute' => (int) env('FUNNEL_API_RATE_LIMIT_PER_MINUTE', 120),
+
+        // FB-030f: Stunden, die eine Antwort zu einem Idempotency-Key
+        // aufbewahrt wird. Lang genug fuer einen Wiederholungsversuch nach einer
+        // Stoerung, kurz genug, dass ein spaeter wiederverwendeter Schluessel
+        // nicht eine uralte Antwort zurueckliefert.
+        'idempotency_ttl_hours' => (int) env('FUNNEL_API_IDEMPOTENCY_TTL_HOURS', 24),
+
         // Maximale Anzahl gleichzeitig gueltiger API-Tokens je Tenant.
         'max_tokens_per_tenant' => (int) env('FUNNEL_API_MAX_TOKENS_PER_TENANT', 10),
 

@@ -21,6 +21,7 @@ use App\Http\Controllers\PaymentProviders\PaddleController;
 use App\Http\Controllers\PaymentProviders\PolarController;
 use App\Http\Controllers\PaymentProviders\StripeController;
 use App\Http\Middleware\EnsureAllowedFunnelOrigin;
+use App\Http\Middleware\EnsureIdempotentRequest;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,7 +73,13 @@ Route::post('/payments-providers/polar/webhook', [
 |
 */
 
-Route::middleware(['auth:sanctum', 'tenant.from-token'])
+Route::middleware([
+    'auth:sanctum',
+    'tenant.from-token',
+    // FB-030f: Ratenbegrenzung je Token und Wiederholschutz fuer POST.
+    'throttle:funnel-management',
+    EnsureIdempotentRequest::class,
+])
     ->prefix('v1')
     ->name('api.v1.')
     ->group(function () {
