@@ -407,4 +407,29 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Buyer overview (FB-060)
+    |--------------------------------------------------------------------------
+    */
+
+    'overview' => [
+
+        'heading' => 'Buyers',
+        'nav_label' => 'Buyers',
+        'description' => 'Revenue and complaint rate per buyer. The average is :average percent; anyone more than :points percentage points above it is flagged.',
+        'empty' => 'No buyer has been created yet.',
+
+        'buyer' => 'Buyer',
+        'purchases' => 'Purchases',
+        'revenue' => 'Revenue',
+        'complaints' => 'Accepted complaints',
+        'rate' => 'Rate',
+        'deviation' => 'Deviation in points',
+        'flagged' => 'Flagged',
+
+        'hint' => 'Flagged does not mean at fault: a high rate can mean a buyer received poor leads -- or that they complain too readily. The overview only says where it is worth looking.',
+
+    ],
+
 ];

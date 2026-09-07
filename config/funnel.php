@@ -425,6 +425,21 @@ return [
 
         ],
 
+        'buyer_review' => [
+
+            // Ab wie vielen Prozentpunkten ueber dem Durchschnitt eine
+            // Reklamationsquote als auffaellig gilt (FB-060). Als Abstand und
+            // nicht als Vielfaches: Bei einem Durchschnitt nahe null waere
+            // jeder Faktor sinnlos gross, der Abstand bleibt aussagekraeftig.
+            'complaint_rate_flag_points' => (int) env('FUNNEL_MARKETPLACE_COMPLAINT_FLAG_POINTS', 20),
+
+            // Mindestzahl an Kaeufen, bevor eine Quote beurteilt wird. Wer zwei
+            // Leads gekauft und einen reklamiert hat, hat keine Quote von
+            // 50 Prozent -- er hat zu wenige Kaeufe fuer eine Aussage.
+            'minimum_purchases' => (int) env('FUNNEL_MARKETPLACE_REVIEW_MINIMUM_PURCHASES', 5),
+
+        ],
+
         'credit' => [
 
             // Wie lange der angezeigte Guthabenstand aus dem Cache kommt, in
