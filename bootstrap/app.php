@@ -14,6 +14,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -33,6 +34,18 @@ return Application::configure(basePath: dirname(__DIR__))
             TrackReferralCode::class,
             TrackCouponCode::class,
         ]);
+
+        // FB-030b: Der Mandantenkontext muss VOR dem Aufloesen der Route-Modelle
+        // stehen. Sonst laeuft SubstituteBindings aus der api-Gruppe zuerst, der
+        // Global Scope aus BelongsToTenant findet keinen Tenant -- und ein
+        // {funnel:public_token} eines fremden Workspaces wird gebunden, statt in
+        // 404 zu enden. In Tests faellt das nicht auf, weil ein vorheriger
+        // Request den Tenant im Container hinterlaesst; in Produktion ist jeder
+        // Request frisch.
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            ResolveTenantFromToken::class,
+        );
 
         $middleware->alias([
             'sitemapped' => Sitemapped::class,
