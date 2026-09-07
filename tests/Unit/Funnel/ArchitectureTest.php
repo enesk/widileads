@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Funnel;
 
+use App\Actions\CreateLeadFromSession;
 use App\Dto\LeadContact;
+use App\Marketplace\MatchableLead;
+use App\Models\Lead;
+use App\Models\LeadAnswer;
+use App\Services\LeadAnonymizer;
 use App\Services\LeadContactResolver;
+use App\Services\LeadDataRequestService;
 use App\Services\LeadStateService;
 use ReflectionClass;
 use SplFileInfo;
@@ -184,6 +190,108 @@ class ArchitectureTest extends TestCase
     }
 
     /**
+     * Klassen, die alle Antworten eines Leads brauchen -- einschliesslich der
+     * Kontaktfelder.
+     *
+     * Die Liste ist bewusst kurz und beschreibt Verarbeiter, keine
+     * Ausgabestellen: Der Kontakt wird daraus gebaut, der Marktplatz gleicht
+     * serverseitig ab, die Auskunft muss vollstaendig sein, die Anonymisierung
+     * loescht sie, das Anlegen schreibt sie. Wer sonst Antworten anfasst, gibt
+     * sie aus -- und muss filtern.
+     *
+     * @return list<string> absolute Pfade
+     */
+    private function answerProcessors(): array
+    {
+        return array_map(
+            static fn (string $class): string => (string) (new ReflectionClass($class))->getFileName(),
+            [
+                // Die Modelle erklaeren die Beziehung, sie geben nichts aus.
+                Lead::class,
+                LeadAnswer::class,
+
+                // Verarbeiter, die alle Antworten brauchen.
+                LeadContact::class,
+                MatchableLead::class,
+                LeadDataRequestService::class,
+                LeadAnonymizer::class,
+                CreateLeadFromSession::class,
+            ],
+        );
+    }
+
+    public function test_lead_answers_are_only_rendered_without_the_reserved_contact_fields(): void
+    {
+        $processors = $this->answerProcessors();
+        $violations = [];
+
+        foreach ($this->phpFilesIn(app_path()) as $file) {
+            $path = (string) $file->getRealPath();
+
+            if (in_array($path, $processors, true)) {
+                continue;
+            }
+
+            $code = $this->codeWithoutComments($path);
+            $lines = $this->leadAnswerAccess($code);
+
+            if ($lines === [] || $this->filtersReservedFieldKeys($code)) {
+                continue;
+            }
+
+            foreach ($lines as $line) {
+                $violations[] = $this->relativePath($path).':'.$line
+                    .' -- Zugriff auf lead_answers ohne FunnelFieldKey::isReserved()';
+            }
+        }
+
+        // Templates fassen Antworten gar nicht an: Sie bekommen, was sie zeigen
+        // duerfen, und entscheiden nicht selbst.
+        foreach ($this->phpFilesIn(resource_path('views')) as $file) {
+            $path = (string) $file->getRealPath();
+            $template = $this->withoutBladeComments((string) file_get_contents($path));
+
+            foreach ($this->leadAnswerAccess($template) as $line) {
+                $violations[] = $this->relativePath($path).':'.$line
+                    .' -- lead_answers direkt im Template';
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", array_merge(
+            [
+                'In lead_answers stehen die Antworten auf email, telefon und plz im Klartext.',
+                'Wer sie ungefiltert ausgibt, umgeht die Maskierung, ohne eine Kontaktspalte anzufassen',
+                '(Architekturleitsatz 5):',
+                '',
+            ],
+            $violations,
+        )));
+    }
+
+    /**
+     * Zugriffe auf die Antworten eines Leads.
+     *
+     * Ausgenommen sind `$this->answers`, `$session->answers` und
+     * `$submission->answers`: Das ist der Antwortstand der oeffentlichen
+     * Strecke (FB-020/FB-021), nicht die gespeicherten Rohantworten.
+     *
+     * @return list<int>
+     */
+    private function leadAnswerAccess(string $code): array
+    {
+        return array_values(array_unique(array_merge(
+            $this->matchLines($code, '/(?<!\$this)(?<!\$session)(?<!\$submission)->\s*answers\b/'),
+            $this->matchLines($code, '/\bLeadAnswer\b/'),
+            $this->matchLines($code, "/['\"]lead_answers['\"]/"),
+        )));
+    }
+
+    private function filtersReservedFieldKeys(string $code): bool
+    {
+        return preg_match('/FunnelFieldKey::isReserved\s*\(|->\s*isPersonal\s*\(/', $code) === 1;
+    }
+
+    /**
      * Ein Architektur-Test, der nichts findet, ist von einem kaputten Test nicht
      * zu unterscheiden. Diese Probe stellt sicher, dass beide Regeln auf
      * bekannte Verstoesse tatsaechlich anschlagen -- und auf die typischen
@@ -244,6 +352,37 @@ class ArchitectureTest extends TestCase
 
         $this->assertSame([], $this->fromLeadCalls($presenterCode), 'Der Weg ueber contactFor() ist kein Verstoss.');
         $this->assertSame([], $this->rawContactReads($presenterCode));
+
+        $answerLeak = $this->stripComments(<<<'PHP'
+        <?php
+        foreach ($lead->answers as $answer) {
+            echo $answer->field_key.': '.$answer->value;
+        }
+        PHP);
+
+        $this->assertNotSame([], $this->leadAnswerAccess($answerLeak), 'Eine ungefilterte Ausgabe der Antworten muss auffallen.');
+        $this->assertFalse($this->filtersReservedFieldKeys($answerLeak));
+
+        $filteredAnswers = $this->stripComments(<<<'PHP'
+        <?php
+        foreach ($lead->answers as $answer) {
+            if (FunnelFieldKey::isReserved($answer->field_key)) {
+                continue;
+            }
+
+            echo $answer->value;
+        }
+        PHP);
+
+        $this->assertTrue($this->filtersReservedFieldKeys($filteredAnswers), 'Der vorgesehene Filter muss als solcher erkannt werden.');
+
+        $runtimeAnswers = $this->stripComments(<<<'PHP'
+        <?php
+        $value = $this->answers[$question->fieldKey] ?? null;
+        $session->answers = $this->answers;
+        PHP);
+
+        $this->assertSame([], $this->leadAnswerAccess($runtimeAnswers), 'Der Antwortstand der oeffentlichen Strecke ist etwas anderes.');
 
         $this->assertSame('', trim($this->withoutBladeComments('{{-- email_normalized --}}')), 'Blade-Kommentare geben nichts aus.');
     }
