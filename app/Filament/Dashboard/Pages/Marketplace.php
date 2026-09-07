@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Dashboard\Pages;
 
 use App\Models\Tenant;
-use App\Services\TenantTypeService;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Der Lead-Marktplatz (FB-053).
@@ -57,6 +57,6 @@ class Marketplace extends Page
             return false;
         }
 
-        return app(TenantTypeService::class)->canAccessMarketplace($tenant);
+        return Gate::allows('marketplace.access', $tenant);
     }
 }

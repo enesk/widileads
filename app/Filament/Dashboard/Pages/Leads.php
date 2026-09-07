@@ -6,12 +6,12 @@ namespace App\Filament\Dashboard\Pages;
 
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\TenantTypeService;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Lead-Liste des Betreibers im Dashboard (FB-034).
@@ -57,6 +57,6 @@ class Leads extends Page
             return false;
         }
 
-        return app(TenantTypeService::class)->canManageFunnels($tenant);
+        return Gate::allows('funnels.manage', $tenant);
     }
 }
