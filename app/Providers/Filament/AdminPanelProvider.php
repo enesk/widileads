@@ -123,6 +123,7 @@ class AdminPanelProvider extends PanelProvider
             NavigationGroup::make()->label(fn () => (__('builder.groups.funnels'))),
             NavigationGroup::make()->label(fn () => (__('builder.groups.leads'))),
             NavigationGroup::make()->label(fn () => (__('builder.groups.marketplace'))),
+            NavigationGroup::make()->label(fn () => (__('builder.groups.security'))),
         );
 
         if (config('funnel.features.announcements')) {

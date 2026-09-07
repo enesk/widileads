@@ -34,7 +34,7 @@ class ApiTokens extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('builder.groups.workspace');
+        return __('builder.groups.settings');
     }
 
     public static function getNavigationLabel(): string

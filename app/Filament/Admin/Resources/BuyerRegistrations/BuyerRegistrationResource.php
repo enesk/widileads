@@ -43,6 +43,11 @@ class BuyerRegistrationResource extends Resource
 
     protected static ?int $navigationSort = 11;
 
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('builder.groups.marketplace');

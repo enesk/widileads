@@ -163,7 +163,8 @@ return [
         'funnels' => 'Funnels',
         'leads' => 'Leads',
         'marketplace' => 'Marketplace',
-        'workspace' => 'Workspace',
+        'security' => 'Security',
+        'settings' => 'Settings',
     ],
 
 ];

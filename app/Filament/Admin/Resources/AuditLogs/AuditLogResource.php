@@ -39,7 +39,7 @@ class AuditLogResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('Settings');
+        return __('builder.groups.security');
     }
 
     public static function getModelLabel(): string
