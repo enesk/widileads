@@ -48,6 +48,9 @@ enum AuditAction: string
     /** Zwangsstatuswechsel eines Leads durch einen Operator-Admin -- wird von FB-036 aufgerufen. */
     case LEAD_STATE_FORCED = 'lead.state_forced';
 
+    /** Einbettungsversuch von einer nicht freigegebenen Herkunft (FB-025). */
+    case EMBED_ORIGIN_REJECTED = 'embed.origin_rejected';
+
     /** Kaeufer vom Plattform-Admin freigeschaltet -- wird von FB-050 aufgerufen. */
     case BUYER_APPROVED = 'buyer.approved';
 

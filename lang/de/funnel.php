@@ -61,6 +61,7 @@ return [
             'data_erased' => 'Daten anonymisiert (Loeschersuchen)',
             'lead_purchased' => 'Lead gekauft',
             'lead_state_forced' => 'Lead-Status zwangsweise gesetzt',
+            'embed_origin_rejected' => 'Einbettung abgelehnt (fremde Herkunft)',
             'buyer_approved' => 'Kaeufer freigeschaltet',
             'buyer_rejected' => 'Kaeufer abgelehnt',
         ],
