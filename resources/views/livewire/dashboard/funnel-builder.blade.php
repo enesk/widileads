@@ -9,20 +9,33 @@
             </button>
         </div>
 
-        <ul class="mt-3 space-y-1"
+        <ul class="mt-3 space-y-1" aria-label="{{ __('builder.steps') }}"
             x-data="funnelSortable({ onSort: ids => $wire.reorderSteps(ids) })"
             x-init="init($el)">
             @forelse ($steps as $step)
                 <li wire:key="step-{{ $step->id }}" data-id="{{ $step->id }}"
-                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm
+                    class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm
                            {{ $step->id === $selectedStepId ? 'bg-primary-50 text-primary-900' : 'hover:bg-gray-50' }}">
-                    <span class="cursor-grab select-none text-gray-400" data-drag-handle title="{{ __('builder.drag') }}">⠿</span>
-                    <button type="button" class="flex-1 truncate text-left" wire:click="selectStep({{ $step->id }})">
+                    <span class="cursor-grab select-none text-gray-400" data-drag-handle aria-hidden="true">⠿</span>
+
+                    {{-- Der Tastaturweg zum Ziehen: ohne diese beiden
+                         Schaltflaechen waere die Sortierung ohne Maus
+                         unerreichbar (FB-027). --}}
+                    <button type="button" class="btn btn-ghost btn-xs px-1"
+                            wire:click="moveStep({{ $step->id }}, -1)" @disabled($loop->first)
+                            aria-label="{{ __('builder.move_up', ['name' => $step->title]) }}">↑</button>
+                    <button type="button" class="btn btn-ghost btn-xs px-1"
+                            wire:click="moveStep({{ $step->id }}, 1)" @disabled($loop->last)
+                            aria-label="{{ __('builder.move_down', ['name' => $step->title]) }}">↓</button>
+
+                    <button type="button" class="flex-1 truncate text-left" wire:click="selectStep({{ $step->id }})"
+                            aria-current="{{ $step->id === $selectedStepId ? 'true' : 'false' }}">
                         {{ $step->position }}. {{ $step->title }}
                     </button>
                     <button type="button" class="text-xs text-red-600 hover:underline"
                             wire:click="deleteStep({{ $step->id }})"
-                            wire:confirm="{{ __('builder.confirm_delete_step') }}">
+                            wire:confirm="{{ __('builder.confirm_delete_step') }}"
+                            aria-label="{{ __('builder.delete_step_named', ['name' => $step->title]) }}">
                         {{ __('builder.delete') }}
                     </button>
                 </li>
@@ -61,22 +74,32 @@
                 </div>
             </div>
 
-            <ul class="mt-3 space-y-1"
+            <ul class="mt-3 space-y-1" aria-label="{{ __('builder.questions') }}"
                 x-data="funnelSortable({ onSort: ids => $wire.reorderQuestions(ids) })"
                 x-init="init($el)">
                 @forelse ($questions as $item)
                     <li wire:key="question-{{ $item->id }}" data-id="{{ $item->id }}"
-                        class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm
+                        class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm
                                {{ $item->id === $selectedQuestionId ? 'bg-primary-50 text-primary-900' : 'hover:bg-gray-50' }}">
-                        <span class="cursor-grab select-none text-gray-400" data-drag-handle title="{{ __('builder.drag') }}">⠿</span>
-                        <button type="button" class="flex-1 truncate text-left" wire:click="selectQuestion({{ $item->id }})">
+                        <span class="cursor-grab select-none text-gray-400" data-drag-handle aria-hidden="true">⠿</span>
+
+                        <button type="button" class="btn btn-ghost btn-xs px-1"
+                                wire:click="moveQuestion({{ $item->id }}, -1)" @disabled($loop->first)
+                                aria-label="{{ __('builder.move_up', ['name' => $item->label]) }}">↑</button>
+                        <button type="button" class="btn btn-ghost btn-xs px-1"
+                                wire:click="moveQuestion({{ $item->id }}, 1)" @disabled($loop->last)
+                                aria-label="{{ __('builder.move_down', ['name' => $item->label]) }}">↓</button>
+
+                        <button type="button" class="flex-1 truncate text-left" wire:click="selectQuestion({{ $item->id }})"
+                                aria-current="{{ $item->id === $selectedQuestionId ? 'true' : 'false' }}">
                             {{ $item->label }}
                             <code class="ml-1 text-xs text-gray-500">{{ $item->field_key }}</code>
                         </button>
                         <span class="badge badge-ghost badge-sm">{{ $item->type->label() }}</span>
                         <button type="button" class="text-xs text-red-600 hover:underline"
                                 wire:click="deleteQuestion({{ $item->id }})"
-                                wire:confirm="{{ __('builder.confirm_delete_question') }}">
+                                wire:confirm="{{ __('builder.confirm_delete_question') }}"
+                                aria-label="{{ __('builder.delete_question_named', ['name' => $item->label]) }}">
                             {{ __('builder.delete') }}
                         </button>
                     </li>
@@ -95,7 +118,7 @@
             <h2 class="text-sm font-semibold text-gray-900">{{ __('builder.properties') }}</h2>
 
             @if ($conflictMessage !== null)
-                <div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3" data-testid="conflict">
+                <div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3" role="alert" data-testid="conflict">
                     <p class="text-sm text-amber-900">{{ $conflictMessage }}</p>
                     <button type="button" class="btn btn-xs mt-2" wire:click="reloadQuestion">
                         {{ __('builder.reload') }}

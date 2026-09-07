@@ -75,7 +75,19 @@ class ArchitectureTest extends TestCase
      *
      * @var array<string, list<int|float>> relativer Pfad => erlaubte Werte
      */
-    private const ALLOWED_LITERALS = [];
+    private const ALLOWED_LITERALS = [
+        // Die Zahlen in der Kontrastrechnung stammen aus WCAG 2.1 und sind
+        // keine Geschaeftsentscheidung: die Gewichte der Farbkanaele und die
+        // sRGB-Linearisierung sind Mathematik, und 4.5 bzw. 3.0 definieren die
+        // Stufe AA. Waeren sie konfigurierbar, waere die Angabe "AA" eine
+        // Behauptung statt einer Zusicherung.
+        'app/Funnel/Theme/ContrastRatio.php' => [
+            4.5, 3.0,                      // Schwellwerte AA (Text, grosser Text/Bedienelemente)
+            0.05,                          // Offset der Kontrastformel
+            0.2126, 0.7152, 0.0722,        // Gewichte der Kanaele Rot, Gruen, Blau
+            0.0, 0.04045, 12.92, 2.4,      // sRGB-Linearisierung
+        ],
+    ];
 
     public function test_guarded_lead_columns_are_only_written_by_their_service(): void
     {

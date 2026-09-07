@@ -44,10 +44,21 @@
                 <div x-data x-init="document.dispatchEvent(new CustomEvent('funnel:submitted'))"></div>
             @endif
         @elseif ($step !== null)
+            {{-- FB-027: Livewire tauscht den Schritt aus, ohne dass die Seite neu
+                 laedt. Ohne diese Ansage merkt ein Screenreader-Nutzer nicht,
+                 dass sich der Inhalt geaendert hat. --}}
+            <p class="sr-only" role="status" aria-live="polite" wire:key="announce-{{ $step->position }}">
+                {{ __('runtime.step_announcement', [
+                    'current' => $step->position,
+                    'total' => count($snapshot->steps),
+                    'title' => $step->title,
+                ]) }}
+            </p>
+
             <form wire:submit="{{ $phase === 'contact' ? 'submitContact' : 'submitStep' }}"
                   class="flex flex-1 flex-col gap-6">
                 <section class="rounded-box bg-base-100 p-5 shadow sm:p-6">
-                    <h2 class="text-lg font-semibold">{{ $step->title }}</h2>
+                    <h2 class="text-lg font-semibold" tabindex="-1" wire:key="heading-{{ $step->position }}">{{ $step->title }}</h2>
 
                     @if ($step->description)
                         <p class="mt-2 text-sm text-base-content/70">{{ $step->description }}</p>
@@ -64,14 +75,19 @@
 
                 {{-- FB-023: Honigtopf. Fuer Menschen unsichtbar und aus der
                      Tabulatorreihenfolge genommen; Bots fuellen es trotzdem. --}}
-                <div class="hidden" aria-hidden="true">
+                <div class="hidden">
+                    {{-- Kein aria-hidden auf dem umschliessenden Element: Es
+                         enthaelt ein Eingabefeld, und aria-hidden ueber einem
+                         fokussierbaren Element ist ein Verstoss gegen WCAG
+                         4.1.2. Versteckt wird es ueber "hidden" und tabindex,
+                         der Screenreader liest es dadurch ohnehin nicht. --}}
                     <label for="website">{{ __('runtime.honeypot_label') }}</label>
                     <input type="text" id="website" name="website" tabindex="-1"
                            autocomplete="off" wire:model="website">
                 </div>
 
                 @if ($submissionBlockedReason !== null)
-                    <p class="rounded-box bg-warning/20 p-4 text-sm">{{ $submissionBlockedReason }}</p>
+                    <p class="rounded-box bg-warning/20 p-4 text-sm" role="alert">{{ $submissionBlockedReason }}</p>
                 @endif
 
                 <button type="submit" class="btn btn-primary min-h-[44px] w-full">

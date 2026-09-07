@@ -31,4 +31,8 @@ return [
         'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht geloescht werden.',
     ],
 
+    // FB-027: Fuer Screenreader, wo der Stern allein nicht genuegt.
+    'required' => 'Pflichtangabe',
+    'step_announcement' => 'Schritt :current von :total: :title',
+
 ];

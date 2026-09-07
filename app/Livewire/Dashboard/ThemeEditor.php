@@ -6,6 +6,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Constants\FunnelProgressStyle;
 use App\Constants\FunnelThemeFont;
+use App\Funnel\Theme\ContrastRatio;
 use App\Models\Funnel;
 use App\Models\FunnelTheme;
 use App\Services\FunnelThemeService;
@@ -83,11 +84,46 @@ class ThemeEditor extends Component
         return view('livewire.dashboard.theme-editor', [
             'fonts' => FunnelThemeFont::labels(),
             'progressStyles' => FunnelProgressStyle::labels(),
+            'contrastWarnings' => $this->contrastWarnings(),
             'previewUrl' => route('funnel.theme-preview', [
                 'funnel' => $this->funnel,
                 ...$this->previewParameters(),
             ]),
         ]);
+    }
+
+    /**
+     * Kontrastpruefung der gewaehlten Farben (FB-027).
+     *
+     * Bewusst eine Warnung und kein Verbot: Es ist der Funnel des Betreibers,
+     * und ein knapp verfehltes Verhaeltnis kann bei grosser Schrift trotzdem in
+     * Ordnung sein. Er soll es nur wissen - auf seinem Bildschirm sieht
+     * Hellgrau auf Weiss oft noch lesbar aus.
+     *
+     * @return list<array{label: string, ratio: float, required: float}>
+     */
+    private function contrastWarnings(): array
+    {
+        $pairs = [
+            // Fliesstext auf dem Hintergrund - der wichtigste Fall.
+            [__('builder.theme.contrast_text'), $this->text_color, $this->background_color, ContrastRatio::AA_NORMAL_TEXT],
+            // Die Schaltflaechen tragen weisse Schrift auf der Primaerfarbe.
+            [__('builder.theme.contrast_button'), '#ffffff', $this->primary_color, ContrastRatio::AA_NORMAL_TEXT],
+            // Rahmen und Fortschrittsanzeige sind Bedienelemente, dort genuegt 3:1.
+            [__('builder.theme.contrast_controls'), $this->secondary_color, $this->background_color, ContrastRatio::AA_NON_TEXT],
+        ];
+
+        $warnings = [];
+
+        foreach ($pairs as [$label, $foreground, $background, $required]) {
+            $ratio = ContrastRatio::between($foreground, $background);
+
+            if ($ratio < $required) {
+                $warnings[] = ['label' => $label, 'ratio' => $ratio, 'required' => $required];
+            }
+        }
+
+        return $warnings;
     }
 
     /**

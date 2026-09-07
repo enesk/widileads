@@ -1,6 +1,6 @@
 @props(['question'])
 
-<x-funnel.questions._field :question="$question">
+<x-funnel.questions._field :question="$question" group>
     <div class="grid grid-cols-2 gap-3">
         @foreach ($question->options as $option)
             <label class="flex min-h-[44px] cursor-pointer flex-col items-center gap-2 rounded-box border border-base-300 p-3 hover:bg-base-200">

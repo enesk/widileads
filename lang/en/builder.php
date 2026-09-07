@@ -65,6 +65,13 @@ return [
         'default_next' => 'Next',
         'default_back' => 'Back',
         'default_submit' => 'Submit',
+        'pick_colour' => 'Choose :label',
+        'contrast_heading' => 'Check contrast',
+        'contrast_warning' => ':label only reaches :ratio:1, at least :required:1 is recommended.',
+        'contrast_hint' => 'This is a warning, not a block - you can still save. Low contrast makes the funnel hard to read for people with impaired vision, and on bright screens it often looks better than it is.',
+        'contrast_text' => 'Text on the background',
+        'contrast_button' => 'Text on the buttons',
+        'contrast_controls' => 'Borders and progress indicator',
         'font' => [
             'system' => 'System font',
             'inter' => 'Inter',
@@ -113,5 +120,11 @@ return [
         'range_problems' => 'The score ranges still have problems:',
         'delete' => 'Delete',
     ],
+
+    // FB-027: accessibility
+    'move_up' => 'Move :name up one position',
+    'move_down' => 'Move :name down one position',
+    'delete_step_named' => 'Delete step :name',
+    'delete_question_named' => 'Delete question :name',
 
 ];

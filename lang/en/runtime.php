@@ -31,4 +31,8 @@ return [
         'event_not_deletable' => 'An entry in the session log cannot be deleted.',
     ],
 
+    // FB-027: for screen readers, where the asterisk alone is not enough.
+    'required' => 'Required',
+    'step_announcement' => 'Step :current of :total: :title',
+
 ];
