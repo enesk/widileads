@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
+use App\Events\Funnel\FunnelPublished;
 use App\Exceptions\FunnelNotPublishableException;
 use App\Funnel\Results\ResultRangeValidator;
 use App\Funnel\Snapshots\FunnelSnapshot;
@@ -34,7 +35,7 @@ class PublishFunnel
     /**
      * @throws FunnelNotPublishableException
      */
-    public function handle(Funnel $funnel, ?User $publisher = null): FunnelVersion
+    public function handle(Funnel $funnel, ?User $publisher = null, ?string $note = null): FunnelVersion
     {
         $snapshot = $this->snapshotBuilder->build($funnel);
 
@@ -44,7 +45,7 @@ class PublishFunnel
             throw new FunnelNotPublishableException($reasons);
         }
 
-        return DB::transaction(function () use ($funnel, $snapshot, $publisher): FunnelVersion {
+        return DB::transaction(function () use ($funnel, $snapshot, $publisher, $note): FunnelVersion {
             // Sperre auf dem Funnel: Zwei gleichzeitige Veroeffentlichungen
             // duerfen nicht dieselbe Versionsnummer vergeben.
             $funnel = Funnel::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($funnel->getKey());
@@ -52,6 +53,7 @@ class PublishFunnel
             $version = FunnelVersion::query()->create([
                 'funnel_id' => $funnel->id,
                 'version' => $this->nextVersionNumber($funnel),
+                'note' => $note,
                 'snapshot' => $snapshot,
                 'published_at' => now(),
                 'published_by' => $publisher?->getKey(),
@@ -61,6 +63,11 @@ class PublishFunnel
                 'status' => FunnelStatus::PUBLISHED,
                 'current_version_id' => $version->id,
             ])->save();
+
+            // Wer auf Veroeffentlichungen reagieren will -- Webhooks (FB-030e),
+            // spaeter Benachrichtigungen -- haengt sich an das Ereignis, statt
+            // dass diese Action ihn kennen muss.
+            FunnelPublished::dispatch($funnel, $version);
 
             return $version;
         });

@@ -3,14 +3,26 @@
 use App\Constants\TenantApiAbility;
 use App\Http\Controllers\Api\PublicV1\FunnelSessionController;
 use App\Http\Controllers\Api\PublicV1\FunnelStructureController;
+use App\Http\Controllers\Api\V1\FunnelConditionController;
+use App\Http\Controllers\Api\V1\FunnelController;
+use App\Http\Controllers\Api\V1\FunnelLifecycleController;
+use App\Http\Controllers\Api\V1\FunnelOptionController;
+use App\Http\Controllers\Api\V1\FunnelQuestionController;
+use App\Http\Controllers\Api\V1\FunnelResultController;
+use App\Http\Controllers\Api\V1\FunnelStepController;
+use App\Http\Controllers\Api\V1\FunnelStructureController as ManagementFunnelStructureController;
+use App\Http\Controllers\Api\V1\FunnelVersionController;
+use App\Http\Controllers\Api\V1\FunnelWebhookController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\TenantController;
+use App\Http\Controllers\Api\V1\WebhookDeliveryController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
 use App\Http\Controllers\PaymentProviders\PolarController;
 use App\Http\Controllers\PaymentProviders\StripeController;
 use App\Http\Middleware\EnsureAllowedFunnelOrigin;
+use App\Http\Middleware\EnsureIdempotentRequest;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -62,7 +74,13 @@ Route::post('/payments-providers/polar/webhook', [
 |
 */
 
-Route::middleware(['auth:sanctum', 'tenant.from-token'])
+Route::middleware([
+    'auth:sanctum',
+    'tenant.from-token',
+    // FB-030f: Ratenbegrenzung je Token und Wiederholschutz fuer POST.
+    'throttle:funnel-management',
+    EnsureIdempotentRequest::class,
+])
     ->prefix('v1')
     ->name('api.v1.')
     ->group(function () {
@@ -80,6 +98,93 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
             Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
             Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('leads.show');
         });
+
+        /*
+        | FB-030b: Funnels und ihre Bausteine.
+        |
+        | Der Funnel wird ueber seinen public_token gebunden, die Bausteine
+        | ueber ihre ID -- und zwar mit scopeBindings(): Ein Schritt einer
+        | fremden Strecke fuehrt damit zu 404, statt still bearbeitet zu werden.
+        | Den Mandantenfilter setzt der Global Scope aus BelongsToTenant, den
+        | tenant.from-token fuellt.
+        */
+        Route::middleware('ability:'.TenantApiAbility::FUNNELS_READ->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::get('/funnels', [FunnelController::class, 'index'])->name('funnels.index');
+                Route::get('/funnels/{funnel:public_token}', [FunnelController::class, 'show'])->name('funnels.show');
+                Route::get('/funnels/{funnel:public_token}/structure', [ManagementFunnelStructureController::class, 'show'])->name('funnels.structure.show');
+
+                Route::get('/funnels/{funnel:public_token}/steps', [FunnelStepController::class, 'index'])->name('steps.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'show'])->name('steps.show');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions', [FunnelQuestionController::class, 'index'])->name('questions.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'show'])->name('questions.show');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options', [FunnelOptionController::class, 'index'])->name('options.index');
+                Route::get('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'show'])->name('options.show');
+
+                Route::get('/funnels/{funnel:public_token}/conditions', [FunnelConditionController::class, 'index'])->name('conditions.index');
+                Route::get('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'show'])->name('conditions.show');
+
+                Route::get('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'index'])->name('results.index');
+                Route::get('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'show'])->name('results.show');
+
+                // FB-030c: Versionshistorie -- lesend, deshalb funnels:read.
+                Route::get('/funnels/{funnel:public_token}/versions', [FunnelVersionController::class, 'index'])->name('versions.index');
+                Route::get('/funnels/{funnel:public_token}/versions/{version}', [FunnelVersionController::class, 'show'])
+                    ->whereNumber('version')
+                    ->name('versions.show');
+            });
+
+        Route::middleware('ability:'.TenantApiAbility::FUNNELS_WRITE->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::post('/funnels', [FunnelController::class, 'store'])->name('funnels.store');
+                Route::patch('/funnels/{funnel:public_token}', [FunnelController::class, 'update'])->name('funnels.update');
+                Route::delete('/funnels/{funnel:public_token}', [FunnelController::class, 'destroy'])->name('funnels.destroy');
+                Route::put('/funnels/{funnel:public_token}/structure', [ManagementFunnelStructureController::class, 'update'])->name('funnels.structure.update');
+
+                Route::post('/funnels/{funnel:public_token}/steps', [FunnelStepController::class, 'store'])->name('steps.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'update'])->name('steps.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}', [FunnelStepController::class, 'destroy'])->name('steps.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/steps/{step}/questions', [FunnelQuestionController::class, 'store'])->name('questions.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'update'])->name('questions.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}/questions/{question}', [FunnelQuestionController::class, 'destroy'])->name('questions.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options', [FunnelOptionController::class, 'store'])->name('options.store');
+                Route::patch('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'update'])->name('options.update');
+                Route::delete('/funnels/{funnel:public_token}/steps/{step}/questions/{question}/options/{option}', [FunnelOptionController::class, 'destroy'])->name('options.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/conditions', [FunnelConditionController::class, 'store'])->name('conditions.store');
+                Route::patch('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'update'])->name('conditions.update');
+                Route::delete('/funnels/{funnel:public_token}/conditions/{condition}', [FunnelConditionController::class, 'destroy'])->name('conditions.destroy');
+
+                Route::post('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'store'])->name('results.store');
+                Route::patch('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'update'])->name('results.update');
+                Route::delete('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'destroy'])->name('results.destroy');
+
+                // FB-030c: Lebenszyklus. Ruft die Actions aus FB-014 und FB-018.
+                Route::post('/funnels/{funnel:public_token}/publish', [FunnelLifecycleController::class, 'publish'])->name('funnels.publish');
+                Route::post('/funnels/{funnel:public_token}/duplicate', [FunnelLifecycleController::class, 'duplicate'])->name('funnels.duplicate');
+                Route::post('/funnels/{funnel:public_token}/archive', [FunnelLifecycleController::class, 'archive'])->name('funnels.archive');
+
+            });
+
+        /*
+        | FB-030e: Webhooks. Eigene Berechtigung, weil ein Webhook Kontaktdaten
+        | nach draussen traegt -- wer Funnels bearbeiten darf, darf deshalb nicht
+        | automatisch Ereignisse umleiten.
+        */
+        Route::middleware('ability:'.TenantApiAbility::WEBHOOKS_MANAGE->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::get('/funnels/{funnel:public_token}/webhooks', [FunnelWebhookController::class, 'index'])->name('webhooks.index');
+                Route::post('/funnels/{funnel:public_token}/webhooks', [FunnelWebhookController::class, 'store'])->name('webhooks.store');
+                Route::get('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'show'])->name('webhooks.show');
+                Route::patch('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'update'])->name('webhooks.update');
+                Route::delete('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'destroy'])->name('webhooks.destroy');
+                Route::get('/funnels/{funnel:public_token}/webhooks/{webhook}/deliveries', [WebhookDeliveryController::class, 'index'])->name('webhooks.deliveries.index');
+            });
     });
 
 /*

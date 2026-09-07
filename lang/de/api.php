@@ -37,6 +37,14 @@ return [
             'title' => 'Unerwarteter Fehler',
             'detail' => 'Die Anfrage konnte nicht verarbeitet werden.',
         ],
+        'funnel_has_leads' => [
+            'title' => 'Funnel hat bereits Leads',
+            'detail' => 'Dieser Funnel kann nicht geloescht werden, weil bereits Leads daraus entstanden sind. Archiviere ihn stattdessen.',
+        ],
+        'idempotency_key_reused' => [
+            'title' => 'Schluessel bereits mit anderem Inhalt verwendet',
+            'detail' => 'Dieser Idempotency-Key wurde bereits fuer eine Anfrage mit anderem Inhalt verwendet. Waehle einen neuen Schluessel.',
+        ],
     ],
 
 ];

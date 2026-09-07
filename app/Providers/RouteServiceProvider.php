@@ -29,6 +29,16 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // FB-030f: Die Management-API wird je TOKEN begrenzt, nicht je IP --
+        // hinter einer IP koennen viele Kunden sitzen, und ein Token gehoert
+        // genau einem Workspace. Wer kein Token hat, faellt auf die IP zurueck.
+        RateLimiter::for('funnel-management', function (Request $request) {
+            $token = $request->user()?->currentAccessToken();
+
+            return Limit::perMinute((int) config('funnel.api.rate_limit_per_minute'))
+                ->by($token?->getKey() ? 'token:'.$token->getKey() : 'ip:'.$request->ip());
+        });
+
         // FB-026: Die oeffentliche Runtime-API kennt keine Anmeldung. Begrenzt
         // wird deshalb je Herkunft und Stunde ueber denselben Schwellwert wie
         // die eingebettete Strecke (config/funnel.php). Gezaehlt wird ueber den
