@@ -5,11 +5,13 @@ use App\Http\Controllers\Api\PublicV1\FunnelSessionController;
 use App\Http\Controllers\Api\PublicV1\FunnelStructureController;
 use App\Http\Controllers\Api\V1\FunnelConditionController;
 use App\Http\Controllers\Api\V1\FunnelController;
+use App\Http\Controllers\Api\V1\FunnelLifecycleController;
 use App\Http\Controllers\Api\V1\FunnelOptionController;
 use App\Http\Controllers\Api\V1\FunnelQuestionController;
 use App\Http\Controllers\Api\V1\FunnelResultController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\V1\FunnelStructureController as ManagementFunnelStructureController;
+use App\Http\Controllers\Api\V1\FunnelVersionController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\PaymentProviders\CreemController;
@@ -116,6 +118,12 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
 
                 Route::get('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'index'])->name('results.index');
                 Route::get('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'show'])->name('results.show');
+
+                // FB-030c: Versionshistorie -- lesend, deshalb funnels:read.
+                Route::get('/funnels/{funnel:public_token}/versions', [FunnelVersionController::class, 'index'])->name('versions.index');
+                Route::get('/funnels/{funnel:public_token}/versions/{version}', [FunnelVersionController::class, 'show'])
+                    ->whereNumber('version')
+                    ->name('versions.show');
             });
 
         Route::middleware('ability:'.TenantApiAbility::FUNNELS_WRITE->value)
@@ -145,6 +153,11 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
                 Route::post('/funnels/{funnel:public_token}/results', [FunnelResultController::class, 'store'])->name('results.store');
                 Route::patch('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'update'])->name('results.update');
                 Route::delete('/funnels/{funnel:public_token}/results/{result}', [FunnelResultController::class, 'destroy'])->name('results.destroy');
+
+                // FB-030c: Lebenszyklus. Ruft die Actions aus FB-014 und FB-018.
+                Route::post('/funnels/{funnel:public_token}/publish', [FunnelLifecycleController::class, 'publish'])->name('funnels.publish');
+                Route::post('/funnels/{funnel:public_token}/duplicate', [FunnelLifecycleController::class, 'duplicate'])->name('funnels.duplicate');
+                Route::post('/funnels/{funnel:public_token}/archive', [FunnelLifecycleController::class, 'archive'])->name('funnels.archive');
             });
     });
 
