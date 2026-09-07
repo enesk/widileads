@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire\Funnel;
 
 use App\Constants\FunnelStatus;
-use App\Constants\SessionEventType;
-use App\Dto\FunnelSubmissionData;
 use App\Funnel\Conditions\StepResolver;
 use App\Funnel\QuestionTypes\QuestionTypeRegistry;
 use App\Funnel\Results\ResultResolver;
 use App\Funnel\Runtime\EmbedOriginPolicy;
+use App\Funnel\Runtime\FunnelRunService;
 use App\Funnel\Runtime\OriginCollector;
-use App\Funnel\Runtime\SpamAssessment;
-use App\Funnel\Runtime\SpamGuard;
+use App\Funnel\Runtime\StepOutcome;
 use App\Funnel\Runtime\SubmissionReceiver;
 use App\Funnel\Scoring\ScoreCalculator;
 use App\Funnel\Snapshots\FunnelSnapshot;
@@ -21,9 +19,9 @@ use App\Funnel\Snapshots\ResultSnapshot;
 use App\Funnel\Snapshots\StepSnapshot;
 use App\Models\Funnel;
 use App\Models\PublicSession;
-use App\Services\PublicSessionService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -112,9 +110,8 @@ class FunnelRunner extends Component
             abort(Response::HTTP_FORBIDDEN, __('runtime.errors.origin_not_allowed'));
         }
 
-        $sessions = app(PublicSessionService::class);
-        $session = $sessions->startOrResume(
-            $funnel->currentVersion,
+        $session = $this->runService()->startOrResume(
+            $funnel,
             $this->sessionTokenFromCookie(),
             app(OriginCollector::class)->collect(request()),
         );
@@ -126,9 +123,9 @@ class FunnelRunner extends Component
         // Teilfortschritt aufnehmen -- der Endkunde macht dort weiter, wo er war.
         $this->answers = $session->answers ?? [];
         $this->currentStepPosition = $session->current_step ?? ($this->snapshot()->stepPositions()[0] ?? 0);
-
-        $sessions->record($session, SessionEventType::STEP_VIEW, $this->currentStepPosition);
-        $sessions->saveProgress($session, $this->answers, $this->currentStepPosition);
+        $this->phase = $this->runService()->isContactStep($this->snapshot(), $this->currentStepPosition)
+            ? 'contact'
+            : 'questions';
     }
 
     public function render(): View
@@ -152,124 +149,120 @@ class FunnelRunner extends Component
      */
     public function submitStep(): void
     {
-        $step = $this->currentStep();
+        $outcome = $this->advance();
 
-        if ($step === null) {
+        if ($outcome === null) {
             return;
         }
 
-        $this->validateStep($step);
-        $this->normalizeStep($step);
-
-        $next = app(StepResolver::class)->next(
-            $this->snapshot(),
-            $this->answers,
-            $this->currentStepPosition,
-            $this->currentScore(),
-        );
-
-        // Vor dem Kontaktschritt kommt der Ergebnis-Screen: Der Endkunde soll
-        // wissen, wofuer er seine Daten hergibt, bevor er sie eingibt.
-        if ($this->shouldShowResultBefore($next)) {
-            $this->prepareResult();
-            $this->phase = 'result';
-
-            $sessions = app(PublicSessionService::class);
-            $sessions->record($this->session(), SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
-            $sessions->saveProgress($this->session(), $this->answers, $this->currentStepPosition);
-
-            return;
-        }
-
-        if ($next === null) {
-            $this->finish();
-
-            return;
-        }
-
-        $this->goTo($next);
+        $this->applyOutcome($outcome);
     }
 
     /**
-     * Vom Ergebnis-Screen weiter zum Kontaktschritt (oder ans Ende).
+     * Vom Ergebnis-Screen weiter zum naechsten Schritt (meist der Kontaktschritt).
      */
     public function continueAfterResult(): void
     {
-        $contactStepPosition = $this->contactStepPosition();
-
-        if ($contactStepPosition !== null && $contactStepPosition !== $this->currentStepPosition) {
-            $this->goTo($contactStepPosition);
-            $this->phase = 'contact';
-
+        // Den Knopf gibt es nur im Ergebnis-Screen. Ohne diese Pruefung wuerde
+        // ein zweiter Aufruf eine bereits abgeschlossene Strecke wieder in die
+        // Fragen zurueckwerfen.
+        if ($this->phase !== 'result') {
             return;
         }
 
-        $next = app(StepResolver::class)->next(
-            $this->snapshot(),
-            $this->answers,
-            $this->currentStepPosition,
-            $this->currentScore(),
-        );
+        $snapshot = $this->snapshot();
+        $step = $this->runService()->stepAt($snapshot, $this->currentStepPosition);
 
-        if ($next === null) {
+        if ($step === null) {
             $this->finish();
 
             return;
         }
 
-        $this->goTo($next);
-        $this->phase = 'contact';
+        $this->phase = $this->runService()->isContactStep($snapshot, $this->currentStepPosition)
+            ? 'contact'
+            : 'questions';
     }
 
     /**
-     * Kontaktschritt absenden und die Einreichung uebergeben.
+     * Der Kontaktschritt wird wie jeder andere geprueft -- er ist der letzte,
+     * also endet die Strecke danach.
      */
     public function submitContact(): void
     {
-        $step = $this->currentStep();
-
-        if ($step !== null) {
-            $this->validateStep($step);
-            $this->normalizeStep($step);
-        }
-
-        $this->finish();
+        $this->submitStep();
     }
 
     /**
-     * Prueft die Einreichung und haelt das Ergebnis an der Sitzung fest.
-     *
-     * Nur das Rate-Limit stoppt hier etwas. Honeypot und Zeitfalle werden still
-     * vermerkt und spaeter bewertet (FB-033) -- der Lead entsteht trotzdem, denn
-     * eine zu Unrecht verworfene Anfrage ist verloren, eine zu Unrecht
-     * angenommene laesst sich noch aussortieren.
+     * Einen Schritt abschicken. Validierungsfehler kommen aus dem
+     * FunnelRunService und werden hier in Livewires Fehlerspeicher uebersetzt,
+     * damit die Anzeige alte Meldungen aufraeumt.
      */
-    private function assessSubmission(): SpamAssessment
-    {
-        $session = $this->session();
-
-        $assessment = app(SpamGuard::class)->assess(
-            $session,
-            $this->answers,
-            $this->website,
-            $this->funnel()->getKey(),
-        );
-
-        $session->forceFill(['spam_signals' => $assessment->toArray()])->save();
-
-        return $assessment;
-    }
-
+    /**
+     * Ein archivierter Funnel zeigt einen Hinweis statt der Fragen (FB-020).
+     */
     public function isArchived(): bool
     {
-        return $this->funnel()->status === FunnelStatus::ARCHIVED;
+        return $this->runService()->isArchived($this->funnel());
+    }
+
+    private function advance(): ?StepOutcome
+    {
+        $this->resetErrorBag();
+
+        try {
+            return $this->runService()->submitStep($this->session(), $this->snapshot(), $this->answers);
+        } catch (ValidationException $exception) {
+            foreach ($exception->validator->errors()->messages() as $field => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError($field, $message);
+                }
+            }
+
+            return null;
+        }
+    }
+
+    private function applyOutcome(StepOutcome $outcome): void
+    {
+        // Der Dienst hat die Sitzung bereits weitergeschaltet -- die Komponente
+        // uebernimmt deren Stand, statt einen eigenen zu fuehren. Sonst zeigt
+        // der Ergebnis-Screen auf einen Schritt, den die Sitzung laengst
+        // verlassen hat, und der Weiter-Knopf landet im falschen Schritt.
+        $session = $this->session()->refresh();
+
+        $this->answers = $session->answers ?? $this->answers;
+        $this->currentStepPosition = (int) ($session->current_step ?? $this->currentStepPosition);
+        $this->score = $outcome->score;
+        $this->resultKey = $outcome->result?->key;
+
+        if ($outcome->isFinished()) {
+            $this->finish();
+
+            return;
+        }
+
+        $this->phase = match (true) {
+            $outcome->phase === 'result' => 'result',
+            $this->runService()->isContactStep($this->snapshot(), $this->currentStepPosition) => 'contact',
+            default => 'questions',
+        };
     }
 
     private function finish(): void
     {
-        $assessment = $this->assessSubmission();
+        $outcome = $this->runService()->submit(
+            $this->session(),
+            $this->funnel(),
+            $this->snapshot(),
+            $this->answers,
+            $this->website,
+        );
 
-        if ($assessment->blocksSubmission()) {
+        $this->score = $outcome->score;
+        $this->resultKey = $outcome->result?->key;
+
+        if (! $outcome->accepted) {
             // Die Sitzung bleibt offen: Wer zu Unrecht getroffen wurde, kann es
             // spaeter erneut versuchen, ohne von vorn anzufangen.
             $this->submissionBlockedReason = __('runtime.errors.rate_limited');
@@ -277,114 +270,20 @@ class FunnelRunner extends Component
             return;
         }
 
-        $this->prepareResult();
         $this->phase = 'done';
-
-        $sessions = app(PublicSessionService::class);
-        $session = $this->session();
-
-        $sessions->record($session, SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
-        $sessions->saveProgress($session, $this->answers, $this->currentStepPosition);
-        $sessions->complete($session);
-
-        app(SubmissionReceiver::class)->receive(new FunnelSubmissionData(
-            publicToken: $this->token,
-            funnelVersionId: (int) $this->funnel()->current_version_id,
-            publicSessionId: (int) $session->getKey(),
-            answers: $this->answers,
-            score: $this->score,
-            resultKey: $this->resultKey,
-            spamSignals: $assessment->toArray(),
-            duplicateOfLeadId: $assessment->duplicateOfLeadId,
-        ));
     }
 
-    private function goTo(int $stepPosition): void
+    private function runService(): FunnelRunService
     {
-        $sessions = app(PublicSessionService::class);
-        $sessions->record($this->session(), SessionEventType::STEP_COMPLETE, $this->currentStepPosition);
-
-        $this->currentStepPosition = $stepPosition;
-        $this->phase = $stepPosition === $this->contactStepPosition() ? 'contact' : 'questions';
-
-        $sessions->record($this->session(), SessionEventType::STEP_VIEW, $stepPosition);
-        $sessions->saveProgress($this->session(), $this->answers, $stepPosition);
-    }
-
-    /**
-     * Erst validieren, dann normalisieren -- die Regeln des Fragetyps kommen aus
-     * FB-011 und gelten hier fuer die Snapshot-Fassung der Frage.
-     */
-    private function validateStep(StepSnapshot $step): void
-    {
-        $registry = app(QuestionTypeRegistry::class);
-        $rules = [];
-        $attributes = [];
-
-        foreach ($step->questions as $question) {
-            $handler = $registry->for($question->questionType());
-
-            if (! $handler->expectsAnswer()) {
-                continue;
-            }
-
-            $rules['answers.'.$question->fieldKey] = $handler->rules($question);
-            $attributes['answers.'.$question->fieldKey] = $question->label;
-        }
-
-        if ($rules === []) {
-            $this->resetErrorBag();
-
-            return;
-        }
-
-        // Livewires eigene Validierung, nicht die Fassade: Sie raeumt den
-        // Fehlerspeicher auf, sobald ein Schritt fehlerfrei durchgeht.
-        $this->validate($rules, [], $attributes);
-    }
-
-    private function normalizeStep(StepSnapshot $step): void
-    {
-        $registry = app(QuestionTypeRegistry::class);
-
-        foreach ($step->questions as $question) {
-            $handler = $registry->for($question->questionType());
-            $value = $this->answers[$question->fieldKey] ?? null;
-
-            $this->answers[$question->fieldKey] = $handler->normalize($value, $question);
-        }
-    }
-
-    private function shouldShowResultBefore(?int $nextStepPosition): bool
-    {
-        if ($this->phase !== 'questions' || $this->snapshot()->results === []) {
-            return false;
-        }
-
-        $contactStepPosition = $this->contactStepPosition();
-
-        // Ohne eigenen Kontaktschritt zeigt das Ende der Strecke das Ergebnis.
-        if ($contactStepPosition === null) {
-            return $nextStepPosition === null;
-        }
-
-        return $nextStepPosition === $contactStepPosition;
-    }
-
-    private function prepareResult(): void
-    {
-        $this->score = $this->currentScore();
-        $this->resultKey = $this->currentResult()?->key;
-    }
-
-    private function currentScore(): int
-    {
-        return app(ScoreCalculator::class)->calculate($this->snapshot(), $this->answers);
+        return app(FunnelRunService::class);
     }
 
     private function currentResult(): ?ResultSnapshot
     {
-        return app(ResultResolver::class)->resolve($this->snapshot(), $this->currentScore());
+        $snapshot = $this->snapshot();
+        $score = app(ScoreCalculator::class)->calculate($snapshot, $this->answers);
+
+        return app(ResultResolver::class)->resolve($snapshot, $score);
     }
 
     private function currentStep(): ?StepSnapshot
@@ -396,13 +295,6 @@ class FunnelRunner extends Component
         }
 
         return null;
-    }
-
-    private function contactStepPosition(): ?int
-    {
-        $position = $this->snapshot()->funnel['contact_step_position'] ?? null;
-
-        return $position === null ? null : (int) $position;
     }
 
     /**

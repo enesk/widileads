@@ -1,12 +1,15 @@
 <?php
 
 use App\Constants\TenantApiAbility;
+use App\Http\Controllers\Api\PublicV1\FunnelSessionController;
+use App\Http\Controllers\Api\PublicV1\FunnelStructureController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
 use App\Http\Controllers\PaymentProviders\PolarController;
 use App\Http\Controllers\PaymentProviders\StripeController;
+use App\Http\Middleware\EnsureAllowedFunnelOrigin;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -69,4 +72,37 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
         Route::get('/ping/leads', [TenantController::class, 'ping'])
             ->middleware('ability:'.TenantApiAbility::LEADS_READ->value)
             ->name('ping.leads');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Oeffentliche Runtime-API (FB-026)
+|--------------------------------------------------------------------------
+|
+| Fuer eigene Frontends, die die Strecke selbst rendern. Kein Token, keine
+| Anmeldung -- adressiert wird ueber den oeffentlichen Funnel-Token und den
+| Sitzungstoken, beide nicht erratbar. Die Herkunftspruefung aus FB-025 gilt
+| hier genauso wie fuer die eingebettete Strecke.
+|
+*/
+Route::prefix('public/v1')
+    ->name('api.public.v1.')
+    ->middleware([EnsureAllowedFunnelOrigin::class, 'throttle:funnel-public'])
+    // Ohne dies suchte Laravel die Sitzung ueber eine Beziehung am Funnel. Die
+    // gibt es nicht -- Sitzungen haengen an der Funnel-FASSUNG. Die
+    // Zugehoerigkeit prueft der Controller deshalb selbst, und zwar gegen die
+    // aktuelle Fassung.
+    ->withoutScopedBindings()
+    ->group(function () {
+        Route::get('/funnels/{funnel:public_token}', [FunnelStructureController::class, 'show'])
+            ->name('funnels.show');
+
+        Route::post('/funnels/{funnel:public_token}/sessions', [FunnelSessionController::class, 'store'])
+            ->name('sessions.store');
+
+        Route::patch('/funnels/{funnel:public_token}/sessions/{session:token}/answers', [FunnelSessionController::class, 'updateAnswers'])
+            ->name('sessions.answers');
+
+        Route::post('/funnels/{funnel:public_token}/sessions/{session:token}/submit', [FunnelSessionController::class, 'submit'])
+            ->name('sessions.submit');
     });
