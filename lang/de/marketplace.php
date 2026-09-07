@@ -407,4 +407,29 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kaeufersicht (FB-060)
+    |--------------------------------------------------------------------------
+    */
+
+    'overview' => [
+
+        'heading' => 'Kaeufer',
+        'nav_label' => 'Kaeufer',
+        'description' => 'Umsatz und Reklamationsquote je Kaeufer. Der Durchschnitt liegt bei :average Prozent; auffaellig ist, wer mehr als :points Prozentpunkte darueber liegt.',
+        'empty' => 'Es ist kein Kaeufer angelegt.',
+
+        'buyer' => 'Kaeufer',
+        'purchases' => 'Kaeufe',
+        'revenue' => 'Umsatz',
+        'complaints' => 'Anerkannte Reklamationen',
+        'rate' => 'Quote',
+        'deviation' => 'Abweichung in Punkten',
+        'flagged' => 'Auffaellig',
+
+        'hint' => 'Auffaellig heisst nicht schuldig: Eine hohe Quote kann bedeuten, dass ein Kaeufer schlechte Leads bekommen hat - oder dass er zu grosszuegig reklamiert. Die Uebersicht sagt nur, wo hinzusehen sich lohnt.',
+
+    ],
+
 ];
