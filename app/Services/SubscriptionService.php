@@ -188,7 +188,10 @@ class SubscriptionService
 
     public function findActiveTenantSubscriptionProducts(?Tenant $tenant): Collection
     {
+        // FB-041: Ohne das Nachladen erzeugt die Schleife zwei Abfragen je
+        // Abonnement - eine fuer den Tarif, eine fuer das Produkt.
         return $this->findActiveTenantSubscriptions($tenant)
+            ->load('plan.product')
             ->map(function (Subscription $subscription) {
                 return $subscription->plan->product;
             });
@@ -461,6 +464,8 @@ class SubscriptionService
             ->subscriptions()
             ->where('status', SubscriptionStatus::ACTIVE->value)
             ->where('ends_at', '>', Carbon::now())
+            // FB-041: Der Filter unten liest Tarif und Produkt je Abonnement.
+            ->with('plan.product')
             ->get();
 
         if ($productSlug) {
