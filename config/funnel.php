@@ -204,6 +204,29 @@ return [
         // (Geraetetyp, Browser) reicht der Anfang; der Rest ist Ballast.
         'user_agent_max_length' => (int) env('FUNNEL_PUBLIC_USER_AGENT_MAX_LENGTH', 255),
 
+        // FB-043: Content-Security-Policy der oeffentlichen Strecke.
+        //
+        // frame-ancestors steht bewusst nicht hier: Es wird je Funnel aus der
+        // Einbettungs-Allowlist (FB-025) gebildet, damit Browser und Server
+        // dieselbe Entscheidung treffen.
+        //
+        // 'unsafe-inline' bei script-src und style-src ist eine bekannte
+        // Schwaeche und kein Versehen: Das Embed-Layout traegt ein Inline-Skript
+        // fuer die Hoehenmeldung, und die Fortschrittsanzeige setzt ihre Breite
+        // inline. Der Schutz dieser Policy liegt deshalb nicht bei XSS, sondern
+        // darin, dass fremde Herkuenfte weder Skripte liefern noch die Seite
+        // einbetten koennen. Ein Nonce waere der naechste Schritt.
+        'csp' => env('FUNNEL_PUBLIC_CSP', implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "form-action 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+        ])),
     ],
 
     /*
