@@ -271,4 +271,39 @@ return [
         'buyers' => ':buyers von :max Kaeufern',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Meine Leads (FB-057)
+    |--------------------------------------------------------------------------
+    */
+
+    'purchased' => [
+
+        'heading' => 'Meine Leads',
+        'nav_label' => 'Meine Leads',
+        'description' => 'Die Leads, die du gekauft hast. Die Kontaktdaten stehen im Klartext.',
+        'empty' => 'Du hast noch keinen Lead gekauft.',
+        'only_without_feedback' => 'Nur ohne Rueckmeldung',
+        'export' => 'Als CSV herunterladen',
+        'bought_at' => 'Gekauft am :date',
+        'feedback_given' => 'Deine Rueckmeldung: :feedback',
+
+        'feedback' => [
+            'interested' => 'Brauchbar',
+            'not_interested' => 'Nicht brauchbar',
+        ],
+
+        'csv' => [
+            'purchased_at' => 'Gekauft am',
+            'funnel' => 'Fragebogen',
+            'name' => 'Name',
+            'email' => 'E-Mail',
+            'phone' => 'Telefon',
+            'postal_code' => 'PLZ',
+            'score' => 'Punktzahl',
+            'feedback' => 'Rueckmeldung',
+        ],
+
+    ],
+
 ];
