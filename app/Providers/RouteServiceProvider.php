@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\IpHasher;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
@@ -26,6 +27,15 @@ class RouteServiceProvider extends ServiceProvider
     {
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // FB-026: Die oeffentliche Runtime-API kennt keine Anmeldung. Begrenzt
+        // wird deshalb je Herkunft und Stunde ueber denselben Schwellwert wie
+        // die eingebettete Strecke (config/funnel.php). Gezaehlt wird ueber den
+        // IP-Hash aus FB-022 -- die Adresse selbst liegt nirgends vor.
+        RateLimiter::for('funnel-public', function (Request $request) {
+            return Limit::perHour((int) config('funnel.public.rate_limit_per_hour'))
+                ->by(app(IpHasher::class)->hash($request->ip()) ?? 'unknown');
         });
 
         $this->routes(function () {

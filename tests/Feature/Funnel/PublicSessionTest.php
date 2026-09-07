@@ -67,7 +67,9 @@ class PublicSessionTest extends FeatureTest
         $session = PublicSession::query()->where('token', $sessionToken)->sole();
 
         $this->assertSame(['tierart' => 'hund'], $session->answers);
-        $this->assertSame(1, $session->current_step);
+        // Die Sitzung steht auf dem Schritt, an dem es weitergeht -- der
+        // Ergebnis-Screen davor ist eine Zwischenanzeige, kein eigener Schritt.
+        $this->assertSame(2, $session->current_step);
 
         // Neuer Aufruf mit demselben Cookie: dieselbe Sitzung, Antworten wieder da.
         Cookie::queue('funnel_session_'.$funnel->public_token, $sessionToken, 60);
@@ -97,9 +99,8 @@ class PublicSessionTest extends FeatureTest
         $this->assertSame([
             'view',
             'step_view',      // Schritt 1 angezeigt
-            'step_complete',  // Schritt 1 beantwortet, Ergebnis-Screen
-            'step_complete',  // weiter zum Kontaktschritt
-            'step_view',      // Kontaktschritt angezeigt
+            'step_complete',  // Schritt 1 beantwortet
+            'step_view',      // Kontaktschritt angezeigt (Ergebnis-Screen davor)
             'step_complete',  // Kontaktdaten abgeschickt
             'submit',
         ], $types);
