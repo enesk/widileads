@@ -13,6 +13,7 @@ use App\Constants\LeadState;
 use App\Constants\QuestionType;
 use App\Constants\TenantApiAbility;
 use App\Constants\TenantType;
+use App\Constants\WebhookEvent;
 use App\Http\Controllers\ApiDocsController;
 use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +39,8 @@ use Tests\TestCase;
  *     fuehrt exakt die Werte ihres Enums in app/Constants. Genau hier entsteht
  *     die Drift sonst unbemerkt -- ein umbenannter Enum-Wert bricht keinen Test,
  *     macht die Dokumentation aber falsch.
+ *  4. Die ausgehenden Ereignisse unter "webhooks" stimmen mit denen ueberein,
+ *     die die Anwendung tatsaechlich sendet (App\Constants\WebhookEvent).
  *
  * Die ersten beiden Pruefungen laufen ueber BEIDE Spezifikationen. Solange sie
  * nur den Praefix der Management-API kannten, waren die vier oeffentlichen
@@ -281,6 +284,56 @@ class OpenApiContractTest extends TestCase
     }
 
     /**
+     * Ausgehende Ereignisse sind keine Endpunkte -- und wurden bis FB-030g wie
+     * welche geprueft.
+     *
+     * Der Abgleich gegen Laravels Routenliste musste dabei scheitern: Bei einem
+     * Webhook sind WIR der Aufrufer, der Empfaenger stellt die Route. Die vier
+     * Ereignisse standen deshalb dauerhaft auf x-status: planned, obwohl
+     * FB-030e sie laengst versendet. Eine Spezifikation, die "geplant" sagt,
+     * wo etwas laeuft, ist schlimmer als gar keine -- ein Integrator baut den
+     * Empfaenger dann naemlich nicht.
+     *
+     * Geprueft wird stattdessen das, was hier wirklich auseinanderlaufen kann:
+     * die Liste der Ereignisse gegen App\Constants\WebhookEvent, in beide
+     * Richtungen.
+     */
+    public function test_documented_webhook_events_match_the_ones_the_application_sends(): void
+    {
+        $spec = $this->specs['Management-API'];
+
+        $documented = [];
+
+        foreach ($this->eachWebhookOperation($spec) as $operation => $definition) {
+            $this->assertSame(
+                'implemented',
+                $definition['x-status'],
+                "Das Ereignis \"{$operation}\" steht auf x-status: planned. Ereignisse werden nicht "
+                .'gegen die Routenliste geprueft, sondern gegen App\Constants\WebhookEvent -- '
+                .'"planned" waere hier eine Aussage, die niemand mehr nachhaelt.',
+            );
+
+            // Der Schluessel ist "webhook <ereignis>"; hier zaehlt der Name.
+            $documented[] = substr($operation, strlen('webhook '));
+        }
+
+        sort($documented);
+
+        $this->assertSame(
+            $this->valuesOf(WebhookEvent::class),
+            $documented,
+            'Der Abschnitt "webhooks" und App\Constants\WebhookEvent muessen dieselben Ereignisse fuehren. '
+            .'Ein Ereignis ohne Beschreibung bekommt der Empfaenger unangekuendigt; eine Beschreibung '
+            .'ohne Ereignis laesst ihn auf etwas warten, das nie kommt.',
+        );
+
+        // Der Rahmen jedes Aufrufs nennt dasselbe Ereignis noch einmal als
+        // Aufzaehlung. Laeuft die auseinander, widerspricht die Spezifikation
+        // sich selbst.
+        $this->assertEnumerationsMatch($spec, ['WebhookEvent' => WebhookEvent::class]);
+    }
+
+    /**
      * Der Snapshot geht unveraendert nach aussen. Seine Wertevorraete stehen
      * damit ebenso im Vertrag wie die der Management-API -- ein umbenannter
      * Fragetyp macht sonst die Doku falsch, ohne dass etwas bricht (FB-030g).
@@ -511,7 +564,13 @@ class OpenApiContractTest extends TestCase
     }
 
     /**
-     * Alle Operationen der Spezifikation als "METHODE /pfad" auf ihren x-status.
+     * Alle Endpunkt-Operationen der Spezifikation als "METHODE /pfad" auf ihren
+     * x-status.
+     *
+     * Ereignisse unter "webhooks" bleiben bewusst aussen vor: Sie sind keine
+     * Endpunkte dieser Anwendung, sondern Aufrufe, die sie beim Empfaenger
+     * ausloest. Der Abgleich gegen Laravels Routenliste passt fuer sie nicht --
+     * siehe assertWebhookEventsMatchTheOnesTheApplicationSends().
      *
      * @param  array<string, mixed>  $spec
      * @return array<string, string>
@@ -520,7 +579,7 @@ class OpenApiContractTest extends TestCase
     {
         $operations = [];
 
-        foreach ($this->eachOperation($spec) as $operation => $definition) {
+        foreach ($this->eachPathOperation($spec) as $operation => $definition) {
             $operations[$operation] = (string) $definition['x-status'];
         }
 
@@ -563,12 +622,25 @@ class OpenApiContractTest extends TestCase
     }
 
     /**
-     * Laeuft ueber alle Operationen aus "paths" und "webhooks".
+     * Laeuft ueber alle Operationen aus "paths" und "webhooks". Fuer alles, was
+     * beide gleich behandelt -- Vollstaendigkeit der Angaben etwa.
      *
      * @param  array<string, mixed>  $spec
      * @return iterable<string, array<string, mixed>>
      */
     private function eachOperation(array $spec): iterable
+    {
+        yield from $this->eachPathOperation($spec);
+        yield from $this->eachWebhookOperation($spec);
+    }
+
+    /**
+     * Die Operationen unter "paths" -- die Endpunkte dieser Anwendung.
+     *
+     * @param  array<string, mixed>  $spec
+     * @return iterable<string, array<string, mixed>>
+     */
+    private function eachPathOperation(array $spec): iterable
     {
         /** @var array<string, array<string, mixed>> $paths */
         $paths = $spec['paths'] ?? [];
@@ -580,7 +652,16 @@ class OpenApiContractTest extends TestCase
                 }
             }
         }
+    }
 
+    /**
+     * Die Ereignisse unter "webhooks", je Ereignisname.
+     *
+     * @param  array<string, mixed>  $spec
+     * @return iterable<string, array<string, mixed>>
+     */
+    private function eachWebhookOperation(array $spec): iterable
+    {
         /** @var array<string, array<string, mixed>> $webhooks */
         $webhooks = $spec['webhooks'] ?? [];
 

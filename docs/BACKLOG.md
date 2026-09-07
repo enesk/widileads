@@ -263,3 +263,16 @@ Die offenen Punkte stehen als Einträge oben.
   Riegel gehört in den Absendepfad. In FB-043 geprüft und bewusst nicht gebaut, weil der
   Ticketumfang die Bewertung nennt, nicht den Umbau.
   Aufgefallen bei: FB-043. Datum: 2026-09-07.
+
+- **`FunnelStructureWriter` und `FunnelStructureReplacer` schreiben dieselbe Struktur
+  zweimal** — beide lesen das Snapshot-Format aus `docs/funnel-builder/snapshot-format.md`
+  und legen daraus Schritte, Fragen, Optionen, Verzweigungsregeln und Ergebnisse an. Der
+  `Writer` (FB-018/FB-019, genutzt vom Vorlagen-Import) erzeugt einen **neuen** Funnel,
+  der `Replacer` (FB-030b, genutzt von `PUT /funnels/{funnel}/structure`) tauscht den
+  Aufbau eines **bestehenden** aus, während Token, Slug und Zustand bleiben. Der
+  fachliche Unterschied ist echt, das Schreiben darunter ist es nicht. Läuft eines von
+  beiden bei einer Formatänderung nach, weicht der Import vom API-Schreibweg ab — und
+  zwar still, weil beide für sich getestet sind. Zusammenzuführen wäre ein gemeinsamer
+  Schreibteil, den beide aufrufen. Bewusst nicht gemacht: Refactoring ohne Fehlerbezug,
+  und wir sind am Projektende.
+  Aufgefallen bei: FB-030b. Datum: 2026-09-07.
