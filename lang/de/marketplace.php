@@ -306,4 +306,67 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Reklamation (FB-058)
+    |--------------------------------------------------------------------------
+    */
+
+    'complaint' => [
+
+        'open' => 'Lead reklamieren',
+        'help' => 'Beantrage, dass dieser Lead als unerreichbar oder ungueltig gilt. Ein Mitarbeiter prueft den Antrag; wird er anerkannt, bekommst du dein Guthaben zurueck.',
+        'reason_placeholder' => 'Was ist passiert? Zum Beispiel: dreimal an verschiedenen Tagen angerufen, niemand erreichbar.',
+        'submit' => 'Antrag absenden',
+        'filed' => 'Reklamation eingereicht (:state) - Stand: :status.',
+
+        'status' => [
+            'pending' => 'In Pruefung',
+            'approved' => 'Anerkannt',
+            'rejected' => 'Abgelehnt',
+        ],
+
+        'errors' => [
+            'not_your_purchase' => 'Dieser Kauf gehoert nicht zu deinem Workspace.',
+            'unsupported_state' => 'Reklamieren laesst sich nur "unerreichbar" oder "ungueltig".',
+            'reason_required' => 'Bitte gib an, was passiert ist - ohne Begruendung laesst sich der Antrag nicht pruefen.',
+            'lead_already_settled' => 'Dieser Lead ist bereits abgeschlossen und kann nicht mehr reklamiert werden.',
+            'deadline_elapsed' => 'Die Reklamationsfrist fuer diesen Lead ist abgelaufen.',
+            'already_filed' => 'Fuer diesen Kauf liegt bereits eine Reklamation vor.',
+            'already_decided' => 'Ueber diese Reklamation wurde bereits entschieden.',
+        ],
+
+        'resource' => [
+            'label' => 'Reklamation',
+            'plural_label' => 'Reklamationen',
+            'empty_heading' => 'Keine Reklamationen',
+            'empty_description' => 'Antraege erscheinen hier, sobald ein Kaeufer einen Lead reklamiert.',
+            'read_only' => 'Der Antrag stammt vom Kaeufer und wird nicht bearbeitet. Moeglich sind Anerkennen und Ablehnen.',
+        ],
+
+        'fields' => [
+            'created_at' => 'Eingegangen am',
+            'status' => 'Stand',
+            'buyer' => 'Kaeufer',
+            'requested_state' => 'Beantragt',
+            'reason' => 'Begruendung',
+            'reviewed_by' => 'Entschieden von',
+            'reviewed_at' => 'Entschieden am',
+            'decision_note' => 'Vermerk zur Entscheidung',
+        ],
+
+        'hints' => [
+            'decision_note' => 'Mindestens 10 Zeichen. Der Vermerk begruendet die Ablehnung.',
+        ],
+
+        'actions' => [
+            'approve' => 'Anerkennen',
+            'approve_confirm' => 'Der Lead wechselt in den beantragten Zustand und der Kaeufer bekommt sein Guthaben zurueck.',
+            'approved' => 'Reklamation anerkannt, Guthaben zurueckgebucht.',
+            'reject' => 'Ablehnen',
+            'rejected' => 'Reklamation abgelehnt.',
+        ],
+
+    ],
+
 ];

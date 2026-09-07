@@ -306,4 +306,67 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Complaint (FB-058)
+    |--------------------------------------------------------------------------
+    */
+
+    'complaint' => [
+
+        'open' => 'Report this lead',
+        'help' => 'Request that this lead counts as unreachable or invalid. A member of staff reviews the request; if it is accepted, you get your credit back.',
+        'reason_placeholder' => 'What happened? For example: called three times on different days, nobody reachable.',
+        'submit' => 'Submit request',
+        'filed' => 'Complaint submitted (:state) -- status: :status.',
+
+        'status' => [
+            'pending' => 'Under review',
+            'approved' => 'Accepted',
+            'rejected' => 'Rejected',
+        ],
+
+        'errors' => [
+            'not_your_purchase' => 'This purchase does not belong to your workspace.',
+            'unsupported_state' => 'Only "unreachable" or "invalid" can be requested.',
+            'reason_required' => 'Please describe what happened -- without a reason the request cannot be reviewed.',
+            'lead_already_settled' => 'This lead is already settled and can no longer be reported.',
+            'deadline_elapsed' => 'The complaint period for this lead has elapsed.',
+            'already_filed' => 'A complaint for this purchase already exists.',
+            'already_decided' => 'This complaint has already been decided.',
+        ],
+
+        'resource' => [
+            'label' => 'Complaint',
+            'plural_label' => 'Complaints',
+            'empty_heading' => 'No complaints',
+            'empty_description' => 'Requests appear here as soon as a buyer reports a lead.',
+            'read_only' => 'The request comes from the buyer and is not edited. Accepting and rejecting are the available actions.',
+        ],
+
+        'fields' => [
+            'created_at' => 'Received at',
+            'status' => 'Status',
+            'buyer' => 'Buyer',
+            'requested_state' => 'Requested',
+            'reason' => 'Reason',
+            'reviewed_by' => 'Decided by',
+            'reviewed_at' => 'Decided at',
+            'decision_note' => 'Decision note',
+        ],
+
+        'hints' => [
+            'decision_note' => 'At least 10 characters. The note explains the rejection.',
+        ],
+
+        'actions' => [
+            'approve' => 'Accept',
+            'approve_confirm' => 'The lead moves to the requested state and the buyer gets the credit back.',
+            'approved' => 'Complaint accepted, credit refunded.',
+            'reject' => 'Reject',
+            'rejected' => 'Complaint rejected.',
+        ],
+
+    ],
+
 ];

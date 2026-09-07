@@ -41,3 +41,8 @@ Schedule::command('app:release-expired-lead-reservations')->everyMinute();
 // Zu selten zu laufen kostet dagegen Abschluesse: Ein frischer Lead ist nach
 // Stunden deutlich weniger wert.
 Schedule::command('app:auto-purchase-leads')->everyFiveMinutes()->withoutOverlapping();
+
+// FB-058: Kaeufe abschliessen, deren Reklamationsfrist abgelaufen ist. Die
+// Frist steht in config('funnel.call.deadline_days'); taeglich zu pruefen
+// genuegt, sie zaehlt in Tagen.
+Schedule::command('app:settle-elapsed-complaint-periods')->dailyAt('01:00');

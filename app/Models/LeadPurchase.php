@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -67,6 +68,16 @@ class LeadPurchase extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class)->withoutGlobalScope('tenant');
+    }
+
+    /**
+     * Die Reklamation zu diesem Kauf, falls es eine gibt (FB-058).
+     *
+     * @return HasOne<LeadComplaint, $this>
+     */
+    public function complaint(): HasOne
+    {
+        return $this->hasOne(LeadComplaint::class);
     }
 
     /**

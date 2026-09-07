@@ -17,6 +17,12 @@
         </button>
     </div>
 
+    @if ($complaintError !== null)
+        <div class="alert alert-warning">
+            <span>{{ $complaintError }}</span>
+        </div>
+    @endif
+
     @forelse ($rows as $row)
         @php($purchase = $row['purchase'])
         @php($presenter = $row['presenter'])
@@ -60,6 +66,41 @@
                             <span class="badge badge-ghost">{{ $fieldKey }}: {{ $value }}</span>
                         @endforeach
                     </div>
+                @endif
+
+                {{-- Reklamation (FB-058): beantragen, nicht entscheiden. --}}
+                @if ($row['complaint'] !== null)
+                    <div class="alert alert-info text-sm">
+                        <span>{{ __('marketplace.complaint.filed', [
+                            'state' => $row['complaint']->requested_state->label(),
+                            'status' => $row['complaint']->status->label(),
+                        ]) }}</span>
+                    </div>
+                @elseif ($row['canComplain'])
+                    <details class="collapse collapse-arrow border border-base-300">
+                        <summary class="collapse-title text-sm font-medium">
+                            {{ __('marketplace.complaint.open') }}
+                        </summary>
+                        <div class="collapse-content space-y-2">
+                            <p class="text-sm opacity-70">{{ __('marketplace.complaint.help') }}</p>
+
+                            <select class="select select-bordered select-sm w-full"
+                                    wire:model="complaintState.{{ $purchase->id }}">
+                                @foreach ($complaintStates as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+
+                            <textarea class="textarea textarea-bordered w-full" rows="2"
+                                      wire:model="complaintReason.{{ $purchase->id }}"
+                                      placeholder="{{ __('marketplace.complaint.reason_placeholder') }}"></textarea>
+
+                            <button type="button" class="btn btn-sm btn-warning"
+                                    wire:click="fileComplaint({{ $purchase->id }})">
+                                {{ __('marketplace.complaint.submit') }}
+                            </button>
+                        </div>
+                    </details>
                 @endif
 
                 <div class="card-actions items-center justify-end gap-2">
