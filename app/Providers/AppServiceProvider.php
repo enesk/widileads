@@ -6,8 +6,7 @@ use App\Actions\CreateLeadFromSession;
 use App\Funnel\Runtime\SubmissionReceiver;
 use App\Services\LeadPurchaseAction;
 use App\Services\LeadPurchaseLookup;
-use App\Services\LeadPurchaseUnavailable;
-use App\Services\NoLeadPurchases;
+use App\Services\LeadPurchaseThroughAction;
 use App\Services\PaymentProviders\Creem\CreemProvider;
 use App\Services\PaymentProviders\LemonSqueezy\LemonSqueezyProvider;
 use App\Services\PaymentProviders\Offline\OfflineProvider;
@@ -15,6 +14,7 @@ use App\Services\PaymentProviders\Paddle\PaddleProvider;
 use App\Services\PaymentProviders\PaymentService;
 use App\Services\PaymentProviders\Polar\PolarProvider;
 use App\Services\PaymentProviders\Stripe\StripeProvider;
+use App\Services\RecordedLeadPurchases;
 use App\Services\UserVerificationService;
 use App\Services\VerificationProviders\TwilioProvider;
 use Filament\Support\Assets\Js;
@@ -41,11 +41,12 @@ class AppServiceProvider extends ServiceProvider
         // Bis FB-054 den Kaufvorgang baut, hat niemand einen Lead gekauft --
         // und damit sieht auch niemand Klartext-Kontaktdaten (FB-032). FB-054
         // tauscht nur diese Bindung aus.
-        $this->app->bind(LeadPurchaseLookup::class, NoLeadPurchases::class);
+        // Seit FB-054 gibt es Kaeufe: Die Auskunft kommt aus `lead_purchases`,
+        // damit contactFor() einem Kaeufer nach dem Kauf Klartext liefert.
+        $this->app->bind(LeadPurchaseLookup::class, RecordedLeadPurchases::class);
 
-        // Der Marktplatz zeigt den Kaufknopf, kauft aber nicht -- bis FB-054
-        // den Kaufvorgang baut und diese Bindung austauscht (FB-053).
-        $this->app->bind(LeadPurchaseAction::class, LeadPurchaseUnavailable::class);
+        // Und der Kaufknopf im Marktplatz wirkt (FB-054).
+        $this->app->bind(LeadPurchaseAction::class, LeadPurchaseThroughAction::class);
 
         // PhoneNumberUtil hat einen privaten Konstruktor und laesst sich deshalb
         // nicht automatisch aufloesen (FB-011, E.164-Normalisierung).

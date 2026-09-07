@@ -230,4 +230,32 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Purchase (FB-054)
+    |--------------------------------------------------------------------------
+    */
+
+    'purchase' => [
+
+        'balance' => 'Credits: :credits leads',
+        'confirm' => 'Buy this lead now? One credit is debited and the contact details are released.',
+        'done' => 'Lead purchased. The contact details are visible now and the confirmation is on its way.',
+
+        'errors' => [
+            'already_taken' => 'This lead has been taken in the meantime. Another buyer was faster.',
+            'buyer_not_approved' => 'This workspace has not been approved for the marketplace yet.',
+            'own_lead' => 'This lead comes from one of your own questionnaires and cannot be bought.',
+        ],
+
+        'mail' => [
+            'subject' => 'Your purchased lead',
+            'heading' => 'Lead purchased',
+            'intro' => 'You purchased a lead from the questionnaire ":funnel". The contact details are below.',
+            'contact_heading' => 'Contact details',
+            'outro' => 'Get in touch soon -- the conversion rate drops with every day that passes.',
+        ],
+
+    ],
+
 ];

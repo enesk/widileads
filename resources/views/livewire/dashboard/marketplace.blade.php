@@ -8,6 +8,22 @@
 <div class="space-y-4">
     <p class="text-sm opacity-70">{{ __('marketplace.listing.description') }}</p>
 
+    <div class="flex flex-wrap items-center gap-3">
+        <span class="badge badge-lg">{{ __('marketplace.purchase.balance', ['credits' => $creditBalance]) }}</span>
+    </div>
+
+    @if ($purchaseError !== null)
+        <div class="alert alert-warning">
+            <span>{{ $purchaseError }}</span>
+        </div>
+    @endif
+
+    @if ($purchasedLeadId !== null)
+        <div class="alert alert-success">
+            <span>{{ __('marketplace.purchase.done') }}</span>
+        </div>
+    @endif
+
     @unless ($hasProfile)
         <div class="alert">
             <span>{{ __('marketplace.listing.no_profile') }}</span>
@@ -99,9 +115,10 @@
                             : __('marketplace.listing.watch') }}
                     </button>
 
-                    {{-- Der Kauf selbst kommt mit FB-054; bis dahin steht der
-                         Knopf, ohne zu wirken. --}}
                     <button type="button" class="btn btn-primary btn-sm"
+                            wire:click="purchase({{ $lead->id }})"
+                            wire:confirm="{{ __('marketplace.purchase.confirm') }}"
+                            wire:loading.attr="disabled"
                             @disabled(! $purchaseAvailable || ! $row['canPurchase'])
                             title="{{ $purchaseAvailable ? '' : __('marketplace.listing.purchase_unavailable') }}">
                         {{ __('marketplace.listing.purchase') }}

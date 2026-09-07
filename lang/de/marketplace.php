@@ -230,4 +230,32 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kaufvorgang (FB-054)
+    |--------------------------------------------------------------------------
+    */
+
+    'purchase' => [
+
+        'balance' => 'Guthaben: :credits Leads',
+        'confirm' => 'Diesen Lead jetzt kaufen? Es wird ein Guthaben abgebucht und die Kontaktdaten werden freigegeben.',
+        'done' => 'Lead gekauft. Die Kontaktdaten sind jetzt sichtbar, die Bestaetigung ist unterwegs.',
+
+        'errors' => [
+            'already_taken' => 'Dieser Lead ist inzwischen vergeben. Ein anderer Kaeufer war schneller.',
+            'buyer_not_approved' => 'Dieser Workspace ist noch nicht fuer den Marktplatz freigeschaltet.',
+            'own_lead' => 'Dieser Lead stammt aus einem eigenen Fragebogen und kann nicht gekauft werden.',
+        ],
+
+        'mail' => [
+            'subject' => 'Dein gekaufter Lead',
+            'heading' => 'Lead gekauft',
+            'intro' => 'Du hast einen Lead aus dem Fragebogen ":funnel" gekauft. Die Kontaktdaten stehen unten.',
+            'contact_heading' => 'Kontaktdaten',
+            'outro' => 'Melde dich zeitnah -- die Abschlussquote faellt mit jedem Tag, der vergeht.',
+        ],
+
+    ],
+
 ];
