@@ -19,11 +19,13 @@ return [
         'not_found' => 'Nicht gefunden',
         'validation_failed' => 'Eingabe fehlerhaft',
         'rate_limit_exceeded' => 'Zu viele Anfragen',
+        'idempotency_key_reused' => 'Schluessel bereits mit anderem Inhalt verwendet',
         'funnel_has_leads' => 'Funnel hat bereits Leads',
     ],
 
     'errors' => [
         'funnel_has_leads' => 'Dieser Funnel kann nicht geloescht werden, weil bereits Leads daraus entstanden sind.',
+        'idempotency_key_reused' => 'Dieser Idempotency-Key wurde bereits fuer eine Anfrage mit anderem Inhalt verwendet. Waehle einen neuen Schluessel.',
     ],
 
 ];
