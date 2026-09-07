@@ -6,6 +6,8 @@ namespace App\Livewire\Dashboard;
 
 use App\Constants\FunnelFieldKey;
 use App\Constants\LeadState;
+use App\Exceptions\InsufficientCreditsException;
+use App\Exceptions\LeadNotPurchasableException;
 use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
 use App\Models\Lead;
@@ -13,6 +15,7 @@ use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Presenters\LeadPresenter;
+use App\Services\CreditLedgerService;
 use App\Services\LeadPurchaseAction;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
@@ -43,6 +46,17 @@ class Marketplace extends Component
     public string $sort = MarketplaceListing::SORT_NEWEST;
 
     public bool $onlyWatchlisted = false;
+
+    /**
+     * Meldung des letzten gescheiterten Kaufversuchs -- etwa weil ein anderer
+     * Kaeufer schneller war oder das Guthaben nicht reicht.
+     */
+    public ?string $purchaseError = null;
+
+    /**
+     * Der zuletzt gekaufte Lead, fuer die Bestaetigung nach dem Klick.
+     */
+    public ?int $purchasedLeadId = null;
 
     /**
      * Wechselt die Vormerkung eines Leads. Sie ist eine private Notiz des
@@ -77,6 +91,47 @@ class Marketplace extends Component
         ]);
     }
 
+    /**
+     * Kauft einen Lead.
+     *
+     * Die Komponente entscheidet nichts: Sie reicht an die PurchaseLead-Action
+     * weiter, die Reservierung, Guthaben und Zustand unter Sperre prueft. Was
+     * hier abgefangen wird, sind die beiden alltaeglichen Ausgaenge -- ein
+     * anderer war schneller, oder das Guthaben reicht nicht. Beides ist ein
+     * Hinweis an den Kaeufer, kein Fehler.
+     */
+    public function purchase(int $leadId): void
+    {
+        $tenant = $this->tenant();
+        $actor = $this->viewer();
+
+        if (! $actor instanceof User) {
+            return;
+        }
+
+        // Nur Leads, die dieser Kaeufer im Marktplatz ueberhaupt sieht.
+        $lead = $this->visibleLeads()->first(
+            static fn (Lead $candidate): bool => (int) $candidate->getKey() === $leadId,
+        );
+
+        if (! $lead instanceof Lead) {
+            return;
+        }
+
+        try {
+            app(LeadPurchaseAction::class)->purchase($tenant, $lead, $actor);
+        } catch (LeadNotPurchasableException|InsufficientCreditsException $exception) {
+            $this->purchaseError = $exception->getMessage();
+
+            return;
+        }
+
+        $this->purchaseError = null;
+        $this->purchasedLeadId = $leadId;
+
+        $this->resetPage();
+    }
+
     public function updatedSort(): void
     {
         $this->resetPage();
@@ -105,6 +160,7 @@ class Marketplace extends Component
                 'canPurchase' => $purchase->canPurchase($tenant, $lead),
             ]),
             'purchaseAvailable' => $purchase->isAvailable(),
+            'creditBalance' => app(CreditLedgerService::class)->balanceFor($tenant),
             'hasProfile' => $this->profile() !== null,
         ]);
     }

@@ -29,3 +29,9 @@ Schedule::command('app:apply-lead-retention')->dailyAt(config('funnel.lead.reten
 // FB-021: Liegengebliebene Funnel-Sitzungen als abgebrochen markieren.
 // Frist aus config/funnel.php (public.abandon_after_minutes).
 Schedule::command('app:abandon-stale-funnel-sessions')->everyFiveMinutes();
+
+// FB-054: Abgelaufene Lead-Reservierungen zurueckgeben. Die Frist steht in
+// config('funnel.lead.reservation_ttl'); haeufiger zu pruefen als die Frist
+// lang ist, waere Verschwendung -- spaeter als eine Minute nach Ablauf
+// freizugeben, aergert dagegen den naechsten Kaeufer.
+Schedule::command('app:release-expired-lead-reservations')->everyMinute();

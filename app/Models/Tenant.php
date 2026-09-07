@@ -91,6 +91,17 @@ class Tenant extends Model
     }
 
     /**
+     * Kaufkriterien dieses Kaeufer-Mandanten (FB-051). Bei Betreiber-Mandanten
+     * immer null.
+     *
+     * @return HasOne<BuyerProfile, $this>
+     */
+    public function buyerProfile(): HasOne
+    {
+        return $this->hasOne(BuyerProfile::class);
+    }
+
+    /**
      * Ist dieser Mandant ein vom Plattform-Admin freigeschalteter Kaeufer?
      *
      * Der Typ allein genuegt seit FB-050 nicht: ein Kaeufer entsteht durch
