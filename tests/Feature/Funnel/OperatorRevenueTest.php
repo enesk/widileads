@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Funnel;
+
+use App\Constants\LeadState;
+use App\Constants\TenantType;
+use App\Models\Funnel;
+use App\Models\Lead;
+use App\Models\LeadPurchase;
+use App\Models\Tenant;
+use App\Services\CreditLedgerService;
+use App\Services\OperatorRevenueReport;
+use Tests\Feature\FeatureTest;
+
+/**
+ * FB-072: Umsatzuebersicht des Betreibers.
+ *
+ * Hier geht es um Geld, deshalb steht es unter Test: Eine Uebersicht, die
+ * falsch summiert, faellt niemandem auf, bis sie nicht mehr zur Buchhaltung
+ * passt. Geprueft werden die Summen und die Mandantentrennung -- ein Betreiber
+ * darf die Umsaetze eines anderen nicht sehen.
+ */
+class OperatorRevenueTest extends FeatureTest
+{
+    private function operator(): Tenant
+    {
+        return Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+    }
+
+    private function buyer(string $name): Tenant
+    {
+        return Tenant::factory()->create(['type' => TenantType::BUYER, 'name' => $name]);
+    }
+
+    private function soldLead(Tenant $operator, ?Funnel $funnel, Tenant $buyer, int $priceCents): LeadPurchase
+    {
+        $lead = Lead::factory()->inState(LeadState::VERKAUFT)->create([
+            'tenant_id' => $operator->id,
+            'funnel_id' => $funnel?->id,
+        ]);
+
+        return LeadPurchase::query()->create([
+            'lead_id' => $lead->id,
+            'buyer_tenant_id' => $buyer->id,
+            'price_cents' => $priceCents,
+            'currency' => 'EUR',
+            'purchased_at' => now(),
+        ]);
+    }
+
+    public function test_revenue_and_refunds_add_up_per_funnel_and_per_buyer(): void
+    {
+        $operator = $this->operator();
+        $pfotencheck = Funnel::factory()->create(['tenant_id' => $operator->id, 'name' => 'Pfotencheck']);
+        $zahncheck = Funnel::factory()->create(['tenant_id' => $operator->id, 'name' => 'Zahncheck']);
+
+        $agenturNord = $this->buyer('Agentur Nord');
+        $agenturSued = $this->buyer('Agentur Sued');
+
+        $this->soldLead($operator, $pfotencheck, $agenturNord, 1500);
+        $this->soldLead($operator, $pfotencheck, $agenturNord, 1500);
+        $reclaimed = $this->soldLead($operator, $pfotencheck, $agenturSued, 1500);
+        $this->soldLead($operator, $zahncheck, $agenturSued, 2000);
+
+        // Eine anerkannte Reklamation (FB-058) schreibt dem Kaeufer gut und
+        // geht dem Betreiber wieder ab.
+        app(CreditLedgerService::class)->refund($agenturSued, 1, $reclaimed);
+
+        $report = app(OperatorRevenueReport::class)->for($operator);
+
+        // Gesamt: vier Verkaeufe, 65,00 EUR Umsatz, eine Gutschrift ueber 15,00.
+        $this->assertCount(1, $report['totals']);
+        $this->assertSame(4, $report['totals'][0]['sold']);
+        $this->assertSame(6500, $report['totals'][0]['revenue_cents']);
+        $this->assertSame(1, $report['totals'][0]['refunds']);
+        $this->assertSame(1500, $report['totals'][0]['refunded_cents']);
+        $this->assertSame(5000, $report['totals'][0]['net_cents']);
+
+        $byFunnel = collect($report['by_funnel'])->keyBy('label');
+
+        $this->assertSame(3, $byFunnel['Pfotencheck']['sold']);
+        $this->assertSame(4500, $byFunnel['Pfotencheck']['revenue_cents']);
+        $this->assertSame(1500, $byFunnel['Pfotencheck']['refunded_cents']);
+        $this->assertSame(3000, $byFunnel['Pfotencheck']['net_cents']);
+
+        $this->assertSame(1, $byFunnel['Zahncheck']['sold']);
+        $this->assertSame(2000, $byFunnel['Zahncheck']['net_cents']);
+
+        $byBuyer = collect($report['by_buyer'])->keyBy('label');
+
+        $this->assertSame(3000, $byBuyer['Agentur Nord']['net_cents']);
+        // Zwei Kaeufe (15,00 + 20,00), davon einer gutgeschrieben.
+        $this->assertSame(3500, $byBuyer['Agentur Sued']['revenue_cents']);
+        $this->assertSame(2000, $byBuyer['Agentur Sued']['net_cents']);
+    }
+
+    public function test_an_operator_never_sees_the_revenue_of_another(): void
+    {
+        $mine = $this->operator();
+        $foreign = $this->operator();
+        $buyer = $this->buyer('Agentur Nord');
+
+        $this->soldLead($mine, Funnel::factory()->create(['tenant_id' => $mine->id]), $buyer, 1500);
+        $this->soldLead($foreign, Funnel::factory()->create(['tenant_id' => $foreign->id]), $buyer, 9900);
+
+        $report = app(OperatorRevenueReport::class)->for($mine);
+
+        $this->assertSame(1, $report['totals'][0]['sold']);
+        $this->assertSame(1500, $report['totals'][0]['revenue_cents']);
+    }
+}
