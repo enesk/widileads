@@ -22,7 +22,11 @@ class TenancySettings extends Page
 
     public static function getNavigationLabel(): string
     {
-        return __('Tenancy');
+        // FB-028d: Vorher "Tenancy" - derselbe Schluessel, den auch die
+        // Navigationsgruppe der Mandanten-Resource benutzt. Auf Deutsch stuenden
+        // dadurch zwei Eintraege "Mandanten" nebeneinander, einer davon unter
+        // "Einstellungen". Ein eigener Schluessel trennt beide.
+        return __('Tenancy Settings');
     }
 
     public static function getNavigationGroup(): ?string
