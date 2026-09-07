@@ -4,6 +4,7 @@ use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Funnel\FunnelPreviewController;
+use App\Http\Controllers\Funnel\LeadExportDownloadController;
 use App\Http\Controllers\Funnel\ThemePreviewController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\InvoiceController;
@@ -66,6 +67,12 @@ Route::get('/f/{token}/vorschau', FunnelPreviewController::class)
     ->name('funnel.preview')
     ->middleware('signed')
     ->where('token', '[0-9A-Za-z]{26}');
+
+// FB-073: Herunterladen eines fertigen Lead-Exports. Der Link ist signiert und
+// befristet; zusaetzlich muss der Abrufende zum Workspace gehoeren.
+Route::get('/exporte/{export}', LeadExportDownloadController::class)
+    ->name('lead-export.download')
+    ->middleware(['signed', 'auth']);
 
 // FB-017: Live-Vorschau des Theme-Editors, eingebettet als iFrame. Sie zeigt
 // den Stand im Formular, nicht den gespeicherten - die Werte kommen deshalb
