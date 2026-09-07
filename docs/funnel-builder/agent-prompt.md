@@ -302,10 +302,19 @@ ausführliche Begründung steht jeweils in Teil 5 der Roadmap.
 
 - Migrationen, Schema, Spalten, Casts, Enums, Factories, Seeder
 - Konfigurationswerte
-- Blade-/UI-Rendering, Navigation, Filament-Ressourcen
+- Blade-/UI-Rendering, Navigation, Filament-Ressourcen — **ausgenommen die
+  Erreichbarkeit einer Seite**: ein Rauchtest je Panel bleibt
 - Getter, Setter, Relationen, Scopes, Route-Keys
 - CRUD ohne Fachlogik
-- Sprachdateien
+- Sprachdateien — **ausgenommen plattformabhängige Übersetzungskollisionen**
+
+Beide Ausnahmen stehen bewusst **in** der Liste und nicht daneben, damit sie beim
+Überfliegen nicht verlorengehen. Der Grund für beide ist derselbe: Eine Seite, die gar
+nicht lädt, ist kein Aussehen. Der Rauchtest fand einen 500er auf *jeder*
+Dashboard-Seite bei grünem `composer check`; der Kollisionstest fand eine Admin-Seite,
+die nur auf macOS mit 500 antwortet und in der CI nie. Das ist nicht „Navigation testen"
+und nicht „Sprachdateien testen", sondern genau die Klasse, um die es oben geht: teuer,
+still, und ohne Test nur durch Zufall auffindbar.
 
 **Standard ist null Tests** (verschärft am 2026-09-07). Nicht nur bei Schema- und
 UI-Tickets: Ein Ticket ohne Test ist der Normalfall, nicht die Ausnahme, und braucht
