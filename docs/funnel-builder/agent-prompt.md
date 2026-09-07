@@ -102,6 +102,9 @@ entstehenden Leads an Käufer (zunächst Versicherungsagenturen) verkauft werden
 - Lies vor dem Anlegen einer Tabelle das Datenmodell in docs/funnel-builder/datenmodell.md.
 - Bei Unklarheit: Annahme treffen, im Ticket dokumentieren, weiterarbeiten. Nicht blockieren.
 - Erweitere den Umfang nicht. Wünsche, die dir auffallen, kommen in docs/BACKLOG.md.
+- **Lies Abschnitt 13 „Ticketdisziplin", bevor du etwas anfasst, das dein Ticket nicht
+  nennt.** Er regelt verbindlich, was mit Funden außerhalb des Ticketumfangs geschieht —
+  notieren und melden, nicht beheben.
 ```
 
 ---
@@ -307,6 +310,7 @@ ausführliche Begründung steht jeweils in Teil 5 der Roadmap.
 - Getter, Setter, Relationen, Scopes, Route-Keys
 - CRUD ohne Fachlogik
 - Sprachdateien — **ausgenommen plattformabhängige Übersetzungskollisionen**
+  (`tests/Unit/Funnel/TranslationKeyCollisionTest.php`)
 
 Beide Ausnahmen stehen bewusst **in** der Liste und nicht daneben, damit sie beim
 Überfliegen nicht verlorengehen. Der Grund für beide ist derselbe: Eine Seite, die gar
@@ -322,12 +326,14 @@ keine Rechtfertigung.
 
 **Tests nur dort, wo ein Fehler teuer ist und still passiert:**
 
-- Geld: Kauf, `credit_ledger`, `settled_price`, Gutschriften
-- `lead_state`-Übergänge
+- Geld: Kauf, `credit_ledger`, `settled_price`, Guthabenprüfung, Gutschriften
+- `lead_state`-Übergänge **und** Unveränderlichkeit des Protokolls
 - Maskierung von Kontaktdaten
-- Mandantentrennung
-- Nebenläufigkeit
-- Signaturprüfung
+- Mandantentrennung **und** Cross-Tenant-Zugriff
+- Nebenläufigkeit (zwei Käufer, ein Lead)
+- Normalisierung mit Datenfolge (E.164, `field_key`-Aliase)
+- Spam- und Dublettenregeln
+- Signaturprüfung bei Webhooks
 
 Berührt ein Ticket nichts aus dieser Liste, wird **kein** Test geschrieben.
 
