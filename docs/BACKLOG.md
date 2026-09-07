@@ -37,7 +37,7 @@ Ein Eintrag je Zeile bzw. Absatz:
   Treffer. Wächst der Bestand, sind die Optionen: Antworten als generierte Spalten oder
   JSON-Index abbilden, oder passende Leads je Profil vorberechnen — in beiden Fällen gilt
   die Deckungsgleichheit oben.
-- **Die Testsuite rendert die Dashboard-Navigation nie** (zweiter Fund in FB-028a: Auch
+- **~~Die Testsuite rendert die Dashboard-Navigation nie~~ (erledigt in FB-028e)** (zweiter Fund in FB-028a: Auch
   die vier gruppenlosen Dashboard-Seiten wären ungeprüft geblieben; ein Wegwerf-Test mit
   zwei Fällen — Dashboard rendert für Betreiber und für Käufer — lief in 3 Sekunden und
   hätte beide Fehler gefunden.) — in FB-028 hat eine falsch
@@ -48,7 +48,9 @@ Ein Eintrag je Zeile bzw. Absatz:
   geschrieben habe. Ein einzelner Rauchtest („Dashboard rendert für einen Betreiber")
   würde diese Klasse abdecken — bewusst nicht selbst angelegt, weil Abschnitt 8 Navigation
   ausdrücklich testfrei stellt. Entscheidung liegt beim Auftraggeber.
-  Aufgefallen bei: FB-028. Datum: 2026-09-07.
+  Entschieden: Rauchtest bauen, einer je Panel. Abschnitt 8 des Leitfadens ist um die
+  Präzisierung ergänzt, dass Erreichbarkeit nicht unter „Aussehen" fällt.
+  Aufgefallen bei: FB-028. Erledigt in: FB-028e. Datum: 2026-09-07.
 
 - **Marktplatz filtert in PHP und ist deshalb gedeckelt** — der `LeadMatcher` ist eine reine
   Funktion (Zusage aus FB-051), also lassen sich Regionen- und Antwortfilter nicht in SQL
