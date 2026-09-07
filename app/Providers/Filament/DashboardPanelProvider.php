@@ -110,7 +110,7 @@ class DashboardPanelProvider extends PanelProvider
                 NavigationGroup::make()->label(__('builder.funnels.group')),
                 NavigationGroup::make()->label(__('builder.groups.leads')),
                 NavigationGroup::make()->label(__('builder.groups.marketplace')),
-                NavigationGroup::make()->label(__('builder.groups.workspace')),
+                NavigationGroup::make()->label(__('builder.groups.settings')),
                 // Vorher stand hier "Team", waehrend die Users-Seite
                 // "Team Management" traegt - die Gruppe wurde deshalb nie
                 // verwendet und die Sortierung griff nicht.

@@ -43,6 +43,11 @@ class CreditLedgerResource extends Resource
 
     protected static ?int $navigationSort = 12;
 
+    public static function getNavigationSort(): ?int
+    {
+        return 2;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('builder.groups.marketplace');

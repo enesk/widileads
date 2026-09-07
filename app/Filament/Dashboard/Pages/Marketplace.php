@@ -39,6 +39,11 @@ class Marketplace extends Page
         return __('marketplace.listing.heading');
     }
 
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
+
     public static function getNavigationGroup(): ?string
     {
         return __('builder.groups.marketplace');
