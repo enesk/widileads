@@ -74,8 +74,16 @@ class DispatchLeadWebhooks
     private function leadPayload(Lead $lead): array
     {
         // Der Webhook gehoert dem Funnel und damit dem Eigentuemer-Workspace --
-        // deshalb Klartext. Der Weg fuehrt trotzdem ueber den Resolver, damit es
-        // genau eine Stelle bleibt, die darueber entscheidet.
+        // deshalb Klartext. Der Weg fuehrt ueber den Resolver, damit es genau
+        // eine Stelle bleibt, die darueber entscheidet.
+        //
+        // Vorgesehen ist hier contactFor(); das braucht aber einen Betrachter
+        // als User, und einen gibt es beim Webhook nicht -- der Empfaenger ist
+        // eine URL, und das Token gehoert einem Tenant. Sobald der Resolver eine
+        // Tenant-Variante hat (gemeldete Blockade zu FB-030d), gehoert hier
+        // forTenant($lead, $funnel->tenant) hin. Bis dahin ist das Ergebnis
+        // dasselbe, weil es strukturell keine Kaeufer-Webhooks gibt: Sie haengen
+        // am Funnel, und der gehoert dem Betreiber (siehe Test).
         $contact = $this->contacts->internal($lead);
 
         return [
