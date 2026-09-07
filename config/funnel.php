@@ -386,6 +386,22 @@ return [
 
     'marketplace' => [
 
+        'sale' => [
+
+            // Vorgabewerte fuer den Mehrfachverkauf (Entscheidung 2 vom
+            // 2026-09-06). Sie greifen, wenn ein Funnel auf `shared` steht,
+            // aber keine eigenen Werte traegt. `exclusive` bleibt die Vorgabe
+            // der Verkaufsart selbst -- die steht als Spaltenvorgabe an
+            // `funnels.sale_mode`.
+
+            // Hoechstzahl an Kaeufern je Lead im Mehrfachverkauf.
+            'default_max_buyers' => (int) env('FUNNEL_MARKETPLACE_DEFAULT_MAX_BUYERS', 3),
+
+            // Preis je Kaeufer im Mehrfachverkauf, in EUR.
+            'default_shared_price' => (float) env('FUNNEL_MARKETPLACE_DEFAULT_SHARED_PRICE', 7.50),
+
+        ],
+
         'credit' => [
 
             // Wie lange der angezeigte Guthabenstand aus dem Cache kommt, in

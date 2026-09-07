@@ -245,6 +245,7 @@ return [
         'errors' => [
             'already_taken' => 'This lead has been taken in the meantime. Another buyer was faster.',
             'buyer_not_approved' => 'This workspace has not been approved for the marketplace yet.',
+            'already_bought' => 'You have already bought this lead.',
             'own_lead' => 'This lead comes from one of your own questionnaires and cannot be bought.',
         ],
 
@@ -256,6 +257,18 @@ return [
             'outro' => 'Get in touch soon -- the conversion rate drops with every day that passes.',
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sale mode (FB-055)
+    |--------------------------------------------------------------------------
+    */
+
+    'sale_mode' => [
+        'exclusive' => 'Exclusive',
+        'shared' => 'Shared',
+        'buyers' => ':buyers of :max buyers',
     ],
 
 ];

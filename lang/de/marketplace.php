@@ -245,6 +245,7 @@ return [
         'errors' => [
             'already_taken' => 'Dieser Lead ist inzwischen vergeben. Ein anderer Kaeufer war schneller.',
             'buyer_not_approved' => 'Dieser Workspace ist noch nicht fuer den Marktplatz freigeschaltet.',
+            'already_bought' => 'Diesen Lead hast du bereits gekauft.',
             'own_lead' => 'Dieser Lead stammt aus einem eigenen Fragebogen und kann nicht gekauft werden.',
         ],
 
@@ -256,6 +257,18 @@ return [
             'outro' => 'Melde dich zeitnah -- die Abschlussquote faellt mit jedem Tag, der vergeht.',
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Verkaufsart (FB-055)
+    |--------------------------------------------------------------------------
+    */
+
+    'sale_mode' => [
+        'exclusive' => 'Exklusiv',
+        'shared' => 'Mehrfachverkauf',
+        'buyers' => ':buyers von :max Kaeufern',
     ],
 
 ];

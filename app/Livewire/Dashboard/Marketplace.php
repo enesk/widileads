@@ -11,6 +11,7 @@ use App\Exceptions\LeadNotPurchasableException;
 use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
 use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
 use App\Models\User;
@@ -146,6 +147,16 @@ class Marketplace extends Component
     {
         $leads = $this->visibleLeads();
         $purchase = app(LeadPurchaseAction::class);
+
+        // Im Mehrfachverkauf sieht der Kaeufer, wie viele den Lead schon haben
+        // (FB-055). Ein Zugriff fuer die ganze Seite statt einer je Zeile.
+        $buyerCounts = LeadPurchase::query()
+            ->whereIn('lead_id', $leads->map(static fn (Lead $lead): int => (int) $lead->getKey())->all())
+            ->selectRaw('lead_id, count(*) as total')
+            ->groupBy('lead_id')
+            ->pluck('total', 'lead_id')
+            ->map(static fn (mixed $total): int => (int) $total)
+            ->all();
         $tenant = $this->tenant();
         $viewer = $this->viewer();
 
@@ -156,6 +167,9 @@ class Marketplace extends Component
                 'presenter' => new LeadPresenter($lead, $viewer),
                 'qualification' => $this->qualificationAnswers($lead),
                 'isTaken' => $lead->lead_state === LeadState::RESERVIERT,
+                'sharedSale' => $lead->funnel?->sale_mode->isShared() ?? false,
+                'buyers' => $buyerCounts[$lead->getKey()] ?? 0,
+                'maxBuyers' => $lead->funnel?->effectiveMaxBuyers() ?? 1,
                 'isWatchlisted' => in_array((int) $lead->getKey(), $this->watchlistedIds(), true),
                 'canPurchase' => $purchase->canPurchase($tenant, $lead),
             ]),
