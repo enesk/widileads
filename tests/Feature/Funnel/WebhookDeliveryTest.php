@@ -8,9 +8,12 @@ use App\Constants\TenantApiAbility;
 use App\Constants\TenantType;
 use App\Constants\WebhookDeliveryStatus;
 use App\Constants\WebhookEvent;
+use App\Events\Lead\LeadCreated;
 use App\Jobs\DeliverWebhook;
+use App\Listeners\Webhooks\DispatchLeadWebhooks;
 use App\Models\Funnel;
 use App\Models\FunnelWebhook;
+use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\WebhookDelivery;
 use App\Services\TenantApiTokenService;
@@ -169,6 +172,45 @@ class WebhookDeliveryTest extends FeatureTest
             ->assertNotFound();
 
         $this->assertSame(0, FunnelWebhook::query()->count());
+    }
+
+    /**
+     * Die Kontaktdaten im Webhook entscheidet der LeadContactResolver, nicht
+     * der Listener (Architekturleitsatz 5).
+     *
+     * Seit FB-030d fragt er mit forTenant() aus Sicht des Workspaces, dem der
+     * Funnel gehoert -- vorher ging es an der Entscheidung vorbei. Der
+     * Eigentuemer muss dabei Klartext bekommen: Wuerde hier der falsche
+     * Workspace stehen oder gar keiner, maskierte der Resolver still, und die
+     * Anbindung des Betreibers bekaeme unbrauchbare Daten, ohne dass etwas
+     * fehlschlaegt.
+     */
+    public function test_the_owner_webhook_carries_the_contact_in_clear_text(): void
+    {
+        Http::fake(['*' => Http::response('', 200)]);
+
+        $operator = Tenant::factory()->create();
+        $funnel = Funnel::factory()->forTenant($operator)->create();
+
+        FunnelWebhook::factory()->create([
+            'funnel_id' => $funnel->id,
+            'events' => [WebhookEvent::LEAD_CREATED->value],
+        ]);
+
+        $lead = Lead::factory()->create([
+            'tenant_id' => $operator->id,
+            'funnel_id' => $funnel->id,
+            'email_normalized' => 'anna@example.com',
+            'postal_code' => '10115',
+        ]);
+
+        app(DispatchLeadWebhooks::class)->handleLeadCreated(new LeadCreated($lead));
+
+        $contact = WebhookDelivery::query()->sole()->payload['data']['lead']['contact'];
+
+        $this->assertFalse($contact['masked'], 'Der Eigentuemer-Workspace bekommt Klartext.');
+        $this->assertSame('anna@example.com', $contact['email']);
+        $this->assertSame('10115', $contact['postal_code']);
     }
 
     public function test_a_webhook_only_receives_the_events_it_subscribed_to(): void

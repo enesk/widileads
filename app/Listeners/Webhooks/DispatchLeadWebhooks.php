@@ -19,8 +19,9 @@ use App\Services\WebhookDispatcher;
  * das sind heute alle, denn Webhooks haengen am Funnel, und der gehoert dem
  * Betreiber. Ein Kaeufer bekommt seine Leads nicht ueber diesen Weg, sondern
  * nach dem Kauf ueber FB-054. Damit die Regel auch dann noch stimmt, wenn es
- * einmal Kaeufer-Webhooks gibt, laeuft der Kontakt hier ueber den
- * LeadContactResolver statt ueber die Rohspalten.
+ * einmal Kaeufer-Webhooks gibt, entscheidet nicht dieser Listener ueber den
+ * Klartext, sondern der LeadContactResolver -- aus Sicht des Workspaces, dem
+ * der Funnel gehoert.
  */
 class DispatchLeadWebhooks
 {
@@ -73,18 +74,17 @@ class DispatchLeadWebhooks
      */
     private function leadPayload(Lead $lead): array
     {
-        // Der Webhook gehoert dem Funnel und damit dem Eigentuemer-Workspace --
-        // deshalb Klartext. Der Weg fuehrt ueber den Resolver, damit es genau
-        // eine Stelle bleibt, die darueber entscheidet.
+        // Wer den Klartext sieht, entscheidet der Resolver -- nicht diese
+        // Stelle. Gefragt wird aus Sicht des Workspaces, dem der Funnel
+        // gehoert: Beim Webhook gibt es keinen Betrachter als Benutzer, der
+        // Empfaenger ist eine URL, und ein API-Token gehoert einem Tenant
+        // (FB-006). Genau dafuer gibt es forTenant() seit FB-030d.
         //
-        // Vorgesehen ist hier contactFor(); das braucht aber einen Betrachter
-        // als User, und einen gibt es beim Webhook nicht -- der Empfaenger ist
-        // eine URL, und das Token gehoert einem Tenant. Sobald der Resolver eine
-        // Tenant-Variante hat (gemeldete Blockade zu FB-030d), gehoert hier
-        // forTenant($lead, $funnel->tenant) hin. Bis dahin ist das Ergebnis
-        // dasselbe, weil es strukturell keine Kaeufer-Webhooks gibt: Sie haengen
-        // am Funnel, und der gehoert dem Betreiber (siehe Test).
-        $contact = $this->contacts->internal($lead);
+        // Heute sind das immer die Webhooks des Eigentuemers, weil sie am
+        // Funnel haengen -- der Klartext bleibt also derselbe wie zuvor. Sollte
+        // es einmal Kaeufer-Webhooks geben, maskiert der Resolver von sich aus,
+        // ohne dass hier etwas nachgezogen werden muesste.
+        $contact = $this->contacts->forTenant($lead, $lead->funnel?->tenant);
 
         return [
             'id' => $lead->getKey(),
