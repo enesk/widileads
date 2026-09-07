@@ -8,12 +8,14 @@ use App\Providers\DestructiveCommandGuardServiceProvider;
 use App\Providers\Filament\AdminPanelProvider;
 use App\Providers\Filament\DashboardPanelProvider;
 use App\Providers\HorizonServiceProvider;
+use App\Providers\LazyLoadingGuardServiceProvider;
 use App\Providers\RouteServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
 
 return [
     ConfigProvider::class,
     DestructiveCommandGuardServiceProvider::class,
+    LazyLoadingGuardServiceProvider::class,
     BladeProvider::class,
     AppServiceProvider::class,
     AuthServiceProvider::class,

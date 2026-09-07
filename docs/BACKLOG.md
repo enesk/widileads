@@ -112,7 +112,7 @@ Ein Eintrag je Zeile bzw. Absatz:
   ein ausdrücklich gesetztes `DB_DATABASE` behält Vorrang.
   Aufgefallen bei: FB-010. Erledigt in: FB-040. Datum: 2026-09-06.
 
-- **`Model::preventLazyLoading()` im Testing-Env erzeugt 34 Fehler** — in FB-040
+- **~~`Model::preventLazyLoading()` im Testing-Env erzeugt 34 Fehler~~ (erledigt in FB-041)** — in FB-040
   probeweise aktiviert und wieder zurückgenommen, weil die Treffer ausschließlich im
   Bestandscode liegen und ein Umbau laut Ticket FB-041 überlassen ist. Verteilung:
   27× `[roles]` auf `App\Models\User` (Spatie `HasRoles` lädt die Rollen bei jeder
@@ -120,7 +120,11 @@ Ein Eintrag je Zeile bzw. Absatz:
   `App\Models\Subscription` (`SubscriptionService.php:467`), Rest verteilt.
   Betroffen sind ~20 Testklassen quer durch Admin-Resources und Services. Der Hebel
   liegt beim `roles`-Fall: einmal gelöst, bleibt fast nichts übrig.
-  Aufgefallen bei: FB-040. Datum: 2026-09-06.
+  Gelöst wurde er nicht, sondern umgangen: `LazyLoadingGuardServiceProvider` meldet
+  Verstöße nur noch für unsere eigenen Modelle, der SaaSykit-Bestand lädt weiter nach.
+  Der Bestand bleibt damit ungeschützt — das ist eine bewusste Entscheidung, keine
+  Erledigung im engeren Sinn.
+  Aufgefallen bei: FB-040. Erledigt in: FB-041. Datum: 2026-09-06.
 
 - **Horizon: `horizon:snapshot` ist nicht eingeplant** — ohne
   `Schedule::command('horizon:snapshot')->everyFiveMinutes()` in `routes/console.php`
@@ -211,3 +215,19 @@ Geprüft und einsatzbereit, siehe README-Abschnitt „Queues, Horizon & Redis":
 - Supervisor-Konfiguration existiert für `production` und `local`.
 
 Die offenen Punkte stehen als Einträge oben.
+
+- **Zwei N+1 in `SubscriptionService` (SaaSykit-Bestand)** — `findActiveTenantSubscriptionProducts()`
+  und der Produktfilter in `hasActiveSubscriptionForProduct()` lesen zu jedem Abonnement
+  Tarif und Produkt einzeln nach, also zwei zusätzliche Abfragen je Zeile. Behoben wäre
+  es mit je einem `->with('plan.product')`; in FB-041 probeweise gemacht, gemessen und
+  wieder zurückgenommen, weil der SaaSykit-Bestand laut Ticket nicht angefasst wird. Der
+  Wächter aus FB-041 deckt `Subscription` deshalb auch nicht ab.
+  Aufgefallen bei: FB-041. Datum: 2026-09-07.
+
+- **Architektur-Test schlägt beim blossen Klassennamen `LeadAnswer` an** —
+  `test_lead_answers_are_only_rendered_without_the_reserved_contact_fields` sucht das
+  Wort im Quelltext und kann nicht unterscheiden, ob Antworten gelesen oder Klassen nur
+  aufgezählt werden. In FB-041 aufgefallen, als der Lazy-Loading-Wächter das Modell in
+  seiner Liste führen wollte; das Modell wurde daraufhin aus der Liste genommen. Der
+  saubere Weg wäre ein Eintrag in `answerProcessors()`. Gehört widileads-2 (FB-042).
+  Aufgefallen bei: FB-041. Datum: 2026-09-07.
