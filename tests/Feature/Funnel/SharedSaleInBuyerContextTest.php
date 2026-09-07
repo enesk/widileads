@@ -37,6 +37,50 @@ use Tests\Feature\FeatureTest;
  */
 class SharedSaleInBuyerContextTest extends FeatureTest
 {
+    /**
+     * Der schwerere der beiden Funde: Es ging nicht nur der Mehrfachverkauf
+     * nicht, es ging ueberhaupt kein Kauf.
+     *
+     * Im Kaeufer-Kontext zielt der Mandanten-Scope aus FB-010 auf die
+     * tenant_id des Kaeufers, waehrend der Lead dem Betreiber gehoert. Die
+     * Sperrabfrage in LeadStateService::transition() fand ihn deshalb nicht und
+     * firstOrFail() warf -- FB-054 war in Produktion vollstaendig unbenutzbar.
+     * Gemerkt hat es niemand, weil alle Tests den Kauf ohne gesetzten
+     * Filament-Mandanten aufriefen.
+     */
+    public function test_an_ordinary_purchase_goes_through_while_a_buyer_is_in_context(): void
+    {
+        Mail::fake();
+
+        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+
+        // Bewusst der Regelfall: exklusiver Verkauf, wie er heute ueberall
+        // eingestellt ist. Auch er war betroffen.
+        $funnel = Funnel::factory()->create([
+            'tenant_id' => $operator->getKey(),
+            'status' => FunnelStatus::PUBLISHED,
+            'lead_price' => 15.00,
+        ]);
+
+        $lead = Lead::factory()->inState(LeadState::VERFUEGBAR)->create([
+            'tenant_id' => $operator->getKey(),
+            'funnel_id' => $funnel->getKey(),
+            'score' => 12,
+            'price_at_creation' => 15.00,
+        ]);
+
+        [$buyer, $user] = $this->approvedBuyer();
+
+        $this->actingAs($user);
+        Filament::setTenant($buyer);
+
+        $purchase = app(PurchaseLead::class)->handle($buyer, $lead->fresh(), $user);
+
+        $this->assertSame(1500, $purchase->price_cents);
+        $this->assertSame(LeadState::VERKAUFT, $lead->fresh()->lead_state);
+        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+    }
+
     public function test_a_shared_lead_is_sold_more_than_once_while_a_buyer_is_in_context(): void
     {
         Mail::fake();
