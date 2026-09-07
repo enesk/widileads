@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $funnel_id
  * @property int $version
+ * @property string|null $note
  * @property array<string, mixed> $snapshot
  * @property Carbon $published_at
  * @property int|null $published_by
@@ -35,6 +36,7 @@ class FunnelVersion extends Model
     protected $fillable = [
         'funnel_id',
         'version',
+        'note',
         'snapshot',
         'published_at',
         'published_by',

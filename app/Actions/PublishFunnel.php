@@ -34,7 +34,7 @@ class PublishFunnel
     /**
      * @throws FunnelNotPublishableException
      */
-    public function handle(Funnel $funnel, ?User $publisher = null): FunnelVersion
+    public function handle(Funnel $funnel, ?User $publisher = null, ?string $note = null): FunnelVersion
     {
         $snapshot = $this->snapshotBuilder->build($funnel);
 
@@ -44,7 +44,7 @@ class PublishFunnel
             throw new FunnelNotPublishableException($reasons);
         }
 
-        return DB::transaction(function () use ($funnel, $snapshot, $publisher): FunnelVersion {
+        return DB::transaction(function () use ($funnel, $snapshot, $publisher, $note): FunnelVersion {
             // Sperre auf dem Funnel: Zwei gleichzeitige Veroeffentlichungen
             // duerfen nicht dieselbe Versionsnummer vergeben.
             $funnel = Funnel::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($funnel->getKey());
@@ -52,6 +52,7 @@ class PublishFunnel
             $version = FunnelVersion::query()->create([
                 'funnel_id' => $funnel->id,
                 'version' => $this->nextVersionNumber($funnel),
+                'note' => $note,
                 'snapshot' => $snapshot,
                 'published_at' => now(),
                 'published_by' => $publisher?->getKey(),

@@ -445,7 +445,7 @@ paths:
 
         Scheitert die Validierung, antwortet die API mit `422` und nennt die
         beanstandeten Stellen in `errors`.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030c
       x-required-abilities: ['funnels:write']
       parameters:
@@ -495,7 +495,7 @@ paths:
         Legt eine tiefe Kopie des Funnels samt Struktur im Zustand `draft` an.
         Die Kopie erhaelt einen eigenen `public_token`; Leads und
         Versionshistorie werden nicht mitkopiert.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030c
       x-required-abilities: ['funnels:write']
       parameters:
@@ -541,7 +541,7 @@ paths:
         Setzt den Zustand auf `archived` und nimmt den Funnel damit aus der
         oeffentlichen Auslieferung. Bestehende Leads bleiben erhalten und
         weiterhin lesbar.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030c
       x-required-abilities: ['funnels:write']
       responses:
@@ -564,7 +564,7 @@ paths:
       tags: [Veroeffentlichung]
       summary: Versionshistorie auflisten
       description: Alle veroeffentlichten Snapshots, neueste zuerst - ohne Snapshot-Inhalt.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030c
       x-required-abilities: ['funnels:read']
       parameters:
@@ -604,7 +604,7 @@ paths:
         Liefert eine einzelne Version einschliesslich ihres Snapshots. Der
         Snapshot hat dasselbe Format wie `GET /funnels/{funnel}/structure` und
         laesst sich unveraendert in einen anderen Funnel einspielen.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030c
       x-required-abilities: ['funnels:read']
       responses:
