@@ -39,6 +39,10 @@ return [
         'state_log' => 'State history',
     ],
 
+    'resource' => [
+        'label' => 'Lead',
+    ],
+
     'list' => [
         'heading' => 'Leads',
         'nav_label' => 'Leads',
