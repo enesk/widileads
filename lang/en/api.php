@@ -41,6 +41,10 @@ return [
             'title' => 'Funnel already has leads',
             'detail' => 'This funnel cannot be deleted because leads have already been created from it. Archive it instead.',
         ],
+        'idempotency_key_reused' => [
+            'title' => 'Key already used with different content',
+            'detail' => 'This idempotency key was already used for a request with different content. Choose a new key.',
+        ],
     ],
 
 ];

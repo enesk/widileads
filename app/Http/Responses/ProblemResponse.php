@@ -34,6 +34,8 @@ class ProblemResponse
 
     public const TYPE_RATE_LIMIT_EXCEEDED = '/problems/rate-limit-exceeded';
 
+    public const TYPE_IDEMPOTENCY_KEY_REUSED = '/problems/idempotency-key-reused';
+
     /**
      * @param  array<string, list<string>>  $errors
      */

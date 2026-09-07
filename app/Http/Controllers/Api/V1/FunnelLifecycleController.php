@@ -41,7 +41,7 @@ class FunnelLifecycleController extends Controller
             // den Rumpf, damit der Aufrufer sie anzeigen kann.
             return ProblemResponse::make(
                 ProblemResponse::TYPE_VALIDATION_FAILED,
-                __('api.problems.validation_failed'),
+                __('api.problems.validation_failed.title'),
                 Response::HTTP_UNPROCESSABLE_ENTITY,
                 $exception->getMessage(),
                 ['funnel' => $exception->reasons],
