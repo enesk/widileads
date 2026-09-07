@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Constants\BuyerLeadFeedback;
 use Database\Factories\LeadPurchaseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -29,6 +31,8 @@ use Illuminate\Support\Carbon;
  * @property int $price_cents
  * @property string $currency
  * @property Carbon $purchased_at
+ * @property BuyerLeadFeedback|null $buyer_feedback
+ * @property Carbon|null $buyer_feedback_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -43,14 +47,37 @@ class LeadPurchase extends Model
         'price_cents',
         'currency',
         'purchased_at',
+        'buyer_feedback',
+        'buyer_feedback_at',
     ];
 
     /**
+     * Der gekaufte Lead.
+     *
+     * Ohne Mandanten-Scope, und das ist keine Bequemlichkeit: Der Lead gehoert
+     * dem Betreiber, der Kaufbeleg dem Kaeufer. Im Kaeufer-Kontext liefe die
+     * Beziehung sonst gegen `leads.tenant_id` des Kaeufers und gaebe immer null
+     * zurueck -- ein Kaeufer saehe seine eigenen Kaeufe als leere Zeilen.
+     *
+     * Die Mandantentrennung haengt hier am Kaufbeleg selbst: Wer nur seine
+     * eigenen Belege abfragt (siehe scopeOfBuyer), kommt auch nur an die Leads,
+     * die er gekauft hat.
+     *
      * @return BelongsTo<Lead, $this>
      */
     public function lead(): BelongsTo
     {
-        return $this->belongsTo(Lead::class);
+        return $this->belongsTo(Lead::class)->withoutGlobalScope('tenant');
+    }
+
+    /**
+     * Die Reklamation zu diesem Kauf, falls es eine gibt (FB-058).
+     *
+     * @return HasOne<LeadComplaint, $this>
+     */
+    public function complaint(): HasOne
+    {
+        return $this->hasOne(LeadComplaint::class);
     }
 
     /**
@@ -84,6 +111,8 @@ class LeadPurchase extends Model
         return [
             'price_cents' => 'integer',
             'purchased_at' => 'datetime',
+            'buyer_feedback' => BuyerLeadFeedback::class,
+            'buyer_feedback_at' => 'datetime',
         ];
     }
 }
