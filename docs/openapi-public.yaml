@@ -1,0 +1,801 @@
+# =============================================================================
+# Funnel Builder - Oeffentliche Runtime-API v1
+# =============================================================================
+#
+# Diese Datei ist die Single Source of Truth der oeffentlichen Runtime-API
+# (FB-030g). Sie beschreibt die vier Endpunkte unter /api/public/v1, ueber die
+# ein fremdes Frontend eine Funnel-Strecke selbst rendert und abarbeitet
+# (FB-026).
+#
+# Warum eine eigene Datei neben docs/openapi.yaml:
+#
+#   - Andere Zielgruppe. Die Management-API richtet sich an das Backend eines
+#     Betreibers, diese hier an ein Frontend, das im Browser eines Endkunden
+#     laeuft.
+#   - Keine Authentifizierung. Es gibt kein Token, keinen Workspace und keine
+#     Berechtigungen. Die Management-Spezifikation verlangt von jeder Operation
+#     ein x-required-abilities aus App\Constants\TenantApiAbility -- eine Regel,
+#     die fuer tokenlose Endpunkte nicht sinnvoll ist. Beides in eine Datei zu
+#     zwingen hiesse, diese Regel aufzuweichen; dann prueft sie fuer die
+#     Management-API auch nichts mehr.
+#
+# Beide Dateien haelt derselbe Contract-Test zusammen
+# (tests/Feature/Funnel/OpenApiContractTest.php). Er laeuft ueber beide
+# Praefixe: jede als "implemented" markierte Operation muss als Route
+# existieren, und jede registrierte Route unter /api/public/v1 muss hier
+# beschrieben sein. Ohne diese Erweiterung waeren die vier Endpunkte fuer den
+# Test unsichtbar -- er lief gruen, weil er sie schlicht nicht sah.
+#
+# Jede Operation traegt dieselben zwei projekteigenen Erweiterungen wie in
+# docs/openapi.yaml:
+#
+#   x-status   implemented | planned
+#   x-ticket   Das Ticket, das die Operation liefert.
+#
+# =============================================================================
+
+openapi: 3.1.1
+
+info:
+  title: Funnel Builder Runtime-API
+  version: 1.0.0
+  summary: Oeffentliche Schnittstelle, um eine Funnel-Strecke in einem eigenen Frontend abzuarbeiten.
+  description: |
+    Ueber diese Schnittstelle rendert ein fremdes Frontend eine
+    veroeffentlichte Funnel-Strecke selbst: Es laedt die Struktur, beginnt eine
+    Sitzung, schickt die Antworten je Schritt und sendet am Ende ab.
+
+    ## Keine Authentifizierung
+
+    Es gibt kein Token und keine Anmeldung. Adressiert wird ueber zwei nicht
+    erratbare Werte:
+
+    - den **oeffentlichen Funnel-Token** (`public_token`, ein ULID) und
+    - den **Sitzungstoken**, den `POST /funnels/{funnel}/sessions` zurueckgibt.
+
+    Fortlaufende Datenbank-IDs werden weder akzeptiert noch ausgeliefert. Auch
+    der Snapshot enthaelt keine: Schritte werden ueber ihre `position`
+    adressiert, Fragen ueber ihren `field_key`.
+
+    ## Herkunftspruefung
+
+    Hat ein Funnel eine Freigabeliste gepflegt (FB-025), lehnt der Server
+    Anfragen mit einem nicht gelisteten `Origin`-Kopf mit `403` ab und
+    protokolliert die Ablehnung. Das ist bewusst eine serverseitige Pruefung und
+    keine CORS-Antwort: Ein `Access-Control-Allow-Origin` wirkt nur im Browser
+    eines Besuchers -- ein Aufruf per curl oder aus einem fremden Backend
+    ignoriert ihn und bekaeme die Daten trotzdem. Fehlt der `Origin`-Kopf ganz,
+    ist es kein Browser-Aufruf von einer fremden Seite; der bleibt erlaubt.
+
+    ## Ratenbegrenzung
+
+    Begrenzt wird je Herkunft und Stunde
+    (`funnel.public.rate_limit_per_hour`). Gezaehlt wird ueber einen gesalzenen
+    Hash der IP-Adresse; die Adresse selbst wird nirgends gespeichert oder
+    protokolliert.
+
+    ## Dieselbe Runtime wie die eigene Strecke
+
+    Validierung, Verzweigung, Punktzahl und Spam-Pruefung liegen im
+    `FunnelRunService` -- demselben, den die eingebettete Livewire-Strecke
+    benutzt. Ein fremdes Frontend nimmt damit denselben Weg und sieht dieselbe
+    Verzweigung und dieselbe Punktzahl. Eine zweite, langsam auseinanderlaufende
+    Runtime gibt es nicht.
+
+    ## Fehlerformat
+
+    Diese Schnittstelle antwortet im gewohnten Laravel-Format
+    (`{"message": ...}`, bei Eingabefehlern zusaetzlich `errors`) -- **nicht**
+    nach RFC 9457. Das Problem-Format gilt ausschliesslich fuer die
+    Management-API unter `/api/v1`.
+
+servers:
+  - url: /api/public/v1
+    description: Diese Installation
+
+# Kein Sicherheitsschema: Die Endpunkte sind bewusst tokenlos. Der Eintrag steht
+# ausdruecklich hier, damit "keine Authentifizierung" eine Aussage der
+# Spezifikation ist und nicht eine vergessene Angabe.
+security: []
+
+tags:
+  - name: Struktur
+    description: Der Aufbau eines veroeffentlichten Funnels.
+  - name: Sitzung
+    description: Beginnen, Antworten schicken, absenden.
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # Struktur (FB-026, implementiert)
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}:
+    get:
+      operationId: showPublicFunnelStructure
+      tags: [Struktur]
+      summary: Aufbau eines veroeffentlichten Funnels
+      description: |
+        Liefert den Snapshot der veroeffentlichten Fassung, unveraendert im
+        Format aus `docs/funnel-builder/snapshot-format.md`. Ein Frontend baut
+        daraus seine Oberflaeche: Schritte, Fragen, Antwortoptionen,
+        Verzweigungsregeln, Ergebnis-Screens und das Erscheinungsbild.
+
+        Ausgeliefert wird immer die **veroeffentlichte** Fassung, nie der
+        Entwurf. Ein Funnel ohne veroeffentlichte Fassung oder im Status
+        `draft` antwortet mit `404` -- wie ein Funnel, den es nicht gibt.
+      x-status: implemented
+      x-ticket: FB-026
+      parameters:
+        - $ref: '#/components/parameters/FunnelToken'
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: Der Aufbau der veroeffentlichten Fassung.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FunnelSnapshot'
+        '403':
+          $ref: '#/components/responses/OriginNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  # ---------------------------------------------------------------------------
+  # Sitzung (FB-026, implementiert)
+  # ---------------------------------------------------------------------------
+
+  /funnels/{funnel}/sessions:
+    post:
+      operationId: startPublicSession
+      tags: [Sitzung]
+      summary: Sitzung beginnen oder fortsetzen
+      description: |
+        Beginnt eine Sitzung und liefert ihren Token samt erstem Schritt.
+
+        Wird ein `session_token` mitgeschickt, wird die vorhandene Sitzung
+        fortgesetzt, statt eine neue zu beginnen -- ein fremdes Frontend haelt
+        den Token selbst, ein Cookie gibt es hier nicht. Ist der Token
+        unbekannt oder gehoert er zu einer anderen Fassung, beginnt eine neue
+        Sitzung.
+
+        Kampagnenparameter (`utm_*`), `Referer` und `Origin` der Anfrage werden
+        dabei als Herkunft der Sitzung festgehalten (FB-022). Die IP-Adresse
+        geht nur als gesalzener Hash ein.
+      x-status: implemented
+      x-ticket: FB-026
+      parameters:
+        - $ref: '#/components/parameters/FunnelToken'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_token:
+                  $ref: '#/components/schemas/SessionToken'
+      responses:
+        '201':
+          description: Die Sitzung, samt erstem Schritt.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SessionState'
+        '403':
+          $ref: '#/components/responses/OriginNotAllowed'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /funnels/{funnel}/sessions/{session}/answers:
+    patch:
+      operationId: updatePublicSessionAnswers
+      tags: [Sitzung]
+      summary: Antworten eines Schritts schicken
+      description: |
+        Prueft die Antworten des aktuellen Schritts und sagt, wie es weitergeht.
+        Die mitgeschickten Antworten werden mit den bereits gespeicherten
+        zusammengefuehrt; ein Feld, das nicht im Rumpf steht, behaelt seinen
+        Wert.
+
+        Der Rueckgabewert nennt in `phase`, was als Naechstes kommt: ein
+        weiterer `step`, der Ergebnis-Screen (`result`) vor dem Kontaktschritt,
+        oder das Ende der Strecke (`done`).
+
+        Welche Regeln je Frage gelten, haengt an ihrem Typ und kommt aus
+        demselben Regelsatz wie in der eigenen Strecke. Schlaegt die Pruefung
+        fehl, antwortet der Server mit `422`, und die Sitzung rueckt **nicht**
+        vor -- ein fremdes Frontend kann einen Schritt also nicht ueberspringen,
+        indem es die Pruefung auslaesst.
+      x-status: implemented
+      x-ticket: FB-026
+      parameters:
+        - $ref: '#/components/parameters/FunnelToken'
+        - $ref: '#/components/parameters/SessionToken'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  $ref: '#/components/schemas/Answers'
+      responses:
+        '200':
+          description: Der neue Stand der Sitzung.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SessionState'
+        '403':
+          $ref: '#/components/responses/OriginNotAllowed'
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /funnels/{funnel}/sessions/{session}/submit:
+    post:
+      operationId: submitPublicSession
+      tags: [Sitzung]
+      summary: Anfrage absenden
+      description: |
+        Schliesst die Sitzung ab und uebergibt die Anfrage.
+
+        Der letzte Schritt wird dabei geprueft wie jeder andere -- sonst
+        koennte ein fremdes Frontend die Kontaktdaten ungeprueft einliefern.
+        Erst danach entsteht die Anfrage.
+
+        Das Feld `website` ist ein Honigtopf (FB-023): Ein Frontend darf es
+        mitfuehren, ein Mensch fuellt es nie aus. Ist es gesetzt, gilt die
+        Einreichung als automatisiert und wird still verworfen -- die Antwort
+        ist dieselbe wie im Erfolgsfall, damit ein Bot daraus nichts lernt.
+      x-status: implemented
+      x-ticket: FB-026
+      parameters:
+        - $ref: '#/components/parameters/FunnelToken'
+        - $ref: '#/components/parameters/SessionToken'
+        - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  $ref: '#/components/schemas/Answers'
+                website:
+                  type: string
+                  description: |
+                    Honigtopf. Bleibt im Frontend unsichtbar und leer; ein
+                    gefuellter Wert kennzeichnet einen Bot.
+      responses:
+        '200':
+          description: |
+            Die abgeschlossene Sitzung samt Ergebnis. `phase` steht auf `done`,
+            `completed` auf `true`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/SessionState'
+        '403':
+          $ref: '#/components/responses/OriginNotAllowed'
+        '404':
+          $ref: '#/components/responses/SessionNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          description: |
+            Zu viele Einreichungen. Entweder die Ratenbegrenzung der
+            Schnittstelle oder die Einreichungsgrenze je Herkunft aus FB-023.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+
+  # ---------------------------------------------------------------------------
+  # Parameter
+  # ---------------------------------------------------------------------------
+
+  parameters:
+
+    FunnelToken:
+      name: funnel
+      in: path
+      required: true
+      description: |
+        Der `public_token` des Funnels - ein ULID. Die fortlaufende ID eines
+        Funnels wird nicht akzeptiert.
+      schema:
+        $ref: '#/components/schemas/PublicToken'
+
+    SessionToken:
+      name: session
+      in: path
+      required: true
+      description: |
+        Der Token der Sitzung. Eine Sitzung gehoert zu genau einer
+        Funnel-FASSUNG: Ein Token, der zu einem anderen Funnel oder zu einer
+        aelteren Fassung gehoert, ergibt `404`.
+      schema:
+        $ref: '#/components/schemas/SessionToken'
+
+    Origin:
+      name: Origin
+      in: header
+      required: false
+      description: |
+        Setzt der Browser bei einem Aufruf von einer fremden Seite. Hat der
+        Funnel eine Freigabeliste, muss die Herkunft darin stehen - sonst `403`.
+        Ohne diesen Kopf greift die Pruefung nicht.
+      schema:
+        type: string
+        format: uri
+
+  # ---------------------------------------------------------------------------
+  # Antworten
+  # ---------------------------------------------------------------------------
+
+  responses:
+
+    NotFound:
+      description: |
+        Kein solcher Funnel, oder er ist nicht veroeffentlicht. Bewusst
+        ununterscheidbar - sonst liesse sich an der Antwort ablesen, welche
+        Tokens existieren.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    SessionNotFound:
+      description: |
+        Kein solcher Funnel, keine solche Sitzung, oder die Sitzung gehoert
+        nicht zur aktuellen Fassung dieses Funnels beziehungsweise ist bereits
+        abgeschlossen.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    OriginNotAllowed:
+      description: |
+        Die Herkunft im `Origin`-Kopf steht nicht auf der Freigabeliste des
+        Funnels. Die Ablehnung wird protokolliert.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationFailed:
+      description: |
+        Die Eingabe ist unvollstaendig oder ungueltig. Die Schluessel unter
+        `errors` sind mit `answers.` praefigiert und tragen dahinter den
+        `field_key` der Frage.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    RateLimited:
+      description: Zu viele Anfragen von dieser Herkunft.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  # ---------------------------------------------------------------------------
+  # Schemas
+  # ---------------------------------------------------------------------------
+
+  schemas:
+
+    PublicToken:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      description: Ein ULID in Crockford-Base32.
+      examples: ['01J8ZQK9F7M3TQZP2N6VBXAH5C']
+
+    SessionToken:
+      type: string
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+      description: |
+        Ein ULID in Crockford-Base32. Wird beim Beginn einer Sitzung vergeben.
+        Wer ihn hat, setzt die Sitzung fort - er gehoert deshalb nicht in eine
+        Adresszeile und nicht in ein Protokoll.
+      examples: ['01J8ZR4T2W9K6D0YFBQXS3HGNE']
+
+    Answers:
+      type: object
+      description: |
+        Antworten, nach `field_key` der jeweiligen Frage abgelegt. Welche Form
+        ein Wert hat, bestimmt der Fragetyp: eine Einfachauswahl erwartet den
+        `value` einer Option, eine Mehrfachauswahl eine Liste davon, eine
+        Einwilligung `true`.
+      additionalProperties: true
+      examples:
+        - tierart: hund
+          alter: 7
+
+    FunnelSnapshot:
+      type: object
+      description: |
+        Der Snapshot der veroeffentlichten Fassung. Enthaelt keine
+        Datenbank-IDs: Schritte werden ueber `position` adressiert, Fragen ueber
+        `field_key`. Das Format ist in
+        `docs/funnel-builder/snapshot-format.md` beschrieben.
+      required: [funnel, version, steps, conditions, results, theme]
+      properties:
+        funnel:
+          type: object
+          required: [public_token, name]
+          properties:
+            public_token:
+              $ref: '#/components/schemas/PublicToken'
+            name:
+              type: string
+            lead_price:
+              type: [number, 'null']
+              description: Preis eines Leads aus diesem Funnel.
+            contact_step_position:
+              type: [integer, 'null']
+              description: |
+                Position des Schritts, der die Kontaktdaten erhebt. Vor ihm
+                zeigt die Strecke den Ergebnis-Screen.
+        version:
+          type: [integer, 'null']
+          description: Fortlaufende Nummer der veroeffentlichten Fassung.
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/Step'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Result'
+        theme:
+          oneOf:
+            - $ref: '#/components/schemas/Theme'
+            - type: 'null'
+          description: Erscheinungsbild, oder `null`, wenn keines gepflegt ist.
+
+    Step:
+      type: object
+      required: [position, title, questions]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: Adresse des Schritts. Es gibt keine Schritt-ID.
+        title:
+          type: string
+        description:
+          type: [string, 'null']
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+
+    Question:
+      type: object
+      required: [field_key, type, label, required, position]
+      properties:
+        field_key:
+          type: string
+          description: |
+            Adresse der Frage. Unter diesem Schluessel wird die Antwort
+            geschickt.
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        label:
+          type: string
+        help_text:
+          type: [string, 'null']
+        required:
+          type: boolean
+        position:
+          type: integer
+          minimum: 1
+        validation:
+          type: object
+          description: |
+            Zusaetzliche Grenzen des Fragetyps, etwa `min` und `max`. Ein
+            Frontend darf sie zur Voranzeige nutzen; verbindlich prueft der
+            Server.
+          additionalProperties: true
+        meta:
+          type: object
+          description: Darstellungshinweise des Fragetyps.
+          additionalProperties: true
+        options:
+          type: array
+          description: Antwortoptionen. Leer bei Fragetypen ohne Auswahl.
+          items:
+            $ref: '#/components/schemas/Option'
+
+    Option:
+      type: object
+      required: [value, label, position]
+      properties:
+        value:
+          type: string
+          description: Der Wert, der als Antwort zurueckgeschickt wird.
+        label:
+          type: string
+        score:
+          type: integer
+          description: Punkte, die diese Option zur Gesamtpunktzahl beitraegt.
+        position:
+          type: integer
+          minimum: 1
+        image_path:
+          type: [string, 'null']
+
+    Condition:
+      type: object
+      description: |
+        Eine Verzweigungsregel. Sie greift beim Verlassen des Schritts
+        `evaluate_at_step_position` und springt dann zu
+        `target_step_position`.
+      required: [operator, target_step_position, evaluate_at_step_position, priority]
+      properties:
+        source_field_key:
+          type: [string, 'null']
+          description: |
+            Die Frage, deren Antwort geprueft wird. Bei `score_gte` leer - dort
+            zaehlt die Gesamtpunktzahl.
+        operator:
+          $ref: '#/components/schemas/ConditionOperator'
+        value:
+          description: Vergleichswert. Je nach Vergleich ein Wert oder eine Liste.
+        target_step_position:
+          type: integer
+          minimum: 1
+        evaluate_at_step_position:
+          type: integer
+          minimum: 1
+        priority:
+          type: integer
+          description: Kleinere Zahl zuerst. Die erste zutreffende Regel gewinnt.
+
+    Result:
+      type: object
+      required: [key, min_score, max_score, title]
+      properties:
+        key:
+          type: string
+          description: Adresse des Ergebnisses. Es gibt keine Ergebnis-ID.
+        min_score:
+          type: integer
+        max_score:
+          type: integer
+        title:
+          type: string
+        body:
+          type: [string, 'null']
+        cta_label:
+          type: [string, 'null']
+        cta_url:
+          type: [string, 'null']
+        show_contact_form:
+          type: boolean
+
+    Theme:
+      type: object
+      description: |
+        Erscheinungsbild der Strecke. Die Farbwerte stehen als Hex-Angabe da,
+        die Schaltflaechentexte aufgeloest - der Snapshot ist ohne die
+        Sprachdateien lesbar.
+      required: [primary_color, secondary_color, background_color, text_color, font, progress_style]
+      properties:
+        primary_color:
+          $ref: '#/components/schemas/HexColor'
+        secondary_color:
+          $ref: '#/components/schemas/HexColor'
+        background_color:
+          $ref: '#/components/schemas/HexColor'
+        text_color:
+          $ref: '#/components/schemas/HexColor'
+        font:
+          $ref: '#/components/schemas/ThemeFont'
+        font_family:
+          type: [string, 'null']
+          description: |
+            Die aus `font` abgeleitete CSS-Angabe. Ein Frontend kann sie direkt
+            setzen und muss die Aufzaehlung nicht kennen.
+        logo_path:
+          type: [string, 'null']
+        progress_style:
+          $ref: '#/components/schemas/ProgressStyle'
+        border_radius:
+          type: integer
+          minimum: 0
+        button_next_label:
+          type: [string, 'null']
+        button_back_label:
+          type: [string, 'null']
+        button_submit_label:
+          type: [string, 'null']
+
+    HexColor:
+      type: string
+      pattern: '^#[0-9a-fA-F]{6}$'
+      examples: ['#2563eb']
+
+    SessionState:
+      type: object
+      description: |
+        Der Stand einer Sitzung samt dem, was als Naechstes kommt. Die Sitzung
+        wird ueber ihren Token adressiert, nie ueber eine fortlaufende Nummer.
+      required: [session_token, answers, current_step, completed, phase]
+      properties:
+        session_token:
+          $ref: '#/components/schemas/SessionToken'
+        answers:
+          $ref: '#/components/schemas/Answers'
+        current_step:
+          type: integer
+          description: Position des Schritts, auf dem die Sitzung gerade steht.
+        completed:
+          type: boolean
+        phase:
+          $ref: '#/components/schemas/SessionPhase'
+        step:
+          oneOf:
+            - $ref: '#/components/schemas/NextStep'
+            - type: 'null'
+          description: |
+            Der naechste Schritt, oder `null`, wenn `phase` nicht auf `step` steht.
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/Result'
+            - type: 'null'
+          description: |
+            Das ermittelte Ergebnis, sobald es feststeht - also bei
+            `phase: result` und `phase: done`.
+        score:
+          type: [integer, 'null']
+          description: Gesamtpunktzahl der bisherigen Antworten.
+
+    NextStep:
+      type: object
+      description: |
+        Der naechste Schritt in der Kurzfassung. Die vollstaendige Beschreibung
+        seiner Fragen steht im Snapshot unter derselben `position`.
+      required: [position, title, field_keys]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        description:
+          type: [string, 'null']
+        field_keys:
+          type: array
+          description: Die `field_key` der Fragen dieses Schritts, in Reihenfolge.
+          items:
+            type: string
+
+    SessionPhase:
+      type: string
+      description: |
+        Was als Naechstes kommt.
+
+        - `step` - ein weiterer Schritt, er steht unter `step`.
+        - `result` - der Ergebnis-Screen vor dem Kontaktschritt. Der Endkunde
+          soll wissen, wofuer er seine Daten hergibt, bevor er sie eingibt.
+        - `done` - die Strecke ist zu Ende.
+      enum: [step, result, done]
+
+    QuestionType:
+      type: string
+      description: Fragetyp. Bestimmt Darstellung, Pruefung und Punktevergabe.
+      enum:
+        - consent
+        - date
+        - email
+        - image_choice
+        - info
+        - multi_choice
+        - number
+        - phone
+        - postal_code
+        - single_choice
+        - slider
+        - text
+        - textarea
+
+    ConditionOperator:
+      type: string
+      description: Vergleich einer Verzweigungsregel.
+      enum:
+        - answered
+        - contains
+        - equals
+        - gt
+        - in
+        - lt
+        - not_equals
+        - score_gte
+
+    ThemeFont:
+      type: string
+      description: Schriftart der Strecke. Geschlossene Liste.
+      enum:
+        - inter
+        - open_sans
+        - roboto
+        - system
+
+    ProgressStyle:
+      type: string
+      description: Darstellung des Fortschritts.
+      enum:
+        - bar
+        - none
+        - steps
+
+    Error:
+      type: object
+      description: |
+        Das gewohnte Laravel-Fehlerformat. Die Management-API unter `/api/v1`
+        antwortet stattdessen nach RFC 9457 - beide Formate bewusst getrennt,
+        weil sie unterschiedliche Aufrufer bedienen.
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          description: |
+            Je Feld eine Liste von Meldungen. Die Schluessel tragen den Praefix
+            `answers.`, dahinter steht der `field_key` der Frage.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          examples:
+            - answers.email: ['Die E-Mail-Adresse ist ungueltig.']
