@@ -29,7 +29,7 @@ class Funnels extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('builder.funnels.group');
+        return __('builder.groups.funnels');
     }
 
     public static function getNavigationLabel(): string

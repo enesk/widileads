@@ -76,6 +76,25 @@ entstehenden Leads an Käufer (zunächst Versicherungsagenturen) verkauft werden
   Kontaktdaten in Views/Responses vor Kauf.
 - Kurze Notiz in docs/CHANGELOG.md: was, warum, welche Config-Keys neu sind.
 - Vor dem Melden auf aktuelles main rebasen und `composer check` erneut laufen lassen.
+- **Am Ende einer Ticketkette geht jemand den Weg vom Login bis zum Ziel einmal
+  vollständig ab** — Erreichbarkeit über die Oberfläche, nicht nur über die Route.
+
+  Der Grund: Eine Seite, die niemand erreichen kann, antwortet unter ihrer Route brav mit
+  200. Kein Test fängt das, weil jeder Test genau die Stelle prüft, die sein Autor im Kopf
+  hatte. Drei Fälle aus diesem Projekt, jeder einzeln vollständig und getestet, zusammen
+  aber ohne Ergebnis:
+
+  - **Der Builder war über drei Tickets hinweg nicht erreichbar.** FB-015, FB-016 und
+    FB-017 brauchen alle einen konkreten Funnel als Routenparameter — die Liste davor gab
+    es nicht. Jede der drei Seiten funktionierte, niemand kam hin (geschlossen mit FB-028).
+  - **Die Dublettenkette riss an den Übergängen.** FB-023 erkennt die Dublette und legt
+    den Verweis ins DTO, FB-031 muss ihn speichern, FB-033 liest ihn. Jedes Ticket war für
+    sich richtig, der Verweis kam trotzdem nie an.
+  - **Die Navigation fehlte.** Die Funnel-Vorlagen lagen unter „Settings" zwischen neun
+    anderen Einträgen. Sie waren da — gefunden hat sie niemand.
+
+  Das ist kein Formalismus. Es ist die einzige Prüfung, die eine Kette **von außen**
+  abgeht, statt jedes Ticket von innen.
 
 ## Arbeitsweise
 - Lies das Ticket vollständig. Prüfe die „Abhängigkeiten" — existiert der referenzierte

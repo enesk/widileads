@@ -147,6 +147,16 @@ class TransactionResource extends Resource
         return parent::getEloquentQuery()->where('tenant_id', Filament::getTenant()->id)->where('amount', '>', 0)->where('status', '!=', TransactionStatus::NOT_STARTED->value);
     }
 
+    public static function getNavigationGroup(): ?string
+    {
+        return __('builder.groups.billing');
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 3;
+    }
+
     public static function getModelLabel(): string
     {
         return __('Payments');

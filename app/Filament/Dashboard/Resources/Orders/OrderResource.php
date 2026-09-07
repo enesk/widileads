@@ -218,6 +218,16 @@ class OrderResource extends Resource
         );
     }
 
+    public static function getNavigationGroup(): ?string
+    {
+        return __('builder.groups.billing');
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('Orders');
