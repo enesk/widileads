@@ -165,7 +165,9 @@ class ArchitectureTest extends TestCase
         }
 
         // Views geben nur aus, was der LeadPresenter herausgibt -- sie kennen
-        // die Kontaktspalten gar nicht.
+        // die Kontaktspalten gar nicht. Bewusst ohne postal_code: Der Name steht
+        // dort als Uebersetzungsschluessel (leads.contact.postal_code) und waere
+        // ein Fehlalarm.
         foreach ($this->phpFilesIn(resource_path('views')) as $file) {
             $path = (string) $file->getRealPath();
             $template = $this->withoutBladeComments((string) file_get_contents($path));
@@ -228,6 +230,7 @@ class ArchitectureTest extends TestCase
         $contact = LeadContact::fromLead($lead);
         $mail = $lead->email_normalized;
         $number = $lead->phone_e164;
+        $plz = $lead->postal_code;
         PHP);
 
         $this->assertNotSame([], $this->fromLeadCalls($leakingCode), 'Eine selbst gebaute Kontaktfassung muss auffallen.');
@@ -434,7 +437,7 @@ class ArchitectureTest extends TestCase
      */
     private function rawContactReads(string $code): array
     {
-        return $this->matchLines($code, '/->\s*(?:email_normalized|phone_e164)\b/');
+        return $this->matchLines($code, '/->\s*(?:email_normalized|phone_e164|postal_code)\b/');
     }
 
     /**

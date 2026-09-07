@@ -53,6 +53,7 @@ use Illuminate\Support\Carbon;
  * @property-write float|string|null $price_at_creation
  * @property string|null $phone_e164
  * @property string|null $email_normalized
+ * @property string|null $postal_code
  * @property string|null $utm_source
  * @property string|null $utm_medium
  * @property string|null $utm_campaign

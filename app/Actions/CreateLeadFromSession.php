@@ -101,6 +101,9 @@ class CreateLeadFromSession implements SubmissionReceiver
                 'price_at_creation' => $funnel->effectiveLeadPrice(),
                 'phone_e164' => $this->contactValue($submission, FunnelFieldKey::TELEFON),
                 'email_normalized' => $this->contactValue($submission, FunnelFieldKey::EMAIL),
+                // Steht auch in lead_answers -- hier zusaetzlich als Spalte, damit
+                // die Lead-Liste nach PLZ-Praefix filtern kann (FB-034).
+                'postal_code' => $this->contactValue($submission, FunnelFieldKey::PLZ),
                 ...$this->originFrom($session),
             ]);
 
