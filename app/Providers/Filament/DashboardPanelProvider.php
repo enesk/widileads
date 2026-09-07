@@ -101,21 +101,7 @@ class DashboardPanelProvider extends PanelProvider
             ->renderHook('panels::head.start', function () {
                 return view('components.layouts.partials.analytics');
             })
-            ->navigationGroups([
-                // FB-028: Reihenfolge nach Tenant-Typ. Oben, was ein Betreiber
-                // taeglich braucht, darunter der Kaeufer-Bereich, zuletzt die
-                // Verwaltung des Workspace. Bewusst ohne Icons an den Gruppen:
-                // Filament laesst sie entweder dort oder an den Eintraegen zu,
-                // und die Eintraege sind die aussagekraeftigere Stelle.
-                NavigationGroup::make()->label(__('builder.funnels.group')),
-                NavigationGroup::make()->label(__('builder.groups.leads')),
-                NavigationGroup::make()->label(__('builder.groups.marketplace')),
-                NavigationGroup::make()->label(__('builder.groups.settings')),
-                // Vorher stand hier "Team", waehrend die Users-Seite
-                // "Team Management" traegt - die Gruppe wurde deshalb nie
-                // verwendet und die Sortierung griff nicht.
-                NavigationGroup::make()->label(__('Team Management')),
-            ])
+            ->navigationGroups($this->navigationGroups())
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn (): string => config('funnel.features.announcements')
@@ -145,5 +131,41 @@ class DashboardPanelProvider extends PanelProvider
             ])
             ->tenantMenu()
             ->tenant(Tenant::class, 'uuid');
+    }
+
+    /**
+     * Navigationsgruppen des Tenant-Dashboards.
+     *
+     * Reihenfolge nach Tenant-Typ (FB-028): oben, was ein Betreiber taeglich
+     * braucht, darunter der Kaeufer-Bereich, dann das, was seltener gebraucht
+     * wird. Bewusst ohne Icons an den Gruppen: Filament laesst sie entweder
+     * dort oder an den Eintraegen zu, und die Eintraege sind die
+     * aussagekraeftigere Stelle.
+     *
+     * Jede Gruppe, die eine Seite verwendet, muss hier stehen. Eine nicht
+     * registrierte Gruppe haengt Filament unsortiert hinten an - der Fehler
+     * faellt nur auf, wenn man genau hinsieht (FB-028a: die Gruppe hiess
+     * "Team", die Seite "Team Management", und die Sortierung griff nie).
+     *
+     * @return list<NavigationGroup>
+     */
+    private function navigationGroups(): array
+    {
+        return [
+            NavigationGroup::make()->label(__('builder.groups.funnels')),
+            NavigationGroup::make()->label(__('builder.groups.leads')),
+            NavigationGroup::make()->label(__('builder.groups.marketplace')),
+            NavigationGroup::make()->label(__('builder.groups.billing')),
+            NavigationGroup::make()->label(__('builder.groups.settings')),
+            NavigationGroup::make()->label(__('Team Management')),
+
+            // Das Empfehlungsprogramm ist abschaltbar. Die Gruppe wird
+            // trotzdem bedingungslos registriert: Filament zeigt eine Gruppe
+            // ohne sichtbare Eintraege nicht an, und eine Registrierung, die
+            // von einem Konfigurationswert abhaengt, waere zum Bootzeitpunkt
+            // ausgewertet - eine spaetere Aenderung des Werts wuerde die
+            // Gruppe dann still wieder ans Ende ruecken.
+            NavigationGroup::make()->label(__('Referrals')),
+        ];
     }
 }

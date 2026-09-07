@@ -127,7 +127,6 @@ return [
     'delete_step_named' => 'Delete step :name',
     'delete_question_named' => 'Delete question :name',
     'funnels' => [
-        'group' => 'Funnels',
         'nav_label' => 'My funnels',
         'heading' => 'Funnels',
         'table_caption' => 'All funnels of this workspace with status and actions',
@@ -160,6 +159,7 @@ return [
     ],
 
     'groups' => [
+        'billing' => 'Billing',
         'funnels' => 'Funnels',
         'leads' => 'Leads',
         'marketplace' => 'Marketplace',

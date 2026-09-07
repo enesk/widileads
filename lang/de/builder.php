@@ -127,7 +127,6 @@ return [
     'delete_step_named' => 'Schritt :name loeschen',
     'delete_question_named' => 'Frage :name loeschen',
     'funnels' => [
-        'group' => 'Funnels',
         'nav_label' => 'Meine Funnels',
         'heading' => 'Funnels',
         'table_caption' => 'Alle Funnels dieses Workspace mit Status und Aktionen',
@@ -160,6 +159,7 @@ return [
     ],
 
     'groups' => [
+        'billing' => 'Abrechnung',
         'funnels' => 'Funnels',
         'leads' => 'Leads',
         'marketplace' => 'Marktplatz',
