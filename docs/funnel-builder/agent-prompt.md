@@ -199,6 +199,35 @@ Gilt genauso für FB-015 (Builder), FB-034 (Lead-Liste) und FB-053 (Marktplatz).
 
 Im Admin-Panel (`/admin`) bleibt Filament uneingeschränkt das Mittel der Wahl.
 
+#### Entscheidung Enes, 2026-09-07: Hybrid bleibt
+
+Zur Frage, ob das Tenant-Dashboard als eigene Oberfläche neu gebaut wird oder bei
+Filament bleibt: **Der Hybrid bleibt, genau in dem oben beschriebenen Zuschnitt.** Die
+Entscheidung ist getroffen und wird nicht je Ticket neu aufgerollt.
+
+Filament bleibt die **Hülle** des Tenant-Dashboards: Routing, Navigation, `canAccess()`,
+Tenant-Switcher, Auth und 2FA. Der **Inhalt** jeder eigenen Seite bleibt vollständig
+Livewire mit eigenem Blade und Tailwind, ohne Filament-Formular- oder
+Tabellen-Builder.
+
+**Begründung:** Die Flexibilität, um die es geht, liegt ohnehin beim Inhalt — und der
+gehört uns bereits. FB-015 hat mit Drag-and-drop, Autosave und Dreispaltenlayout
+gezeigt, dass Filament dabei nicht im Weg steht. Ein eigenes Dashboard müsste dagegen
+Routing, Panel-Middleware, Tenant-Switcher, Auth-Anbindung, 2FA-Flows, Navigation und
+Benachrichtigungen nachbauen und acht bestehende SaasyKit-Ressourcen migrieren
+(Subscriptions, Orders, Transactions, Invitations, Teams, Roles, Referrals,
+ReferralRewards), die heute funktionieren und mit dem Funnel-Geschäft nichts zu tun
+haben. Der Tenant-Switcher hängt zudem direkt an der Filament-Mandantenfähigkeit, die
+SaasyKit nutzt.
+
+**Ausdrücklich nicht betroffen:** die öffentliche Funnel-Strecke. Sie läuft seit FB-020
+in einem eigenen minimalen Layout ohne Filament und bleibt so.
+
+**Offen gelassen:** Der Käuferbereich könnte später einen eigenen schlanken Rahmen
+bekommen — eine Versicherungsagentur nutzt nur Marktplatz, Meine Leads, Kaufkriterien
+und Guthaben und braucht keine einzige SaasyKit-Ressource. Das ist jetzt **nicht**
+entschieden, sondern als Option vermerkt.
+
 ### 6. Feldschlüssel: Normalisierung **und** Alias-Auflösung
 
 **Ursprungsdokument:** FB-010 verlangt, dass der Feldschlüssel beim Speichern
