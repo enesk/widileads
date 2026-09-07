@@ -67,6 +67,15 @@
                             {{ __('marketplace.listing.score', ['score' => $lead->score]) }}
                         </span>
 
+                        @if ($row['sharedSale'])
+                            <span class="badge badge-info">
+                                {{ __('marketplace.sale_mode.buyers', [
+                                    'buyers' => $row['buyers'],
+                                    'max' => $row['maxBuyers'],
+                                ]) }}
+                            </span>
+                        @endif
+
                         @if ($row['isTaken'])
                             <span class="badge badge-warning">{{ __('marketplace.listing.taken') }}</span>
                         @endif

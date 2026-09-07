@@ -26,6 +26,11 @@ class LeadNotPurchasableException extends RuntimeException
         return new self(__('marketplace.purchase.errors.buyer_not_approved'));
     }
 
+    public static function alreadyBought(): self
+    {
+        return new self(__('marketplace.purchase.errors.already_bought'));
+    }
+
     public static function ownLead(): self
     {
         return new self(__('marketplace.purchase.errors.own_lead'));

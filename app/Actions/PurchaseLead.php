@@ -144,17 +144,35 @@ class PurchaseLead
             // Kaufbeleg.
             $this->credits->debit($buyer, self::CREDITS_PER_LEAD, $purchase);
 
+            $maxBuyers = $lead->funnel?->effectiveMaxBuyers() ?? 1;
+            $sold = LeadPurchase::query()->where('lead_id', $lead->getKey())->count();
+            $slotsLeft = max(0, $maxBuyers - $sold);
+
+            // Im Mehrfachverkauf bleibt der Lead im Angebot, bis die
+            // Hoechstzahl erreicht ist (FB-055). Der Grund der Buchung bleibt
+            // trotzdem "gekauft" -- es ist ein Kauf, der ihn zurueckgibt, keine
+            // aufgegebene Reservierung. Ohne diese Unterscheidung waere im
+            // Protokoll spaeter nicht mehr zu sehen, dass an dieser Stelle Geld
+            // geflossen ist.
             $this->states->transition(
                 $lead,
-                LeadState::VERKAUFT,
+                $slotsLeft > 0 ? LeadState::VERFUEGBAR : LeadState::VERKAUFT,
                 LeadTransitionReason::PURCHASED,
                 $actor,
-                ['buyer_tenant_id' => $buyer->getKey(), 'lead_purchase_id' => $purchase->getKey()],
+                [
+                    'buyer_tenant_id' => $buyer->getKey(),
+                    'lead_purchase_id' => $purchase->getKey(),
+                    'buyers' => $sold,
+                    'max_buyers' => $maxBuyers,
+                ],
             );
 
-            // Die Reservierung hat ihren Zweck erfuellt; ein Zeitstempel in der
-            // Vergangenheit an einem verkauften Lead waere nur irrefuehrend.
-            $lead->update(['reserved_until' => null]);
+            // Die Reservierung hat ihren Zweck erfuellt. Bleibt der Lead im
+            // Angebot, muss auch der Kaeufer daraus verschwinden -- sonst
+            // haengt an einem verfuegbaren Lead ein fremder Name.
+            $lead->update($slotsLeft > 0
+                ? ['reserved_by' => null, 'reserved_until' => null]
+                : ['reserved_until' => null]);
 
             return $purchase;
         });
@@ -192,6 +210,16 @@ class PurchaseLead
      */
     private function priceCentsOf(Lead $lead): int
     {
+        $funnel = $lead->funnel;
+
+        // Im Mehrfachverkauf zahlt jeder Kaeufer den Anteilspreis des Funnels
+        // (FB-055) -- er bekommt den Lead nicht allein. Der beim Anlegen
+        // festgehaltene Preis taugt dafuer nicht: Er stammt aus der Zeit vor
+        // FB-055 und traegt den Exklusivpreis.
+        if ($funnel !== null && $funnel->sale_mode->isShared()) {
+            return (int) round($funnel->effectivePriceForSale() * 100);
+        }
+
         $price = $lead->getAttribute('price_at_creation');
 
         if (! is_numeric($price)) {
@@ -222,6 +250,18 @@ class PurchaseLead
 
         if ((int) $lead->tenant_id === (int) $buyer->getKey()) {
             throw LeadNotPurchasableException::ownLead();
+        }
+
+        // Im Mehrfachverkauf bleibt der Lead im Angebot -- auch fuer den, der
+        // ihn schon hat. Zweimal denselben Lead zu kaufen waere fuer den
+        // Kaeufer nichts als eine zweite Abbuchung.
+        $alreadyBought = LeadPurchase::query()
+            ->where('lead_id', $lead->getKey())
+            ->where('buyer_tenant_id', $buyer->getKey())
+            ->exists();
+
+        if ($alreadyBought) {
+            throw LeadNotPurchasableException::alreadyBought();
         }
     }
 }

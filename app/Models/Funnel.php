@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\FunnelStatus;
+use App\Constants\SaleMode;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\FunnelFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,9 @@ use Illuminate\Support\Str;
  * @property string $slug
  * @property FunnelStatus $status
  * @property float|null $lead_price
+ * @property SaleMode $sale_mode
+ * @property int $max_buyers
+ * @property float|null $shared_price
  * @property int|null $contact_step_position
  * @property array<string, mixed>|null $settings
  * @property int|null $current_version_id
@@ -46,6 +50,9 @@ class Funnel extends Model
         'slug',
         'status',
         'lead_price',
+        'sale_mode',
+        'max_buyers',
+        'shared_price',
         'contact_step_position',
         'settings',
         'current_version_id',
@@ -145,6 +152,45 @@ class Funnel extends Model
         return (float) config('funnel.lead.default_price');
     }
 
+    /**
+     * Hoechstzahl an Kaeufern eines Leads aus diesem Funnel (FB-055).
+     *
+     * Bei `exclusive` immer 1 -- unabhaengig davon, was in der Spalte steht.
+     * Die Verkaufsart entscheidet, nicht die Zahl daneben; sonst koennte ein
+     * Funnel exklusiv heissen und mehrfach verkaufen.
+     */
+    public function effectiveMaxBuyers(): int
+    {
+        if (! $this->sale_mode->isShared()) {
+            return 1;
+        }
+
+        $configured = (int) $this->max_buyers;
+
+        return $configured > 1
+            ? $configured
+            : (int) config('funnel.marketplace.sale.default_max_buyers');
+    }
+
+    /**
+     * Preis eines Leads aus diesem Funnel fuer den naechsten Kauf (FB-055).
+     *
+     * Im Mehrfachverkauf zahlt jeder Kaeufer den niedrigeren Anteilspreis --
+     * er bekommt den Lead nicht allein.
+     */
+    public function effectivePriceForSale(): float
+    {
+        if (! $this->sale_mode->isShared()) {
+            return $this->effectiveLeadPrice();
+        }
+
+        if ($this->shared_price !== null) {
+            return (float) $this->shared_price;
+        }
+
+        return (float) config('funnel.marketplace.sale.default_shared_price');
+    }
+
     public function isPublished(): bool
     {
         return $this->status->isPubliclyAvailable();
@@ -172,6 +218,9 @@ class Funnel extends Model
             'status' => FunnelStatus::class,
             'settings' => 'array',
             'lead_price' => 'decimal:2',
+            'sale_mode' => SaleMode::class,
+            'max_buyers' => 'integer',
+            'shared_price' => 'decimal:2',
             'contact_step_position' => 'integer',
         ];
     }

@@ -19,6 +19,20 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Der Anteilspreis eines geteilten Leads wird nicht beim Anlegen eingefroren** — bei
+  `sale_mode = exclusive` zahlt der Käufer den in `leads.price_at_creation` festgehaltenen
+  Preis, bei `shared` dagegen den aktuellen `funnels.shared_price`. Grund: Leads, die vor
+  FB-055 entstanden sind, tragen in `price_at_creation` den Exklusivpreis. Ändert ein
+  Betreiber den Anteilspreis, wirkt das auf bereits vorhandene Leads. Sauber wäre eine
+  zweite Spalte am Lead, die den Anteilspreis bei Entstehung festhält — das ist FB-031er
+  Gebiet und nicht Teil von FB-055.
+  Aufgefallen bei: FB-055. Datum: 2026-09-07.
+- **Ein geteilter Lead kostet ein volles Guthaben bei halbem Geldwert** — `CREDITS_PER_LEAD`
+  ist 1, unabhängig von der Verkaufsart. Ein Käufer zahlt für einen `shared`-Lead also
+  denselben Guthabenbetrag wie für einen exklusiven, obwohl der Geldwert bei 7,50 € statt
+  15,00 € liegt. Solange Guthabenpakete in „Leads" verkauft werden, ist das stimmig; sobald
+  Guthaben und Geld auseinanderlaufen sollen, ist es eine Geschäftsentscheidung.
+  Aufgefallen bei: FB-055. Datum: 2026-09-07.
 - **Die SQL-Vorauswahl des Marktplatzes muss deckungsgleich zum `LeadMatcher` bleiben** —
   **Zusicherung, bei jeder Änderung an den Kaufkriterien mitzuprüfen.**
   `MarketplaceListing` schränkt in der Datenbank vor, was sich dort sicher ausdrücken lässt
