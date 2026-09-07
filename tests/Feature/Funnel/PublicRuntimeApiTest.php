@@ -9,6 +9,7 @@ use App\Constants\AuditAction;
 use App\Constants\QuestionType;
 use App\Dto\FunnelSubmissionData;
 use App\Funnel\Runtime\SubmissionReceiver;
+use App\Livewire\Funnel\FunnelRunner;
 use App\Models\AuditLog;
 use App\Models\Funnel;
 use App\Models\FunnelOption;
@@ -18,6 +19,7 @@ use App\Models\FunnelResult;
 use App\Models\FunnelStep;
 use App\Models\PublicSession;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 use stdClass;
 use Tests\Feature\FeatureTest;
 
@@ -142,6 +144,68 @@ class PublicRuntimeApiTest extends FeatureTest
         // Normalisiert ueber dieselben Fragetyp-Handler wie die eigene Strecke.
         $this->assertSame('anna@example.com', $submission->answers['email']);
         $this->assertSame('+4915112345678', $submission->answers['telefon']);
+    }
+
+    /**
+     * Der eigentliche Beweis der Extraktion: Beide Wege muessen denselben Lead
+     * ergeben. Liefe die API auf eigener Logik, faende man den Unterschied
+     * erst, wenn ein Kunde ueber die API andere Ergebnisse bekommt als ueber
+     * die eingebettete Strecke -- und dann in Produktionsdaten.
+     */
+    public function test_the_api_and_the_livewire_run_produce_the_same_submission(): void
+    {
+        $funnel = $this->publishedFunnel();
+
+        // Weg 1: die eigene Strecke.
+        $viaLivewire = $this->captureSubmission();
+
+        Livewire::test(FunnelRunner::class, ['token' => $funnel->public_token])
+            ->set('answers.tierart', 'hund')
+            ->call('submitStep')
+            ->call('continueAfterResult')
+            ->set('answers.email', 'Anna@Example.COM')
+            ->set('answers.telefon', '0151 12345678')
+            ->call('submitContact')
+            ->assertSet('phase', 'done');
+
+        // Weg 2: ein fremdes Frontend ueber die API, mit denselben Eingaben.
+        $viaApi = $this->captureSubmission();
+
+        $token = $this->postJson('/api/public/v1/funnels/'.$funnel->public_token.'/sessions')
+            ->json('data.session_token');
+
+        $base = '/api/public/v1/funnels/'.$funnel->public_token.'/sessions/'.$token;
+
+        $this->patchJson($base.'/answers', ['answers' => ['tierart' => 'hund']])->assertOk();
+        $this->postJson($base.'/submit', [
+            'answers' => ['email' => 'Anna@Example.COM', 'telefon' => '0151 12345678'],
+        ])->assertOk();
+
+        /** @var FunnelSubmissionData $fromLivewire */
+        $fromLivewire = $viaLivewire->submission;
+        /** @var FunnelSubmissionData $fromApi */
+        $fromApi = $viaApi->submission;
+
+        $this->assertNotNull($fromLivewire);
+        $this->assertNotNull($fromApi);
+
+        // Alles, was den Lead ausmacht, ist identisch -- bis auf die Sitzung,
+        // die naturgemaess eine andere ist.
+        $this->assertSame($fromLivewire->answers, $fromApi->answers);
+        $this->assertSame($fromLivewire->score, $fromApi->score);
+        $this->assertSame($fromLivewire->resultKey, $fromApi->resultKey);
+        $this->assertSame($fromLivewire->funnelVersionId, $fromApi->funnelVersionId);
+        $this->assertSame($fromLivewire->publicToken, $fromApi->publicToken);
+        $this->assertNotSame($fromLivewire->publicSessionId, $fromApi->publicSessionId);
+
+        // Auch der protokollierte Verlauf stimmt ueberein.
+        $stepsViaLivewire = PublicSession::query()->findOrFail($fromLivewire->publicSessionId);
+        $stepsViaApi = PublicSession::query()->findOrFail($fromApi->publicSessionId);
+
+        $this->assertSame(
+            $stepsViaLivewire->load('events')->visitedStepPositions(),
+            $stepsViaApi->load('events')->visitedStepPositions(),
+        );
     }
 
     public function test_invalid_answers_are_rejected_with_422_and_the_session_does_not_advance(): void
