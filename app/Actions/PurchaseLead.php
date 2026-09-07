@@ -60,10 +60,14 @@ class PurchaseLead
     ) {}
 
     /**
+     * Ohne handelnden Benutzer gekauft wird beim Autokauf (FB-056) -- dort
+     * entscheidet das Kaufprofil, nicht ein Mensch. Das Zustandsprotokoll
+     * traegt dann keinen Akteur, was genau richtig ist: Es war keiner.
+     *
      * @throws LeadNotPurchasableException wenn der Kaeufer oder der Lead nicht in Frage kommt
      * @throws InsufficientCreditsException wenn das Guthaben nicht reicht
      */
-    public function handle(Tenant $buyer, Lead $lead, User $actor): LeadPurchase
+    public function handle(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase
     {
         $this->guardBuyer($buyer);
         $this->guardLead($buyer, $lead);
@@ -80,7 +84,7 @@ class PurchaseLead
             throw $exception;
         }
 
-        event(new LeadPurchased($lead, $buyer, $purchase, $actor));
+        event(new LeadPurchased($lead, $buyer, $purchase, $actor, automatic: $actor === null));
 
         return $purchase;
     }
@@ -94,7 +98,7 @@ class PurchaseLead
      *
      * @throws LeadNotPurchasableException wenn ein anderer Kaeufer schneller war
      */
-    private function reserve(Tenant $buyer, Lead $lead, User $actor): void
+    private function reserve(Tenant $buyer, Lead $lead, ?User $actor): void
     {
         try {
             DB::transaction(function () use ($buyer, $lead, $actor): void {
@@ -119,7 +123,7 @@ class PurchaseLead
     /**
      * Kaufbeleg, Abbuchung und Zustandswechsel -- alles oder nichts.
      */
-    private function settle(Tenant $buyer, Lead $lead, User $actor): LeadPurchase
+    private function settle(Tenant $buyer, Lead $lead, ?User $actor): LeadPurchase
     {
         return DB::transaction(function () use ($buyer, $lead, $actor): LeadPurchase {
             // Der Lead ist reserviert; die Sperre haelt ihn bis zum Ende der
@@ -181,7 +185,7 @@ class PurchaseLead
     /**
      * Gibt eine Reservierung zurueck, deren Kauf nicht zustande kam.
      */
-    private function release(Lead $lead, User $actor): void
+    private function release(Lead $lead, ?User $actor): void
     {
         $lead->refresh();
 

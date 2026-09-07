@@ -24,7 +24,14 @@ class SendLeadPurchasedNotification implements ShouldQueue
 {
     public function handle(LeadPurchased $event): void
     {
-        $recipient = $event->actor;
+        // Beim Autokauf (FB-056) gibt es keinen handelnden Benutzer. Die Mail
+        // geht trotzdem hinaus -- sonst erfuehre der Kaeufer von einem Lead,
+        // den er bezahlt hat, ueberhaupt nichts. Als Betrachter der
+        // Kontaktdaten dient dann ein Benutzer des kaufenden Mandanten; der
+        // Kaufbeleg gilt fuer den Mandanten, nicht fuer eine Person.
+        $recipient = $event->actor instanceof User
+            ? $event->actor
+            : $event->buyer->users()->first();
 
         if (! $recipient instanceof User) {
             return;

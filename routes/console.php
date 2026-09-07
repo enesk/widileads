@@ -35,3 +35,9 @@ Schedule::command('app:abandon-stale-funnel-sessions')->everyFiveMinutes();
 // lang ist, waere Verschwendung -- spaeter als eine Minute nach Ablauf
 // freizugeben, aergert dagegen den naechsten Kaeufer.
 Schedule::command('app:release-expired-lead-reservations')->everyMinute();
+
+// FB-056: Autokauf fuer Kaeufer, die ihn eingeschaltet haben. Haeufiger als
+// noetig zu laufen kostet nichts -- passt kein Lead, endet der Lauf sofort.
+// Zu selten zu laufen kostet dagegen Abschluesse: Ein frischer Lead ist nach
+// Stunden deutlich weniger wert.
+Schedule::command('app:auto-purchase-leads')->everyFiveMinutes()->withoutOverlapping();

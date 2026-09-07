@@ -28,5 +28,6 @@ class LeadPurchased
         public Tenant $buyer,
         public LeadPurchase $purchase,
         public ?User $actor = null,
+        public bool $automatic = false,
     ) {}
 }
