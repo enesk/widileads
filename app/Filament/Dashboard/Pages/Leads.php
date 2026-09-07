@@ -39,6 +39,11 @@ class Leads extends Page
         return __('leads.list.heading');
     }
 
+    public static function getNavigationGroup(): ?string
+    {
+        return __('builder.groups.leads');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('leads.list.nav_label');

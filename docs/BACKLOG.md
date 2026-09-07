@@ -37,7 +37,10 @@ Ein Eintrag je Zeile bzw. Absatz:
   Treffer. Wächst der Bestand, sind die Optionen: Antworten als generierte Spalten oder
   JSON-Index abbilden, oder passende Leads je Profil vorberechnen — in beiden Fällen gilt
   die Deckungsgleichheit oben.
-- **Die Testsuite rendert die Dashboard-Navigation nie** — in FB-028 hat eine falsch
+- **Die Testsuite rendert die Dashboard-Navigation nie** (zweiter Fund in FB-028a: Auch
+  die vier gruppenlosen Dashboard-Seiten wären ungeprüft geblieben; ein Wegwerf-Test mit
+  zwei Fällen — Dashboard rendert für Betreiber und für Käufer — lief in 3 Sekunden und
+  hätte beide Fehler gefunden.) — in FB-028 hat eine falsch
   gesetzte Navigationsgruppe (Icon an Gruppe *und* Eintrag, was Filament mit einer
   Ausnahme quittiert) einen 500er auf **jeder** Dashboard-Seite eines Betreibers erzeugt.
   `composer check` blieb grün: Kein Test öffnet eine Dashboard-Seite mit Operator-Tenant
