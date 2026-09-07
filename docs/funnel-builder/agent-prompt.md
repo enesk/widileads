@@ -259,20 +259,25 @@ ausführliche Begründung steht jeweils in Teil 5 der Roadmap.
 - CRUD ohne Fachlogik
 - Sprachdateien
 
-Bei reinen Schema- und UI-Tickets ist **null Tests der Normalfall**, nicht die Ausnahme.
+**Standard ist null Tests** (verschärft am 2026-09-07). Nicht nur bei Schema- und
+UI-Tickets: Ein Ticket ohne Test ist der Normalfall, nicht die Ausnahme, und braucht
+keine Rechtfertigung.
 
 **Tests nur dort, wo ein Fehler teuer ist und still passiert:**
 
-- Geld: Kauf, `credit_ledger`, `settled_price`, Guthabenprüfung, Gutschriften
-- `lead_state`-Übergänge und Unveränderlichkeit des Protokolls
+- Geld: Kauf, `credit_ledger`, `settled_price`, Gutschriften
+- `lead_state`-Übergänge
 - Maskierung von Kontaktdaten
-- Mandantentrennung und Cross-Tenant-Zugriff
-- Nebenläufigkeit (zwei Käufer, ein Lead)
-- Normalisierung mit Datenfolge (E.164, `field_key`-Aliase)
-- Spam- und Dublettenregeln
-- Signaturprüfung bei Webhooks
+- Mandantentrennung
+- Nebenläufigkeit
+- Signaturprüfung
 
-**Richtwert:** höchstens drei bis fünf Tests je Ticket, und nur aus dieser Liste.
+Berührt ein Ticket nichts aus dieser Liste, wird **kein** Test geschrieben.
+
+Der frühere Richtwert „drei bis fünf Tests je Ticket" ist **gestrichen**. Er hat als
+Zielvorgabe gewirkt statt als Obergrenze — wer fünf schreiben durfte, hat fünf
+geschrieben.
+
 Bestehende Tests werden **nicht** entfernt. `composer check` bleibt Pflicht.
 
 **Verhältnis zum Ursprungsdokument:** Die Vorgabe „jede Muss-Anforderung hat mindestens
@@ -450,3 +455,26 @@ dem Fall verwirft Filament die Icons der Einträge stillschweigend. Eine neue Gr
 **Regel:** Neue Navigationsgruppen bekommen **kein** Icon. Die Einträge sind die
 aussagekräftigere Stelle, und so bricht nichts, sobald eine künftige Resource ein Icon
 mitbringt.
+
+### 13. Ticketdisziplin (Entscheidung Enes, 2026-09-07)
+
+**Verbindlich:** Bearbeitet wird ausschließlich der Ticketumfang. Kein Aufräumen, kein
+Refactoring, keine Recherche in Bereichen, die das Ticket nicht nennt, keine
+Zusatzfunktionen, die niemand bestellt hat, und keine Erweiterung von Konventionen,
+Dokumenten oder Regeln, sofern das Ticket es nicht verlangt.
+
+**Funde außerhalb des Tickets:** ein Satz in [`docs/BACKLOG.md`](../BACKLOG.md) **und**
+eine kurze Meldung an den Orchestrator. Beides, nicht eines von beiden. **Nicht selbst
+beheben** — auch dann nicht, wenn der Fehler offensichtlich ist und die Reparatur zwei
+Zeilen wäre. Enes entscheidet, ob und wer es macht.
+
+**Einzige Ausnahme:** Das Ticket ist ohne die fremde Änderung nicht abschließbar. Dann
+vorher melden und auf Antwort warten, statt es zu tun.
+
+**Begründung:** Das eigenmächtige Beheben kostet Zeit und erzeugt Konflikte in fremden
+Dateien — bei mehreren gleichzeitigen Sessions trifft eine Änderung „im Vorbeigehen"
+regelmäßig eine Datei, an der jemand anders gerade arbeitet. Das Melden erhält den
+Nutzen des Fundes ohne diesen Preis. Mehrere der wertvollsten Funde des Projekts kamen
+aus Meldungen, nicht aus Alleingängen.
+
+Melden bleibt ausdrücklich erwünscht. Nur das eigenmächtige Beheben fällt weg.
