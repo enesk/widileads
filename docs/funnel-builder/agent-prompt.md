@@ -103,8 +103,9 @@ entstehenden Leads an Käufer (zunächst Versicherungsagenturen) verkauft werden
 
   Die beiden Regeln gehören zusammen: Die obere sagt, dass die Kette **von außen**
   abgegangen werden muss, diese sagt, **in welchem Kontext**. Begründung und die drei
-  Belege stehen in Abschnitt 8 unter „Im echten Mandantenkontext und über den echten Weg
-  prüfen".
+  Belege stehen in Abschnitt 8 unter „Was grün aussieht und nichts aussagt". Dort steht
+  auch, warum „merged" an einem gestapelten PR und ein grüner CI-Lauf dieselbe Vorsicht
+  verlangen.
 
 ## Arbeitsweise
 - Lies das Ticket vollständig. Prüfe die „Abhängigkeiten" — existiert der referenzierte
@@ -390,10 +391,16 @@ Dashboard eines Betreiber- und eines Käufer-Mandanten. Anlass waren zwei Fehler
 jede Seite eines Panels gleichzeitig getroffen haben und trotzdem grün ausgeliefert
 worden wären — beide stehen in Abschnitt 12.
 
-#### Im echten Mandantenkontext und über den echten Weg prüfen (2026-09-07)
+#### Was grün aussieht und nichts aussagt (2026-09-07)
 
-Diese Regel ist aus den drei teuersten Fehlern dieses Projekts entstanden. Sie gilt für
-jeden Test, den die Liste oben überhaupt zulässt.
+Drei Punkte, entstanden an den teuersten Fehlern dieses Projekts. Sie stehen zusammen,
+weil es dieselbe Fehlerklasse ist: Etwas **sieht grün aus und sagt nichts aus** — ein
+grüner Test, ein „merged" am Pull Request, ein grüner CI-Lauf. Keiner der drei meldet sich
+von selbst; alle drei muss man aktiv nachprüfen.
+
+##### 1. Im echten Mandantenkontext und über den echten Weg prüfen
+
+Gilt für jeden Test, den die Liste oben überhaupt zulässt.
 
 **Verbindlich:** Wer Käufer- oder Betreiberverhalten prüft, **muss den Filament-Mandanten
 setzen** — `actingAs($user)` **und** `Filament::setTenant($tenant)` — und **über den
@@ -428,6 +435,47 @@ Drei Belege aus diesem Projekt:
 Alle drei sind derselbe Fund: Der Test lief in einer Umgebung oder an einer Stelle, die
 mit der Produktion nicht deckungsgleich war. Dagegen hilft kein zusätzlicher Test, sondern
 nur der richtige Kontext und der echte Weg.
+
+##### 2. Bei gestapelten Pull Requests sagt „merged" nichts über `main`
+
+Ein PR, der auf den Branch eines **anderen** PR zielt, wird beim Merge in **dessen**
+Basiszweig übernommen — nicht nach `main`. Der Zustand „merged" sagt deshalb für sich
+genommen nichts darüber aus, ob die Arbeit auf `main` liegt. Wohin gemerged wurde, steht
+in der GitHub-Ausgabe in einem Feld: **`baseRefName`**.
+
+**Was passiert ist:** Die Management-API bestand aus vier gestapelten PRs. Zwei standen als
+„merged" da und waren es auch — nur in ihren Basiszweig. Ein dritter war geschlossen. Auf
+`main` lag von allen vieren **nichts**. Hätte der Worker der Zustandsbeschreibung geglaubt
+und nur den untersten PR rebast, wären zwei fertige Tickets — Webhooks mit HMAC-Signatur
+und Ratenbegrenzung — spurlos verlorengegangen, und niemandem wäre es aufgefallen: Beide
+PRs werden formal als erledigt geführt.
+
+**Verbindlich:**
+
+- **Vor jedem Rebase und vor jeder Aussage über den Projektstand gegen die GitHub-API
+  prüfen** — nicht gegen eine genannte Commit-SHA und nicht gegen eine
+  Zustandsbeschreibung. Bei mehreren parallelen Sessions ist jede Angabe zwischen Prüfen
+  und Absenden bereits veraltet.
+- **Bei „merged" immer `baseRefName` mitlesen.** Nur `base = main` bedeutet, dass die
+  Arbeit auf `main` liegt.
+
+Also etwa `gh pr list --repo enesk/widileads --state merged --json number,title,baseRefName`
+statt eines Blicks auf die Zustandsspalte. Das ergänzt Abschnitt 11: Dort geht es darum,
+gegen den **aktuellen** Stand zu prüfen, hier darum, überhaupt erst den **richtigen** Zweig
+als Stand zu erkennen.
+
+##### 3. Zwei grüne Läufe gegen verschiedene Stände sind kein grüner gemeinsamer Stand
+
+Zwei CI-Läufe belegen jeweils ihren eigenen Stand. Über den Stand, der aus beiden entsteht,
+sagen sie nichts — genau dort liegt der Fehler aus Abschnitt 11, bei dem eine Änderung
+gegen einen Zwischenstand geschrieben ist, der beim Mergen schon überholt ist.
+
+**Verbindlich:** Wer zwei PRs nacheinander mergt, die nie zusammen geprüft wurden, lässt
+den zusammengeführten Stand einmal selbst laufen.
+
+Das hat am 2026-09-07 zweimal jemand ungefragt getan. Beide Male war es die richtige
+Vorsicht — und beide Male hätte niemand es beauftragt, weil auf beiden Seiten alles grün
+aussah.
 
 ### 9. Sammeldateien vermeiden: eine Datei je Zuständigkeit (2026-09-06)
 
