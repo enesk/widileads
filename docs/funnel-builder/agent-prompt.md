@@ -295,6 +295,23 @@ drei Läufe mit unterschiedlichen Seeds, gleiches Ergebnis — statt durch Wäch
 Unberührt bleibt: Wo Infrastrukturarbeit einen **fachlichen** Fehler behebt oder
 Fachcode ändert, gehört der Test dorthin, wo die Fachlogik liegt.
 
+#### Präzisierung: Erreichbarkeit ist kein Aussehen (2026-09-07)
+
+Der Ausschluss von UI-Rendering meint das **Aussehen** — Beschriftungen, Reihenfolge,
+Struktur, Markup. Das ist billig zu reparieren und teuer zu testen.
+
+Eine Seite, die mit 500 **gar nicht mehr lädt**, ist kein Aussehen. Das ist
+Totalausfall, er passiert still, und `composer check` ist dabei grün.
+
+**Verbindlich:** Je Panel ein Rauchtest, der belegt, dass eine Seite überhaupt lädt —
+anmelden, Seite aufrufen, 200 erwarten. Kein Inhalt, keine Struktur, keine
+Bezeichnungen. Alles darüber hinaus bleibt testfrei.
+
+Umgesetzt in `tests/Feature/Funnel/PanelSmokeTest.php`: drei Tests, Admin-Panel sowie
+Dashboard eines Betreiber- und eines Käufer-Mandanten. Anlass waren zwei Fehler, die
+jede Seite eines Panels gleichzeitig getroffen haben und trotzdem grün ausgeliefert
+worden wären — beide stehen in Abschnitt 12.
+
 ### 9. Sammeldateien vermeiden: eine Datei je Zuständigkeit (2026-09-06)
 
 **Anlass:** Vier PRs in Folge mussten allein wegen derselben Sammeldateien rebasen. Die
@@ -390,3 +407,46 @@ nur, gegen den aktuellen Stand zu pruefen.
 `.github/workflows/ci.yml` faehrt `composer check` bei jedem PR. Die Regel gilt trotzdem:
 Die CI greift erst nach dem Pushen, und ein Rebase davor spart die Runde aus rotem Lauf,
 Nachbessern und erneutem Pushen.
+
+### 12. Zwei Fallstricke, die ein ganzes Panel lahmlegen (2026-09-07)
+
+Beide sind in FB-028 aufgetreten, beide legen **jede** Seite eines Panels gleichzeitig
+lahm, und beide sind an der Fundstelle nicht zu erkennen.
+
+#### 12.1 Übersetzungsschlüssel ohne Punkt
+
+`__('Leads')` ist kein harmloser Text. Laravel sucht einen Schlüssel ohne Punkt zuerst
+in `lang/<locale>.json`; findet es ihn dort nicht, deutet es ihn als **Dateinamen** und
+lädt `lang/de/Leads.php`. Auf macOS — dem Rechner der meisten Entwickler hier —
+unterscheidet das Dateisystem Groß- und Kleinschreibung nicht, also trifft das unsere
+`lang/de/leads.php`, und `__()` gibt das komplette **Array** zurück.
+
+`getNavigationGroup(): ?string` wirft damit einen `TypeError`, und zwar auf jeder Seite
+des Panels. Auf Linux gäbe es die Datei `Leads.php` nicht, dort käme der String zurück.
+
+Der Fehler tritt also **lokal auf und in der CI nicht** — oder umgekehrt, je nachdem,
+wo die Datei liegt. Das ist der unangenehmste Fehlertyp, den wir haben: Er widerspricht
+dem, was der andere Rechner zeigt, und lässt beide Seiten an ihrem eigenen Aufbau
+zweifeln.
+
+**Regel:** Gruppen- und Menübezeichnungen immer über namensraumbehaftete Schlüssel —
+`__('builder.groups.leads')`, nie `__('Leads')`. Wo ein Schlüssel ohne Punkt
+unvermeidbar ist (SaasyKit übersetzt mit dem englischen Text als Schlüssel), gehört er
+in `lang/<locale>.json`; die wird zuerst gelesen, dann findet die Dateisuche nicht mehr
+statt. `tests/Unit/Funnel/TranslationKeyCollisionTest.php` prüft das statisch.
+
+#### 12.2 Icons an Navigationsgruppe und Eintrag zugleich
+
+Filament lässt Icons **entweder** an der Navigationsgruppe **oder** an ihren Einträgen
+zu, nicht an beidem — sonst bricht es beim Rendern der Seitenleiste mit einer Exception
+ab, also wieder auf jeder Seite des Panels:
+
+> Navigation group [X] has an icon but one or more of its items also have icons.
+
+Die mitgelieferten SaasyKit-Gruppen umgehen das nur, weil sie `collapsed()` sind — in
+dem Fall verwirft Filament die Icons der Einträge stillschweigend. Eine neue Gruppe ohne
+`collapsed()` erbt diesen Schutz nicht.
+
+**Regel:** Neue Navigationsgruppen bekommen **kein** Icon. Die Einträge sind die
+aussagekräftigere Stelle, und so bricht nichts, sobald eine künftige Resource ein Icon
+mitbringt.
