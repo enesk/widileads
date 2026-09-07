@@ -5,17 +5,17 @@ namespace Tests\Feature\Filament\Dashboard\Pages;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantApiAbility;
 use App\Filament\Dashboard\Pages\ApiTokens;
-use App\Livewire\Dashboard\ApiTokens as ApiTokensLivewire;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantApiTokenService;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
 
 /**
- * FB-006: Seite "API-Zugaenge" im Tenant-Dashboard (reines Livewire).
+ * FB-006: Seite "API-Zugaenge" im Tenant-Dashboard (seit FB-090 Filament).
  */
 class ApiTokensTest extends FeatureTest
 {
@@ -42,11 +42,12 @@ class ApiTokensTest extends FeatureTest
     {
         [$tenant] = $this->actingAsTokenManager();
 
-        $component = Livewire::test(ApiTokensLivewire::class)
-            ->set('name', 'CRM-Anbindung')
-            ->set('abilities', [TenantApiAbility::LEADS_READ->value])
-            ->call('createToken')
-            ->assertHasNoErrors();
+        $component = Livewire::test(ApiTokens::class)
+            ->callAction(TestAction::make('createToken')->table(), [
+                'name' => 'CRM-Anbindung',
+                'abilities' => [TenantApiAbility::LEADS_READ->value],
+            ])
+            ->assertHasNoActionErrors();
 
         $plainTextToken = $component->get('plainTextToken');
 
@@ -66,7 +67,7 @@ class ApiTokensTest extends FeatureTest
             ->assertSet('plainTextToken', null)
             ->assertDontSee($plainTextToken);
 
-        Livewire::test(ApiTokensLivewire::class)
+        Livewire::test(ApiTokens::class)
             ->assertSet('plainTextToken', null)
             ->assertDontSee($plainTextToken);
     }
@@ -75,11 +76,12 @@ class ApiTokensTest extends FeatureTest
     {
         $this->actingAsTokenManager();
 
-        Livewire::test(ApiTokensLivewire::class)
-            ->set('name', '')
-            ->set('abilities', [])
-            ->call('createToken')
-            ->assertHasErrors(['name', 'abilities']);
+        Livewire::test(ApiTokens::class)
+            ->callAction(TestAction::make('createToken')->table(), [
+                'name' => '',
+                'abilities' => [],
+            ])
+            ->assertHasActionErrors(['name', 'abilities']);
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
@@ -88,11 +90,12 @@ class ApiTokensTest extends FeatureTest
     {
         $this->actingAsTokenManager();
 
-        Livewire::test(ApiTokensLivewire::class)
-            ->set('name', 'Boeses Token')
-            ->set('abilities', ['leads:delete-everything'])
-            ->call('createToken')
-            ->assertHasErrors(['abilities.0']);
+        Livewire::test(ApiTokens::class)
+            ->callAction(TestAction::make('createToken')->table(), [
+                'name' => 'Boeses Token',
+                'abilities' => ['leads:delete-everything'],
+            ])
+            ->assertHasActionErrors(['abilities.0']);
 
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
@@ -106,7 +109,7 @@ class ApiTokensTest extends FeatureTest
         $service->create($tenant, 'Eigenes Token', TenantApiAbility::values());
         $service->create($foreign, 'Fremdes Token', TenantApiAbility::values());
 
-        Livewire::test(ApiTokensLivewire::class)
+        Livewire::test(ApiTokens::class)
             ->assertSee('Eigenes Token')
             ->assertDontSee('Fremdes Token');
     }
@@ -119,8 +122,8 @@ class ApiTokensTest extends FeatureTest
         app(TenantApiTokenService::class)->create($tenant, 'Widerruf-Kandidat', TenantApiAbility::values());
         $token = $tenant->tokens()->firstOrFail();
 
-        Livewire::test(ApiTokensLivewire::class)
-            ->call('revoke', $token->id)
+        Livewire::test(ApiTokens::class)
+            ->callAction(TestAction::make('revoke')->table($token))
             ->assertDontSee('Widerruf-Kandidat');
 
         $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->id]);
@@ -134,7 +137,9 @@ class ApiTokensTest extends FeatureTest
         app(TenantApiTokenService::class)->create($foreign, 'Fremdes Token', TenantApiAbility::values());
         $foreignToken = $foreign->tokens()->firstOrFail();
 
-        Livewire::test(ApiTokensLivewire::class)->call('revoke', $foreignToken->id);
+        // Das fremde Token steht nicht in der Tabelle -- eine Aktion darauf
+        // findet den Datensatz nicht, und der Service lehnte ihn ohnehin ab.
+        Livewire::test(ApiTokens::class)->assertCanNotSeeTableRecords([$foreignToken]);
 
         $this->assertDatabaseHas('personal_access_tokens', ['id' => $foreignToken->id]);
     }
@@ -147,11 +152,12 @@ class ApiTokensTest extends FeatureTest
 
         app(TenantApiTokenService::class)->create($tenant, 'Erstes', TenantApiAbility::values());
 
-        Livewire::test(ApiTokensLivewire::class)
-            ->set('name', 'Zweites')
-            ->set('abilities', [TenantApiAbility::LEADS_READ->value])
-            ->call('createToken')
-            ->assertHasErrors('name');
+        Livewire::test(ApiTokens::class)
+            ->callAction(TestAction::make('createToken')->table(), [
+                'name' => 'Zweites',
+                'abilities' => [TenantApiAbility::LEADS_READ->value],
+            ])
+            ->assertNotified();
 
         $this->assertSame(1, $tenant->tokens()->count());
     }
@@ -165,6 +171,7 @@ class ApiTokensTest extends FeatureTest
         $user = $this->createUser($tenant, [TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS]);
 
         $this->actingAs($user);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($tenant, isQuiet: true);
 
         return [$tenant, $user];

@@ -7,8 +7,8 @@ namespace Tests\Feature\Funnel;
 use App\Constants\LeadState;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
-use App\Livewire\Dashboard\LeadDetail;
-use App\Livewire\Dashboard\LeadList;
+use App\Filament\Dashboard\Resources\Leads\Pages\ListLeads;
+use App\Filament\Dashboard\Resources\Leads\Pages\ViewLead;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadAnswer;
@@ -16,6 +16,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\LeadListQuery;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -179,9 +180,10 @@ class LeadListTest extends FeatureTest
         });
 
         $this->actingAs($admin);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($tenant);
 
-        Livewire::test(LeadList::class)->assertOk();
+        Livewire::test(ListLeads::class)->assertOk();
 
         $this->assertLessThan(15, $queries, "Die Seite hat {$queries} Abfragen ausgeloest -- das riecht nach N+1.");
     }
@@ -225,17 +227,21 @@ class LeadListTest extends FeatureTest
         $this->assertSame([$ownLead->id], $this->idsFor($mine, $admin, []));
 
         $this->actingAs($admin);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($mine);
 
-        $rendered = Livewire::test(LeadList::class)->assertSee('Lindqvist')->viewData('rows');
+        // Die Tabelle zeigt genau den eigenen Lead -- geprueft ueber die
+        // Datensaetze, nicht ueber den HTML-Text: eine nackte Kennung wie "8"
+        // steht auch in einer Punktzahl oder einer Seitenzahl.
+        Livewire::test(ListLeads::class)
+            ->assertCanSeeTableRecords([$ownLead])
+            ->assertCanNotSeeTableRecords([$foreignLead]);
 
-        // Nicht ueber den HTML-Text pruefen: eine nackte Kennung wie "8" steht
-        // auch in einer Punktzahl oder einer Seitenzahl.
-        $this->assertCount(1, $rendered);
-        $this->assertSame($ownLead->id, $rendered[0]['lead']->id);
+        // Auch mit geratener Kennung in der Adresszeile: Die Detailseite
+        // findet ihn nicht, weil getEloquentQuery auf den Workspace
+        // einschraenkt.
+        $this->expectException(ModelNotFoundException::class);
 
-        // Auch mit geratener Kennung in der Adresszeile.
-        Livewire::test(LeadDetail::class, ['leadId' => $foreignLead->id])
-            ->assertSee(__('leads.detail.not_found'));
+        Livewire::test(ViewLead::class, ['record' => $foreignLead->getKey()]);
     }
 }

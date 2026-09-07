@@ -1,4 +1,7 @@
 <x-filament-panels::page>
-    {{-- Huelle fuer Routing und Navigation; der Inhalt ist reines Livewire. --}}
-    @livewire('dashboard.lead-timeline')
+    {{-- FB-090: Zeitverlauf mit Filament-Komponenten. Die Reihe kommt als
+         Aggregat aus dem LeadTimelineReport. --}}
+    {{ $this->filters }}
+
+    {{ $this->table }}
 </x-filament-panels::page>

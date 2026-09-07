@@ -1,4 +1,6 @@
 <x-filament-panels::page>
-    {{-- Huelle fuer Routing und Navigation; der Inhalt ist reines Livewire. --}}
-    @livewire('dashboard.purchased-leads')
+    {{-- FB-090: Gekaufte Leads als Filament-Tabelle. Kontaktdaten stehen hier
+         im Klartext, weil der Kaufbeleg existiert -- entschieden wird das im
+         LeadContactResolver, nicht in dieser Ansicht. --}}
+    {{ $this->table }}
 </x-filament-panels::page>

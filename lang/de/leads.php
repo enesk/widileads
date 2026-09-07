@@ -39,6 +39,10 @@ return [
         'state_log' => 'Zustandsverlauf',
     ],
 
+    'resource' => [
+        'label' => 'Lead',
+    ],
+
     'list' => [
         'heading' => 'Leads',
         'nav_label' => 'Leads',

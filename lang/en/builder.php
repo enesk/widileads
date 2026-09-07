@@ -127,6 +127,10 @@ return [
     'delete_step_named' => 'Delete step :name',
     'delete_question_named' => 'Delete question :name',
     'funnels' => [
+        'model_label' => 'Funnel',
+        'created_at' => 'Created',
+        'published' => 'Funnel ":name" has been published.',
+        'duplicated' => 'Copy ":name" was created.',
         'nav_label' => 'My funnels',
         'heading' => 'Funnels',
         'table_caption' => 'All funnels of this workspace with status and actions',

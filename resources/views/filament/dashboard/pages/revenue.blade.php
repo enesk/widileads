@@ -1,4 +1,10 @@
 <x-filament-panels::page>
-    {{-- Huelle fuer Routing und Navigation; der Inhalt ist reines Livewire. --}}
-    @livewire('dashboard.revenue-overview')
+    {{-- FB-090: Umsatzuebersicht mit Filament-Komponenten. Alle Betraege kommen
+         in Cent aus dem OperatorRevenueReport und werden erst hier
+         formatiert. --}}
+    {{ $this->filters }}
+
+    {{ $this->summary }}
+
+    {{ $this->table }}
 </x-filament-panels::page>

@@ -127,6 +127,10 @@ return [
     'delete_step_named' => 'Schritt :name loeschen',
     'delete_question_named' => 'Frage :name loeschen',
     'funnels' => [
+        'model_label' => 'Funnel',
+        'created_at' => 'Angelegt',
+        'published' => 'Funnel ":name" ist veroeffentlicht.',
+        'duplicated' => 'Kopie ":name" wurde angelegt.',
         'nav_label' => 'Meine Funnels',
         'heading' => 'Funnels',
         'table_caption' => 'Alle Funnels dieses Workspace mit Status und Aktionen',

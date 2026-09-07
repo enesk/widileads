@@ -7,7 +7,7 @@ namespace Tests\Feature\Funnel;
 use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
-use App\Livewire\Dashboard\Marketplace;
+use App\Filament\Dashboard\Pages\Marketplace;
 use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
 use App\Models\BuyerRegistration;
@@ -17,6 +17,7 @@ use App\Models\LeadAnswer;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
@@ -204,6 +205,7 @@ class MarketplaceListingTest extends FeatureTest
         [$tenant, $user] = $this->approvedBuyer();
 
         $this->actingAs($user);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($tenant);
 
         $html = Livewire::actingAs($user)->test(Marketplace::class)->assertSuccessful()->html();
@@ -239,10 +241,11 @@ class MarketplaceListingTest extends FeatureTest
         [$otherTenant] = $this->approvedBuyer();
 
         $this->actingAs($user);
+        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($tenant);
 
         Livewire::actingAs($user)->test(Marketplace::class)
-            ->call('toggleWatchlist', $lead->getKey())
+            ->callAction(TestAction::make('watch')->table($lead))
             ->assertSuccessful();
 
         $entries = LeadWatchlistEntry::query()->withoutGlobalScope('tenant')->get();
@@ -259,7 +262,7 @@ class MarketplaceListingTest extends FeatureTest
 
         // Und ein zweiter Aufruf nimmt sie wieder zurueck.
         Livewire::actingAs($user)->test(Marketplace::class)
-            ->call('toggleWatchlist', $lead->getKey());
+            ->callAction(TestAction::make('watch')->table($lead));
 
         $this->assertSame(0, LeadWatchlistEntry::query()->withoutGlobalScope('tenant')->count());
     }
