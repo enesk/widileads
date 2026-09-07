@@ -8,13 +8,13 @@ use App\Constants\TenancyPermissionConstants;
 use App\Models\Funnel;
 use App\Models\Tenant;
 use App\Services\TenantPermissionService;
-use App\Services\TenantTypeService;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Huelle fuer den Funnel-Builder (FB-015).
@@ -70,7 +70,7 @@ class FunnelBuilder extends Page
 
         // Nur Betreiber verwalten Funnels - Kaeufer sehen den Bereich nicht
         // (FB-002).
-        if (! app(TenantTypeService::class)->canManageFunnels($tenant)) {
+        if (! Gate::allows('funnels.manage', $tenant)) {
             return false;
         }
 

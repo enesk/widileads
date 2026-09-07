@@ -7,12 +7,12 @@ namespace App\Filament\Dashboard\Pages;
 use App\Constants\TenancyPermissionConstants;
 use App\Models\Tenant;
 use App\Services\TenantPermissionService;
-use App\Services\TenantTypeService;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Einstieg in den Funnel-Builder (FB-028).
@@ -55,7 +55,7 @@ class Funnels extends Page
             return false;
         }
 
-        if (! app(TenantTypeService::class)->canManageFunnels($tenant)) {
+        if (! Gate::allows('funnels.manage', $tenant)) {
             return false;
         }
 
