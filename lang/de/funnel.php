@@ -112,6 +112,8 @@ return [
     ],
 
     'api_docs' => [
+        'management' => 'Management-API',
+        'public' => 'Oeffentliche Runtime-API',
         'title' => 'API-Dokumentation',
         'noscript' => 'Fuer die Darstellung der API-Dokumentation wird JavaScript benoetigt.',
         'download' => 'OpenAPI-Spezifikation herunterladen',

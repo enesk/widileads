@@ -106,6 +106,8 @@ return [
     ],
 
     'api_docs' => [
+        'management' => 'Management API',
+        'public' => 'Public runtime API',
         'title' => 'API documentation',
         'noscript' => 'JavaScript is required to display the API documentation.',
         'download' => 'Download the OpenAPI specification',

@@ -87,7 +87,7 @@ class OpenApiContractTest extends TestCase
             'abilities' => true,
         ],
         'Oeffentliche Runtime-API' => [
-            'path' => 'docs/openapi-public.yaml',
+            'path' => ApiDocsController::PUBLIC_SPEC_PATH,
             'prefix' => 'api/public/v1',
             'abilities' => false,
         ],

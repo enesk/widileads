@@ -265,10 +265,15 @@ Route::controller(InvoiceController::class)
 | API-Dokumentation (FB-030a)
 |--------------------------------------------------------------------------
 |
-| docs/openapi.yaml ist die Single Source of Truth der Management-API. Diese
-| beiden Routen zeigen sie an und liefern sie aus -- erzeugt wird hier nichts.
-| Der Contract-Test prueft, dass die Spezifikation und die tatsaechlich
-| registrierten Routen unter /api/v1 nicht auseinanderlaufen.
+| docs/openapi.yaml und docs/openapi-public.yaml sind die Single Source of Truth
+| der beiden APIs. Diese Routen zeigen sie an und liefern sie aus -- erzeugt
+| wird hier nichts. Der Contract-Test prueft, dass die Spezifikationen und die
+| tatsaechlich registrierten Routen unter /api/v1 und /api/public/v1 nicht
+| auseinanderlaufen.
+|
+| Die oeffentliche Runtime-API kam mit FB-030h dazu. Eine Spezifikation, die
+| nur im Repository liegt, ist interne Dokumentation -- FB-026 richtet sich
+| aber an fremde Frontends, die sie brauchen.
 |
 */
 
@@ -278,6 +283,9 @@ if (config('funnel.api.docs_enabled')) {
         ->group(function () {
             Route::get('/', 'index')->name('api-docs');
             Route::get('/openapi.yaml', 'spec')->name('api-docs.spec');
+
+            Route::get('/public', 'publicIndex')->name('api-docs.public');
+            Route::get('/openapi-public.yaml', 'publicSpec')->name('api-docs.public.spec');
         });
 }
 
