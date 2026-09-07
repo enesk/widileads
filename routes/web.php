@@ -13,6 +13,7 @@ use App\Http\Controllers\ProductCheckoutController;
 use App\Http\Controllers\RoadmapController;
 use App\Http\Controllers\SubscriptionCheckoutController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Middleware\AddFunnelSecurityHeaders;
 use App\Livewire\Funnel\FunnelRunner;
 use App\Models\Funnel;
 use App\Services\PlanService;
@@ -59,13 +60,14 @@ if (app()->environment('local', 'testing')) {
 // nicht erratbaren Token der veroeffentlichten Fassung, nie ueber eine ID.
 Route::get('/f/{token}', FunnelRunner::class)
     ->name('funnel.run')
+    ->middleware(AddFunnelSecurityHeaders::class)
     ->where('token', '[0-9A-Za-z]{26}');
 
 // FB-018: Vorschau des Entwurfsstands. Der signierte, befristete Link ist die
 // Zugangskontrolle - deshalb keine Auth-Middleware.
 Route::get('/f/{token}/vorschau', FunnelPreviewController::class)
     ->name('funnel.preview')
-    ->middleware('signed')
+    ->middleware(['signed', AddFunnelSecurityHeaders::class])
     ->where('token', '[0-9A-Za-z]{26}');
 
 // FB-073: Herunterladen eines fertigen Lead-Exports. Der Link ist signiert und

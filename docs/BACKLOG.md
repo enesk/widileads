@@ -253,3 +253,13 @@ Die offenen Punkte stehen als Einträge oben.
   seiner Liste führen wollte; das Modell wurde daraufhin aus der Liste genommen. Der
   saubere Weg wäre ein Eintrag in `answerProcessors()`. Gehört widileads-2 (FB-042).
   Aufgefallen bei: FB-041. Datum: 2026-09-07.
+
+- **Das Rate-Limit der öffentlichen Strecke bremst nichts, es bewertet nur** — `SpamGuard`
+  zählt abgeschlossene Einreichungen je IP-Hash und Stunde und setzt daraus ein Signal für
+  die Prüfung aus FB-033. Die Einreichung selbst läuft durch: Der Lead entsteht, landet in
+  `ungueltig` und belegt eine Zeile. Ein Bot kann die Lead-Tabelle also weiter füllen, nur
+  mit ungültigen Zeilen. Die Route `/f/{token}` hat zudem keinen `throttle` — was allein
+  aber nichts brächte, weil abgeschickt wird über den Livewire-Endpunkt. Ein wirksamer
+  Riegel gehört in den Absendepfad. In FB-043 geprüft und bewusst nicht gebaut, weil der
+  Ticketumfang die Bewertung nennt, nicht den Umbau.
+  Aufgefallen bei: FB-043. Datum: 2026-09-07.
