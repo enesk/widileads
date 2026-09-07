@@ -89,6 +89,16 @@ class Funnel extends Model
     }
 
     /**
+     * Ereignis-Abonnements dieses Funnels (FB-030e).
+     *
+     * @return HasMany<FunnelWebhook, $this>
+     */
+    public function webhooks(): HasMany
+    {
+        return $this->hasMany(FunnelWebhook::class);
+    }
+
+    /**
      * Seiten, die diesen Funnel einbetten duerfen (FB-025).
      *
      * @return HasMany<FunnelOrigin, $this>

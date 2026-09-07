@@ -1366,7 +1366,7 @@ paths:
       description: |
         Das Secret wird nie zurueckgegeben - es ist nur beim Anlegen einmal
         sichtbar. Wer es verloren hat, laesst es ueber `PATCH` neu erzeugen.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       responses:
@@ -1386,7 +1386,7 @@ paths:
         Legt ein Ereignis-Abonnement an. Die Antwort enthaelt das Secret im
         Klartext - **nur dieses eine Mal**. Mit ihm wird die HMAC-SHA256-Signatur
         im Header `X-Funnel-Signature` geprueft.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       parameters:
@@ -1417,7 +1417,7 @@ paths:
       operationId: showFunnelWebhook
       tags: [Webhooks]
       summary: Webhook lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       responses:
@@ -1437,7 +1437,7 @@ paths:
         Aendert Ziel-URL, Ereignisliste oder Aktivierung. Mit
         `rotate_secret: true` wird ein neues Secret erzeugt und - wie beim
         Anlegen - einmalig zurueckgegeben; das alte wird sofort ungueltig.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       requestBody:
@@ -1461,7 +1461,7 @@ paths:
       operationId: deleteFunnelWebhook
       tags: [Webhooks]
       summary: Webhook loeschen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       responses:
@@ -1486,7 +1486,7 @@ paths:
         Das Protokoll aus `webhook_deliveries`: je Zustellung das Ereignis, der
         Antwortcode, der Versuchszaehler und die Zeitpunkte. Es dient der
         Fehlersuche, wenn ein Empfaenger Ereignisse vermisst.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030e
       x-required-abilities: ['webhooks:manage']
       parameters:
