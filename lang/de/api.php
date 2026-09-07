@@ -37,6 +37,10 @@ return [
             'title' => 'Unerwarteter Fehler',
             'detail' => 'Die Anfrage konnte nicht verarbeitet werden.',
         ],
+        'funnel_has_leads' => [
+            'title' => 'Funnel hat bereits Leads',
+            'detail' => 'Dieser Funnel kann nicht geloescht werden, weil bereits Leads daraus entstanden sind. Archiviere ihn stattdessen.',
+        ],
     ],
 
 ];

@@ -37,6 +37,10 @@ return [
             'title' => 'Unexpected error',
             'detail' => 'The request could not be processed.',
         ],
+        'funnel_has_leads' => [
+            'title' => 'Funnel already has leads',
+            'detail' => 'This funnel cannot be deleted because leads have already been created from it. Archive it instead.',
+        ],
     ],
 
 ];

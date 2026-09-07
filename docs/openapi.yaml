@@ -202,7 +202,7 @@ paths:
       tags: [Funnels]
       summary: Funnels auflisten
       description: Alle Funnels des Workspaces, seitenweise und filterbar.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       parameters:
@@ -262,7 +262,7 @@ paths:
         serverseitig erzeugt; ohne `slug` wird er aus dem Namen abgeleitet. Die
         Struktur wird anschliessend entweder ueber die feingranularen Endpunkte
         oder in einem Zug ueber `PUT /funnels/{funnel}/structure` geschrieben.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -294,7 +294,7 @@ paths:
       operationId: showFunnel
       tags: [Funnels]
       summary: Funnel lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -314,7 +314,7 @@ paths:
         Aendert die Stammdaten des Funnels. Die Struktur bleibt unberuehrt;
         dafuer sind die Struktur-Endpunkte zustaendig. Der Zustand laesst sich
         hier nicht setzen - dafuer gibt es `publish` und `archive`.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -342,7 +342,7 @@ paths:
         Loescht einen Funnel samt seiner Struktur. Ein Funnel, zu dem bereits
         Leads existieren, wird nicht geloescht, sondern mit `409` abgewiesen -
         sonst verloeren die Leads ihren Ursprung. Er ist zu archivieren.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
@@ -373,7 +373,7 @@ paths:
         Ergebnis-Screens des Funnels in genau dem Format, das `PUT` wieder
         entgegennimmt. Es ist zugleich das Format der Snapshots in
         `funnel_versions` (FB-014) und der Seed-Vorlagen (FB-019).
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -398,7 +398,7 @@ paths:
         Entweder gelingt der gesamte Aufruf oder gar nichts - eine halb
         geschriebene Struktur gibt es nicht. Schlaegt die Validierung fehl,
         bleibt der Funnel unveraendert.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -640,7 +640,7 @@ paths:
       tags: [Funnel-Struktur]
       summary: Schritte auflisten
       description: Alle Schritte des Funnels, aufsteigend nach `position`.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -656,7 +656,7 @@ paths:
       operationId: createFunnelStep
       tags: [Funnel-Struktur]
       summary: Schritt anlegen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -687,7 +687,7 @@ paths:
       operationId: showFunnelStep
       tags: [Funnel-Struktur]
       summary: Schritt lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -703,7 +703,7 @@ paths:
       operationId: updateFunnelStep
       tags: [Funnel-Struktur]
       summary: Schritt aendern
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -731,7 +731,7 @@ paths:
         Loescht den Schritt samt seiner Fragen und deren Antwortoptionen. Ist er
         Sprungziel einer Verzweigungsregel, wird die Loeschung mit `409`
         abgewiesen - erst die Regel entfernen.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
@@ -754,7 +754,7 @@ paths:
       operationId: listFunnelQuestions
       tags: [Funnel-Struktur]
       summary: Fragen eines Schritts auflisten
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -774,7 +774,7 @@ paths:
         Der Feldschluessel wird beim Speichern vereinheitlicht und auf die
         reservierten Kontaktschluessel abgebildet ("E-Mail" wird zu `email`).
         Er ist je Funnel eindeutig - ein zweites Mal vergeben ergibt `422`.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -806,7 +806,7 @@ paths:
       operationId: showFunnelQuestion
       tags: [Funnel-Struktur]
       summary: Frage lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -822,7 +822,7 @@ paths:
       operationId: updateFunnelQuestion
       tags: [Funnel-Struktur]
       summary: Frage aendern
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -849,7 +849,7 @@ paths:
       description: |
         Loescht die Frage samt ihrer Antwortoptionen. Wird sie von einer
         Verzweigungsregel geprueft, wird die Loeschung mit `409` abgewiesen.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
@@ -873,7 +873,7 @@ paths:
       operationId: listFunnelOptions
       tags: [Funnel-Struktur]
       summary: Antwortoptionen auflisten
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -889,7 +889,7 @@ paths:
       operationId: createFunnelOption
       tags: [Funnel-Struktur]
       summary: Antwortoption anlegen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -922,7 +922,7 @@ paths:
       operationId: showFunnelOption
       tags: [Funnel-Struktur]
       summary: Antwortoption lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -938,7 +938,7 @@ paths:
       operationId: updateFunnelOption
       tags: [Funnel-Struktur]
       summary: Antwortoption aendern
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -962,7 +962,7 @@ paths:
       operationId: deleteFunnelOption
       tags: [Funnel-Struktur]
       summary: Antwortoption loeschen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
@@ -986,7 +986,7 @@ paths:
         Die Regeln, nach denen der Funnel zu einem anderen Schritt springt.
         Treffen mehrere zu, gewinnt die hoechste `priority`; trifft keine zu,
         geht es zum naechsten Schritt in der Reihenfolge.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -1002,7 +1002,7 @@ paths:
       operationId: createFunnelCondition
       tags: [Funnel-Struktur]
       summary: Verzweigungsregel anlegen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -1033,7 +1033,7 @@ paths:
       operationId: showFunnelCondition
       tags: [Funnel-Struktur]
       summary: Verzweigungsregel lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -1049,7 +1049,7 @@ paths:
       operationId: updateFunnelCondition
       tags: [Funnel-Struktur]
       summary: Verzweigungsregel aendern
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -1073,7 +1073,7 @@ paths:
       operationId: deleteFunnelCondition
       tags: [Funnel-Struktur]
       summary: Verzweigungsregel loeschen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
@@ -1098,7 +1098,7 @@ paths:
         Ergebnis erscheint, entscheidet die erreichte Punktzahl. Beim
         Veroeffentlichen wird geprueft, dass die Bereiche lueckenlos und
         ueberschneidungsfrei sind.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -1114,7 +1114,7 @@ paths:
       operationId: createFunnelResult
       tags: [Funnel-Struktur]
       summary: Ergebnis-Screen anlegen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       parameters:
@@ -1145,7 +1145,7 @@ paths:
       operationId: showFunnelResult
       tags: [Funnel-Struktur]
       summary: Ergebnis-Screen lesen
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:read']
       responses:
@@ -1161,7 +1161,7 @@ paths:
       operationId: updateFunnelResult
       tags: [Funnel-Struktur]
       summary: Ergebnis-Screen aendern
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       requestBody:
@@ -1188,7 +1188,7 @@ paths:
       description: |
         Ein Ergebnis, auf das bereits Leads verweisen, wird nicht geloescht,
         sondern mit `409` abgewiesen - sonst verloere der Lead seine Bewertung.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030b
       x-required-abilities: ['funnels:write']
       responses:
