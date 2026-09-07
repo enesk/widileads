@@ -19,6 +19,12 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
+- **Die Schwellwertregel schlägt auf neutrale Kommazahlen an** — `0.0` als Rückgabe
+  einer Quote ohne Grundgesamtheit ist kein fachlicher Schwellwert, wird von
+  `ArchitectureTest` aber als Kommazahl gemeldet (aufgetreten in
+  `FunnelConversionReport`). In FB-070 durch eine Hilfsmethode umgangen, statt die
+  Regel anzufassen. Aufgefallen bei: FB-070. Datum: 2026-09-07.
+
 - **Der Anteilspreis eines geteilten Leads wird nicht beim Anlegen eingefroren** — bei
   `sale_mode = exclusive` zahlt der Käufer den in `leads.price_at_creation` festgehaltenen
   Preis, bei `shared` dagegen den aktuellen `funnels.shared_price`. Grund: Leads, die vor
