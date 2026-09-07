@@ -102,6 +102,10 @@ class DashboardPanelProvider extends PanelProvider
                 return view('components.layouts.partials.analytics');
             })
             ->navigationGroups([
+                // FB-028: Der Funnel-Bereich steht oben - er ist der Grund,
+                // warum ein Betreiber das Dashboard ueberhaupt oeffnet.
+                NavigationGroup::make()
+                    ->label(__('builder.funnels.group')),
                 NavigationGroup::make()
                     ->label(__('Team'))
                     ->icon('heroicon-s-users')

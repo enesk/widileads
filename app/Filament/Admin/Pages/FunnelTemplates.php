@@ -45,7 +45,7 @@ class FunnelTemplates extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('Settings');
+        return __('builder.groups.funnels');
     }
 
     public function getTitle(): string

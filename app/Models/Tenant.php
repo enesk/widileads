@@ -107,6 +107,17 @@ class Tenant extends Model
         return $this->hasMany(Invitation::class);
     }
 
+    /**
+     * Funnels dieses Mandanten (FB-028). Die Gegenrelation zu Funnel::tenant();
+     * ohne sie gibt es keinen Einstieg in den Builder.
+     *
+     * @return HasMany<Funnel, $this>
+     */
+    public function funnels(): HasMany
+    {
+        return $this->hasMany(Funnel::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->using(TenantUser::class)->withPivot('id')->withTimestamps();

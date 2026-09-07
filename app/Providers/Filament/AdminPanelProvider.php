@@ -111,6 +111,20 @@ class AdminPanelProvider extends PanelProvider
                 ->collapsed(),
         ];
 
+        // FB-028: Die Gruppen des Funnel-Builders stehen vor den mitgelieferten
+        // SaaSykit-Gruppen. Vorher lagen Leads, Funnel-Vorlagen, Kaeufer und
+        // Guthabenkonto allesamt unter "Settings" - dort sucht sie niemand.
+        array_unshift(
+            $groups,
+            // Bewusst ohne Icon an der Gruppe: Filament laesst Icons entweder
+            // an der Gruppe oder an ihren Eintraegen zu, nicht an beidem. Die
+            // Eintraege sind die aussagekraeftigere Stelle - und so bricht die
+            // Navigation nicht, sobald eine kuenftige Resource ein Icon bekommt.
+            NavigationGroup::make()->label(fn () => (__('builder.groups.funnels'))),
+            NavigationGroup::make()->label(fn () => (__('builder.groups.leads'))),
+            NavigationGroup::make()->label(fn () => (__('builder.groups.marketplace'))),
+        );
+
         if (config('funnel.features.announcements')) {
             $groups[] = NavigationGroup::make()
                 ->label(fn () => (__('Announcements')))

@@ -42,7 +42,7 @@ class LeadResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('Settings');
+        return __('builder.groups.leads');
     }
 
     public static function getModelLabel(): string

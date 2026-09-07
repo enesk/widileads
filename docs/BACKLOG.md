@@ -37,6 +37,26 @@ Ein Eintrag je Zeile bzw. Absatz:
   Treffer. Wächst der Bestand, sind die Optionen: Antworten als generierte Spalten oder
   JSON-Index abbilden, oder passende Leads je Profil vorberechnen — in beiden Fällen gilt
   die Deckungsgleichheit oben.
+- **Die Testsuite rendert die Dashboard-Navigation nie** — in FB-028 hat eine falsch
+  gesetzte Navigationsgruppe (Icon an Gruppe *und* Eintrag, was Filament mit einer
+  Ausnahme quittiert) einen 500er auf **jeder** Dashboard-Seite eines Betreibers erzeugt.
+  `composer check` blieb grün: Kein Test öffnet eine Dashboard-Seite mit Operator-Tenant
+  und angemeldetem Nutzer. Gefunden nur, weil ich beim Nachsehen einen Wegwerf-Test
+  geschrieben habe. Ein einzelner Rauchtest („Dashboard rendert für einen Betreiber")
+  würde diese Klasse abdecken — bewusst nicht selbst angelegt, weil Abschnitt 8 Navigation
+  ausdrücklich testfrei stellt. Entscheidung liegt beim Auftraggeber.
+  Aufgefallen bei: FB-028. Datum: 2026-09-07.
+
+- **Marktplatz filtert in PHP und ist deshalb gedeckelt** — der `LeadMatcher` ist eine reine
+  Funktion (Zusage aus FB-051), also lassen sich Regionen- und Antwortfilter nicht in SQL
+  ausdrücken. `MarketplaceListing` schränkt in der Datenbank vor, was sie sicher kann
+  (Zustand, Betreiber, Funnelauswahl, Mindestpunktzahl), und prüft danach höchstens
+  `marketplace.listing.candidate_limit` Leads (Vorgabe 500) mit dem Matcher. Ein Käufer mit
+  sehr engen Kriterien und sehr vielen verfügbaren Leads sieht dadurch möglicherweise nicht
+  alle Treffer. Bei den erwarteten Größenordnungen unkritisch; wächst der Bestand, sind die
+  Optionen: Antwortfilter als generierte Spalten oder JSON-Index abbilden, oder passende
+  Leads je Profil vorberechnen (dann aber die Deckungsgleichheit mit dem Matcher absichern,
+  sonst laufen Anzeige und Autokauf auseinander).
   Aufgefallen bei: FB-053. Datum: 2026-09-07.
 - **`Order`-Beziehungen sind nicht typisiert** — `Order::items()` und `Order::tenant()` tragen
   keine Generics, deshalb liefert PHPStan dort `Model` statt `OrderItem`/`Tenant`. Der Versuch,

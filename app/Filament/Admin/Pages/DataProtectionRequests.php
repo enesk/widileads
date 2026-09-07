@@ -44,7 +44,7 @@ class DataProtectionRequests extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('Settings');
+        return __('builder.groups.leads');
     }
 
     public function getTitle(): string
