@@ -159,8 +159,45 @@ class PurchaseLeadTest extends FeatureTest
 
         $this->assertSame(LeadState::VERFUEGBAR, $staleLead->lead_state);
 
-        // Inzwischen kauft der Gewinner.
+        // Inzwischen kauft der Gewinner. Dabei wird mitgeschnitten, welche
+        // Abfragen laufen -- siehe die Sperr-Assertion unten.
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
         app(PurchaseLead::class)->handle($winner, $lead, $winnerUser);
+
+        $queries = array_column(DB::getRawQueryLog(), 'raw_query');
+        DB::disableQueryLog();
+
+        // Der Abgleich unter Sperre ist nur die halbe Zusage -- die andere ist,
+        // dass ueberhaupt gesperrt wird. Faellt das lockForUpdate() bei einem
+        // spaeteren Umbau weg, bliebe die Nachstellung unten trotzdem gruen:
+        // Der Abgleich greift dort auch ohne Sperre, weil nichts wirklich
+        // gleichzeitig laeuft. In echter Nebenlaeufigkeit koennten dann aber
+        // beide Transaktionen `verfuegbar` lesen und beide durchlaufen.
+        $lockingReads = array_values(array_filter(
+            $queries,
+            static fn (string $query): bool => str_contains(strtolower($query), 'for update')
+                && str_contains(strtolower($query), 'leads'),
+        ));
+
+        $this->assertNotSame([], $lockingReads, 'Der Lead muss zum Reservieren gesperrt gelesen werden.');
+
+        // Und die Sperre steht vor dem Zustandswechsel, nicht danach -- sonst
+        // schuetzte sie nichts.
+        $firstLock = array_key_first(array_filter(
+            $queries,
+            static fn (string $query): bool => str_contains(strtolower($query), 'for update'),
+        ));
+
+        $firstStateWrite = array_key_first(array_filter(
+            $queries,
+            static fn (string $query): bool => str_starts_with(strtolower(trim($query)), 'update `leads`')
+                && str_contains(strtolower($query), 'lead_state'),
+        ));
+
+        $this->assertNotNull($firstStateWrite, 'Der Zustandswechsel muss im Mitschnitt auftauchen.');
+        $this->assertLessThan($firstStateWrite, $firstLock, 'Erst sperren, dann schreiben.');
 
         // Und jetzt klickt der Verlierer -- mit seinem veralteten Stand.
         try {
