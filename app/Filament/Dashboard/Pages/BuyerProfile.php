@@ -38,6 +38,11 @@ class BuyerProfile extends Page
         return __('marketplace.profile.heading');
     }
 
+    public static function getNavigationGroup(): ?string
+    {
+        return __('builder.groups.marketplace');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('marketplace.profile.nav_label');

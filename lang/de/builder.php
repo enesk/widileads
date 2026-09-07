@@ -163,6 +163,7 @@ return [
         'funnels' => 'Funnels',
         'leads' => 'Leads',
         'marketplace' => 'Marktplatz',
+        'workspace' => 'Workspace',
     ],
 
 ];

@@ -32,6 +32,11 @@ class ApiTokens extends Page
         return __('funnel.api_token.heading');
     }
 
+    public static function getNavigationGroup(): ?string
+    {
+        return __('builder.groups.workspace');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('funnel.api_token.nav_label');

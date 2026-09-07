@@ -102,14 +102,19 @@ class DashboardPanelProvider extends PanelProvider
                 return view('components.layouts.partials.analytics');
             })
             ->navigationGroups([
-                // FB-028: Der Funnel-Bereich steht oben - er ist der Grund,
-                // warum ein Betreiber das Dashboard ueberhaupt oeffnet.
-                NavigationGroup::make()
-                    ->label(__('builder.funnels.group')),
-                NavigationGroup::make()
-                    ->label(__('Team'))
-                    ->icon('heroicon-s-users')
-                    ->collapsed(),
+                // FB-028: Reihenfolge nach Tenant-Typ. Oben, was ein Betreiber
+                // taeglich braucht, darunter der Kaeufer-Bereich, zuletzt die
+                // Verwaltung des Workspace. Bewusst ohne Icons an den Gruppen:
+                // Filament laesst sie entweder dort oder an den Eintraegen zu,
+                // und die Eintraege sind die aussagekraeftigere Stelle.
+                NavigationGroup::make()->label(__('builder.funnels.group')),
+                NavigationGroup::make()->label(__('builder.groups.leads')),
+                NavigationGroup::make()->label(__('builder.groups.marketplace')),
+                NavigationGroup::make()->label(__('builder.groups.workspace')),
+                // Vorher stand hier "Team", waehrend die Users-Seite
+                // "Team Management" traegt - die Gruppe wurde deshalb nie
+                // verwendet und die Sortierung griff nicht.
+                NavigationGroup::make()->label(__('Team Management')),
             ])
             ->renderHook(
                 PanelsRenderHook::BODY_START,
