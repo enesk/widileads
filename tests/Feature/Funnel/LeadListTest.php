@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\LeadListQuery;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
 
@@ -194,6 +195,9 @@ class LeadListTest extends FeatureTest
 
             foreach ($chunk as $index) {
                 $rows[] = [
+                    // Massen-Insert am Model vorbei: die Kennung aus FB-030d
+                    // muss hier von Hand mitkommen.
+                    'uuid' => (string) Str::uuid(),
                     'tenant_id' => $tenant->id,
                     'funnel_id' => $funnel->id,
                     'lead_state' => LeadState::VERFUEGBAR->value,

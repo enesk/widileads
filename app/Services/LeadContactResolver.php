@@ -40,6 +40,35 @@ class LeadContactResolver
     }
 
     /**
+     * Kontaktdaten aus Sicht eines Workspaces (FB-030d).
+     *
+     * Ueber die API fragt kein Benutzer, sondern der Workspace selbst: Das
+     * Token gehoert dem Tenant, nicht einer Person (FB-006). Die Regel ist
+     * dieselbe wie fuer Benutzer, nur ohne den Umweg ueber deren
+     * Mitgliedschaften -- der Eigentuemer sieht Klartext, ein Kaeufer erst nach
+     * dem Kauf.
+     */
+    public function forTenant(Lead $lead, ?Tenant $tenant): LeadContact
+    {
+        $contact = LeadContact::fromLead($lead);
+
+        return $this->tenantMaySeeClearText($lead, $tenant) ? $contact : $contact->masked();
+    }
+
+    public function tenantMaySeeClearText(Lead $lead, ?Tenant $tenant): bool
+    {
+        if (! $tenant instanceof Tenant) {
+            return false;
+        }
+
+        if ((int) $tenant->getKey() === (int) $lead->tenant_id) {
+            return true;
+        }
+
+        return $this->purchases->hasPurchased($tenant, $lead);
+    }
+
+    /**
      * Die unmaskierte Fassung fuer die serverseitige Auswertung (FB-033).
      *
      * Ausdruecklich NICHT fuer die Ausgabe: Was hier herauskommt, darf niemals

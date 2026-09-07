@@ -1221,7 +1221,7 @@ paths:
         Kaufstatus - nicht der Client, und nicht ueber einen Parameter. Eine
         Liste kann beide Auspraegungen mischen: gekaufte Leads im Klartext, die
         uebrigen maskiert.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030d
       x-required-abilities: ['leads:read']
       parameters:
@@ -1331,7 +1331,7 @@ paths:
         Ein einzelner Lead. Fuer die Maskierung gilt dasselbe wie bei
         `GET /leads`: Der Server entscheidet, ob `LeadMasked` oder `LeadFull`
         ausgeliefert wird.
-      x-status: planned
+      x-status: implemented
       x-ticket: FB-030d
       x-required-abilities: ['leads:read']
       responses:
@@ -3304,14 +3304,21 @@ components:
           description: Erreichte Punktzahl der Qualifizierung.
           x-ticket: FB-031
         result:
-          description: Der ausgespielte Ergebnis-Screen.
+          description: |
+            Der ausgespielte Ergebnis-Screen, als Schluessel seines
+            Punktebereichs innerhalb der Version -- **nicht** als ID einer Zeile
+            aus `funnel_results`. Ein Lead speichert `funnel_version_id` plus
+            diesen Schluessel (siehe docs/funnel-builder/snapshot-format.md): Die
+            Live-Zeile darf sich aendern, die veroeffentlichte Fassung nicht.
           x-ticket: FB-031
           oneOf:
             - type: object
-              required: [id, title]
+              required: [key, title]
               properties:
-                id:
-                  $ref: '#/components/schemas/ResourceId'
+                key:
+                  type: string
+                  description: Punktebereich des Ergebnisses, innerhalb der Version stabil.
+                  examples: ['4-7']
                 title:
                   type: string
               additionalProperties: false

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Ein Lead: eine vollstaendige Funnel-Anfrage eines Endkunden (FB-030).
@@ -37,6 +38,7 @@ use Illuminate\Support\Carbon;
  * Mandantenkontext sieht jede Abfrage nur dessen Leads.
  *
  * @property int $id
+ * @property string $uuid
  * @property int $tenant_id
  * @property int|null $funnel_id
  * @property int|null $funnel_version_id
@@ -166,6 +168,16 @@ class Lead extends Model
     }
 
     /**
+     * Kontaktdaten aus Sicht eines Workspaces (FB-030d).
+     *
+     * Ueber die API fragt das Token eines Tenants, nicht ein Benutzer.
+     */
+    public function contactForTenant(?Tenant $tenant): LeadContact
+    {
+        return app(LeadContactResolver::class)->forTenant($this, $tenant);
+    }
+
+    /**
      * Steht der Lead in einem Endzustand?
      */
     public function isInFinalState(): bool
@@ -179,6 +191,15 @@ class Lead extends Model
     public function isSettled(): bool
     {
         return $this->settled_at !== null;
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $lead): void {
+            if (($lead->uuid ?? '') === '') {
+                $lead->uuid = (string) Str::uuid();
+            }
+        });
     }
 
     /**
