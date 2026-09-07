@@ -68,12 +68,24 @@ class LeadStateService
 
         return DB::transaction(function () use ($lead, $from, $to, $reason, $actor, $meta): Lead {
             $locked = Lead::query()
-                // Ohne Mandanten-Scope: Der Aufrufer hat den Lead bereits
-                // identifiziert, diese Abfrage sperrt ihn nur noch. Mit Scope
-                // faende sie im Kaeufer-Kontext nichts, weil der Lead dem
-                // Betreiber gehoert -- und jeder Kauf durch einen eingeloggten
-                // Kaeufer schluege fehl (FB-055a). Die Mandantenpruefung gehoert
-                // an die Stelle, die den Lead holt, nicht an die, die ihn sperrt.
+                // Ohne Mandanten-Scope, und zwar an genau dieser einen Abfrage
+                // -- nicht am Modell und nicht global (FB-055a).
+                //
+                // Diese Zeile ist KEINE Erlaubnis, den Scope anderswo zu
+                // umgehen. Sie holt keinen Lead, sie sperrt einen, den der
+                // Aufrufer bereits identifiziert hat. Fuer die Berechtigung ist
+                // ausschliesslich der Aufrufer zustaendig: MarketplaceListing,
+                // PurchaseLead, LeadResource -- also die Stellen, die einen Lead
+                // HOLEN. Dieser Dienst ist eine interne Zustandsmaschine, keine
+                // Berechtigungsgrenze.
+                //
+                // Mit Scope faende die Abfrage im Kaeufer-Kontext nichts, weil
+                // er dort auf die tenant_id des Kaeufers zielt, der Lead aber
+                // dem Betreiber gehoert. firstOrFail() wuerde werfen, und jeder
+                // Kauf durch einen eingeloggten Kaeufer schluege fehl -- nicht
+                // nur der Mehrfachverkauf, sondern FB-054 vollstaendig. Ein
+                // Scope an der Sperre schuetzt nichts; er verhindert nur den
+                // legitimen Zugriff.
                 ->withoutGlobalScope('tenant')
                 ->whereKey($lead->getKey())
                 ->lockForUpdate()
