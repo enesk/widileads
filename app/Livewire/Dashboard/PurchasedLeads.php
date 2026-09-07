@@ -7,11 +7,14 @@ namespace App\Livewire\Dashboard;
 use App\Constants\AuditAction;
 use App\Constants\BuyerLeadFeedback;
 use App\Constants\FunnelFieldKey;
+use App\Constants\LeadState;
+use App\Exceptions\ComplaintNotAllowedException;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Presenters\LeadPresenter;
 use App\Services\AuditLogger;
+use App\Services\LeadComplaintService;
 use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -45,6 +48,22 @@ class PurchasedLeads extends Component
 
     public ?string $selectedFeedback = null;
 
+    /**
+     * Begruendung je Kauf, waehrend der Kaeufer sie tippt.
+     *
+     * @var array<int, string>
+     */
+    public array $complaintReason = [];
+
+    /**
+     * Beantragter Zustand je Kauf.
+     *
+     * @var array<int, string>
+     */
+    public array $complaintState = [];
+
+    public ?string $complaintError = null;
+
     public function setFeedback(int $purchaseId, string $feedback): void
     {
         $value = BuyerLeadFeedback::tryFrom($feedback);
@@ -63,6 +82,41 @@ class PurchasedLeads extends Component
             'buyer_feedback' => $value,
             'buyer_feedback_at' => now(),
         ]);
+    }
+
+    /**
+     * Reklamiert einen Kauf (FB-058).
+     *
+     * Die Komponente entscheidet nichts: Der Antrag geht in die Pruefliste, ein
+     * Mensch sieht ihn an. Was hier abgefangen wird, sind die alltaeglichen
+     * Ausgaenge -- Frist abgelaufen, schon reklamiert, Lead nicht mehr
+     * verkauft. Alles Hinweise, keine Fehler.
+     */
+    public function fileComplaint(int $purchaseId): void
+    {
+        $purchase = $this->purchases()->firstWhere('id', $purchaseId);
+
+        if (! $purchase instanceof LeadPurchase) {
+            return;
+        }
+
+        $state = LeadState::tryFrom((string) ($this->complaintState[$purchaseId] ?? ''));
+
+        try {
+            app(LeadComplaintService::class)->file(
+                $purchase,
+                $this->tenant(),
+                $state ?? LeadState::UNERREICHBAR,
+                (string) ($this->complaintReason[$purchaseId] ?? ''),
+            );
+        } catch (ComplaintNotAllowedException $exception) {
+            $this->complaintError = $exception->getMessage();
+
+            return;
+        }
+
+        $this->complaintError = null;
+        unset($this->complaintReason[$purchaseId], $this->complaintState[$purchaseId]);
     }
 
     public function updatedOnlyWithoutFeedback(): void
@@ -147,8 +201,14 @@ class PurchasedLeads extends Component
                 'purchase' => $purchase,
                 'presenter' => new LeadPresenter($purchase->lead, $viewer),
                 'qualification' => $this->qualificationAnswers($purchase),
+                'complaint' => $purchase->complaint,
+                'canComplain' => $this->canComplain($purchase),
             ]),
             'feedbackOptions' => BuyerLeadFeedback::options(),
+            'complaintStates' => [
+                LeadState::UNERREICHBAR->value => LeadState::UNERREICHBAR->label(),
+                LeadState::UNGUELTIG->value => LeadState::UNGUELTIG->label(),
+            ],
         ]);
     }
 
@@ -182,12 +242,34 @@ class PurchasedLeads extends Component
     }
 
     /**
+     * Kann dieser Kauf noch reklamiert werden?
+     *
+     * Nur eine Vorschau fuer die Oberflaeche -- verbindlich prueft der
+     * LeadComplaintService in dem Moment, in dem der Antrag kommt.
+     */
+    private function canComplain(LeadPurchase $purchase): bool
+    {
+        if ($purchase->complaint !== null) {
+            return false;
+        }
+
+        if ($purchase->lead?->lead_state !== LeadState::VERKAUFT) {
+            return false;
+        }
+
+        $deadline = $purchase->purchased_at?->copy()->addDays((int) config('funnel.call.deadline_days'));
+
+        return $deadline === null || $deadline->isFuture();
+    }
+
+    /**
      * @return Collection<int, LeadPurchase>
      */
     private function purchases(): Collection
     {
         $query = LeadPurchase::query()
             ->with([
+                'complaint',
                 'lead.answers',
                 // Ohne Mandanten-Scope: Der Fragebogen gehoert dem Betreiber,
                 // nicht dem Kaeufer. Mit Scope kaeme hier immer null heraus,

@@ -35,3 +35,8 @@ Schedule::command('app:abandon-stale-funnel-sessions')->everyFiveMinutes();
 // lang ist, waere Verschwendung -- spaeter als eine Minute nach Ablauf
 // freizugeben, aergert dagegen den naechsten Kaeufer.
 Schedule::command('app:release-expired-lead-reservations')->everyMinute();
+
+// FB-058: Kaeufe abschliessen, deren Reklamationsfrist abgelaufen ist. Die
+// Frist steht in config('funnel.call.deadline_days'); taeglich zu pruefen
+// genuegt, sie zaehlt in Tagen.
+Schedule::command('app:settle-elapsed-complaint-periods')->dailyAt('01:00');
