@@ -494,4 +494,32 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Export von Leads (FB-073)
+    |--------------------------------------------------------------------------
+    |
+    | Der Export laeuft in der Warteschlange und legt eine Datei ab. Der
+    | Download-Link ist signiert und befristet: Wer ihn weiterreicht, reicht
+    | Kontaktdaten weiter.
+    |
+    */
+
+    'export' => [
+
+        // Ablage der erzeugten Dateien. Bewusst nicht 'public' -- die Datei
+        // darf nur ueber den signierten Link erreichbar sein.
+        'disk' => (string) env('FUNNEL_EXPORT_DISK', 'local'),
+
+        // Gueltigkeitsdauer des Download-Links in Minuten.
+        'link_ttl_minutes' => (int) env('FUNNEL_EXPORT_LINK_TTL_MINUTES', 60),
+
+        // Wie viele Leads je Durchgang aus der Datenbank geholt werden.
+        'chunk_size' => (int) env('FUNNEL_EXPORT_CHUNK_SIZE', 500),
+
+        // Wie viele vergangene Exporte die Uebersicht zeigt.
+        'history_size' => (int) env('FUNNEL_EXPORT_HISTORY_SIZE', 25),
+
+    ],
+
 ];
