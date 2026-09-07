@@ -34,6 +34,14 @@ class FunnelManagementApiTenancyTest extends FeatureTest
 
         $headers = $this->authorizationFor($own);
 
+        // ZUERST der fremde Funnel, bevor irgendein anderer Aufruf lief: Der
+        // Mandantenkontext lebt im Container weiter, ein vorheriger Request
+        // wuerde ihn also setzen und das Ergebnis faelschen. In Produktion ist
+        // jeder Request frisch -- genau dieser Fall muss geprueft werden.
+        $this->getJson('/api/v1/funnels/'.$foreignFunnel->public_token, $headers)
+            ->assertNotFound()
+            ->assertJsonPath('type', '/problems/not-found');
+
         // Die Liste zeigt nur die eigenen Funnels.
         $list = $this->getJson('/api/v1/funnels', $headers)->assertOk();
 
@@ -43,10 +51,6 @@ class FunnelManagementApiTenancyTest extends FeatureTest
 
         // Ein fremder Funnel ist nicht "verboten", sondern nicht vorhanden:
         // Sonst liesse sich an der Antwort ablesen, dass es ihn gibt.
-        $this->getJson('/api/v1/funnels/'.$foreignFunnel->public_token, $headers)
-            ->assertNotFound()
-            ->assertJsonPath('type', '/problems/not-found');
-
         $this->patchJson('/api/v1/funnels/'.$foreignFunnel->public_token, ['name' => 'Uebernommen'], $headers)
             ->assertNotFound();
 
