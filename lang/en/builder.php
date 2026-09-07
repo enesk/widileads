@@ -142,6 +142,7 @@ return [
         'open_builder' => 'Steps & questions',
         'open_rules' => 'Branching',
         'open_theme' => 'Appearance',
+        'open_sale' => 'Sale',
         'publish' => 'Publish',
         'publish_named' => 'Publish :name',
         'not_publishable' => 'Not publishable yet:',
@@ -165,6 +166,29 @@ return [
         'marketplace' => 'Marketplace',
         'security' => 'Security',
         'settings' => 'Settings',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sale settings (FB-055a)
+    |--------------------------------------------------------------------------
+    */
+
+    'sale' => [
+        'title' => 'Sale: :funnel',
+        'nav_label' => 'Sale',
+        'section' => 'Sale mode and prices',
+        'description' => 'Defines how often a lead from this questionnaire is sold and what a buyer pays for it.',
+        'mode' => 'Sale mode',
+        'mode_help' => 'Exclusive: one lead, one buyer. Shared: the same lead goes to several buyers at a lower price.',
+        'lead_price' => 'Price per lead (exclusive)',
+        'lead_price_help' => 'Empty: the default price from the configuration applies.',
+        'max_buyers' => 'Maximum buyers',
+        'max_buyers_help' => 'How many buyers before the lead leaves the marketplace. At least two -- one would be an exclusive sale.',
+        'shared_price' => 'Price per buyer (shared)',
+        'shared_price_help' => 'Empty: the default from the configuration applies. The price is frozen when a lead is created; a later change only affects new leads.',
+        'submit' => 'Save',
+        'saved' => 'Sale settings saved.',
     ],
 
 ];

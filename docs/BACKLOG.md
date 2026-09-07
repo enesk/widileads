@@ -25,20 +25,21 @@ Ein Eintrag je Zeile bzw. Absatz:
   `FunnelConversionReport`). In FB-070 durch eine Hilfsmethode umgangen, statt die
   Regel anzufassen. Aufgefallen bei: FB-070. Datum: 2026-09-07.
 
-- **Der Anteilspreis eines geteilten Leads wird nicht beim Anlegen eingefroren** — bei
-  `sale_mode = exclusive` zahlt der Käufer den in `leads.price_at_creation` festgehaltenen
-  Preis, bei `shared` dagegen den aktuellen `funnels.shared_price`. Grund: Leads, die vor
-  FB-055 entstanden sind, tragen in `price_at_creation` den Exklusivpreis. Ändert ein
-  Betreiber den Anteilspreis, wirkt das auf bereits vorhandene Leads. Sauber wäre eine
-  zweite Spalte am Lead, die den Anteilspreis bei Entstehung festhält — das ist FB-031er
-  Gebiet und nicht Teil von FB-055.
-  Aufgefallen bei: FB-055. Datum: 2026-09-07.
-- **Ein geteilter Lead kostet ein volles Guthaben bei halbem Geldwert** — `CREDITS_PER_LEAD`
-  ist 1, unabhängig von der Verkaufsart. Ein Käufer zahlt für einen `shared`-Lead also
-  denselben Guthabenbetrag wie für einen exklusiven, obwohl der Geldwert bei 7,50 € statt
-  15,00 € liegt. Solange Guthabenpakete in „Leads" verkauft werden, ist das stimmig; sobald
-  Guthaben und Geld auseinanderlaufen sollen, ist es eine Geschäftsentscheidung.
-  Aufgefallen bei: FB-055. Datum: 2026-09-07.
+- **~~Der Anteilspreis eines geteilten Leads wird nicht beim Anlegen eingefroren~~** —
+  **Erledigt mit FB-055a:** `leads.shared_price_at_creation` hält ihn beim Anlegen fest,
+  Bestandsleads wurden beim Migrieren mit dem damaligen Funnelpreis gefüllt.
+- **⚠️ Ein geteilter Lead kostet ein volles Guthaben bei halbem Geldwert** —
+  **Vor der produktiven Nutzung von `shared` entscheiden, sonst verschenkt der Betreiber
+  pro geteiltem Lead die Hälfte.** `CREDITS_PER_LEAD` ist 1, unabhängig von der
+  Verkaufsart. Ein Käufer zahlt für einen `shared`-Lead denselben Guthabenbetrag wie für
+  einen exklusiven, obwohl der Geldwert bei 7,50 € statt 15,00 € liegt — der Betreiber
+  bekommt also für einen halb so wertvollen Lead ein volles Guthaben abgebucht und
+  verliert die Differenz.
+  Heute trifft es niemanden: `exclusive` ist Vorgabe (Entscheidung 2), `shared` ist gebaut,
+  aber nicht in Benutzung. Ganzzahlige Guthaben und halbe Preise passen nicht zusammen; eine
+  saubere Lösung wären entweder Bruchteile von Guthaben oder eine Entkopplung von Guthaben
+  und Geldwert. Beides ist zu groß für ein Nebenbei und braucht eine Geschäftsentscheidung.
+  Aufgefallen bei: FB-055. Bestätigt und zurückgestellt: FB-055a. Datum: 2026-09-07.
 - **Die SQL-Vorauswahl des Marktplatzes muss deckungsgleich zum `LeadMatcher` bleiben** —
   **Zusicherung, bei jeder Änderung an den Kaufkriterien mitzuprüfen.**
   `MarketplaceListing` schränkt in der Datenbank vor, was sich dort sicher ausdrücken lässt

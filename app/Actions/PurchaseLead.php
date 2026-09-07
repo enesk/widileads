@@ -10,6 +10,7 @@ use App\Events\Lead\LeadPurchased;
 use App\Exceptions\IllegalLeadTransition;
 use App\Exceptions\InsufficientCreditsException;
 use App\Exceptions\LeadNotPurchasableException;
+use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
@@ -128,7 +129,15 @@ class PurchaseLead
         return DB::transaction(function () use ($buyer, $lead, $actor): LeadPurchase {
             // Der Lead ist reserviert; die Sperre haelt ihn bis zum Ende der
             // Transaktion fest.
-            $locked = Lead::query()->whereKey($lead->getKey())->lockForUpdate()->firstOrFail();
+            // Ohne Mandanten-Scope: Der Kauf laeuft im Kontext des Kaeufers,
+            // der Lead gehoert dem Betreiber. Mit Scope faende diese Abfrage
+            // den Lead nicht -- und zwar mit einer Ausnahme, nicht mit einer
+            // Fehlermeldung, die einem Kaeufer etwas sagt (FB-055a).
+            $locked = Lead::query()
+                ->withoutGlobalScope('tenant')
+                ->whereKey($lead->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($locked->lead_state !== LeadState::RESERVIERT
                 || (int) $locked->reserved_by !== (int) $buyer->getKey()) {
@@ -148,7 +157,7 @@ class PurchaseLead
             // Kaufbeleg.
             $this->credits->debit($buyer, self::CREDITS_PER_LEAD, $purchase);
 
-            $maxBuyers = $lead->funnel?->effectiveMaxBuyers() ?? 1;
+            $maxBuyers = $this->funnelOf($lead)?->effectiveMaxBuyers() ?? 1;
             $sold = LeadPurchase::query()->where('lead_id', $lead->getKey())->count();
             $slotsLeft = max(0, $maxBuyers - $sold);
 
@@ -214,14 +223,21 @@ class PurchaseLead
      */
     private function priceCentsOf(Lead $lead): int
     {
-        $funnel = $lead->funnel;
+        $funnel = $this->funnelOf($lead);
 
-        // Im Mehrfachverkauf zahlt jeder Kaeufer den Anteilspreis des Funnels
-        // (FB-055) -- er bekommt den Lead nicht allein. Der beim Anlegen
-        // festgehaltene Preis taugt dafuer nicht: Er stammt aus der Zeit vor
-        // FB-055 und traegt den Exklusivpreis.
+        // Im Mehrfachverkauf zahlt jeder Kaeufer den Anteilspreis -- er bekommt
+        // den Lead nicht allein. Massgeblich ist der beim Anlegen des Leads
+        // festgeschriebene Anteilspreis (FB-055a), nicht der heutige Wert am
+        // Funnel: Der Kaeufer kauft zu dem Preis, zu dem der Lead ihm angeboten
+        // wurde (Architekturleitsatz 4).
         if ($funnel !== null && $funnel->sale_mode->isShared()) {
-            return (int) round($funnel->effectivePriceForSale() * 100);
+            $shared = $lead->getAttribute('shared_price_at_creation');
+
+            if (! is_numeric($shared)) {
+                $shared = $funnel->effectiveSharedPrice();
+            }
+
+            return (int) round(((float) $shared) * 100);
         }
 
         $price = $lead->getAttribute('price_at_creation');
@@ -231,6 +247,31 @@ class PurchaseLead
         }
 
         return (int) round(((float) $price) * 100);
+    }
+
+    /**
+     * Der Funnel eines Leads -- ohne Mandanten-Scope.
+     *
+     * Der Kauf laeuft im Kontext des KAEUFERS, der Funnel gehoert aber dem
+     * BETREIBER. Ueber die gewoehnliche Beziehung zielte der Scope aus FB-010
+     * auf die tenant_id des Kaeufers und lieferte null -- ohne Fehler, einfach
+     * nichts. Die Verkaufsart waere damit immer als `exclusive` gelesen worden
+     * und der Mehrfachverkauf haette nie gegriffen (FB-055a).
+     *
+     * Bewusst hier und benannt am Scope vorbei, nicht global aufgeweicht: Der
+     * Scope ist an jeder anderen Stelle richtig.
+     */
+    private function funnelOf(Lead $lead): ?Funnel
+    {
+        if ($lead->funnel_id === null) {
+            return null;
+        }
+
+        $funnel = Funnel::query()
+            ->withoutGlobalScope('tenant')
+            ->find($lead->funnel_id);
+
+        return $funnel instanceof Funnel ? $funnel : null;
     }
 
     /**
