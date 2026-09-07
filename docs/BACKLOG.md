@@ -19,16 +19,24 @@ Ein Eintrag je Zeile bzw. Absatz:
 
 ## Einträge
 
-- **Marktplatz filtert in PHP und ist deshalb gedeckelt** — der `LeadMatcher` ist eine reine
-  Funktion (Zusage aus FB-051), also lassen sich Regionen- und Antwortfilter nicht in SQL
-  ausdrücken. `MarketplaceListing` schränkt in der Datenbank vor, was sie sicher kann
-  (Zustand, Betreiber, Funnelauswahl, Mindestpunktzahl), und prüft danach höchstens
-  `marketplace.listing.candidate_limit` Leads (Vorgabe 500) mit dem Matcher. Ein Käufer mit
-  sehr engen Kriterien und sehr vielen verfügbaren Leads sieht dadurch möglicherweise nicht
-  alle Treffer. Bei den erwarteten Größenordnungen unkritisch; wächst der Bestand, sind die
-  Optionen: Antwortfilter als generierte Spalten oder JSON-Index abbilden, oder passende
-  Leads je Profil vorberechnen (dann aber die Deckungsgleichheit mit dem Matcher absichern,
-  sonst laufen Anzeige und Autokauf auseinander).
+- **Die SQL-Vorauswahl des Marktplatzes muss deckungsgleich zum `LeadMatcher` bleiben** —
+  **Zusicherung, bei jeder Änderung an den Kaufkriterien mitzuprüfen.**
+  `MarketplaceListing` schränkt in der Datenbank vor, was sich dort sicher ausdrücken lässt
+  (Zustand, Betreiber, Funnelauswahl, Mindestpunktzahl, Postleitzahl-Präfix); über die
+  Aufnahme entscheidet danach allein der Matcher. Die Regel dafür ist einseitig: **Die
+  Vorauswahl darf nur ausschließen, was der Matcher ohnehin ablehnen würde — nie
+  umgekehrt.** Schließt sie zu viel aus, sieht ein Käufer passende Leads nie, und es fällt
+  niemandem auf: Anzeige und Autokauf (FB-056) laufen still auseinander. Wer ein Kriterium
+  hinzufügt, ändert oder in SQL nachzieht, prüft diese Richtung mit — der Fall mit
+  Leerraum in der Postleitzahl in `MarketplaceListingTest` ist das Muster dafür.
+  Aufgefallen bei: FB-053. Datum: 2026-09-07.
+- **Antwortfilter des Marktplatzes laufen weiterhin in PHP** — `answer_filters` ist das
+  einzige Kriterium, das sich nicht sinnvoll in SQL vorziehen lässt. Deshalb bleibt
+  `marketplace.listing.candidate_limit` (Vorgabe 500) als Notbremse: Ein Käufer mit sehr
+  engen Antwortfiltern und sehr vielen verfügbaren Leads sieht möglicherweise nicht alle
+  Treffer. Wächst der Bestand, sind die Optionen: Antworten als generierte Spalten oder
+  JSON-Index abbilden, oder passende Leads je Profil vorberechnen — in beiden Fällen gilt
+  die Deckungsgleichheit oben.
   Aufgefallen bei: FB-053. Datum: 2026-09-07.
 - **`Order`-Beziehungen sind nicht typisiert** — `Order::items()` und `Order::tenant()` tragen
   keine Generics, deshalb liefert PHPStan dort `Model` statt `OrderItem`/`Tenant`. Der Versuch,
