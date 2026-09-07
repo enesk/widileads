@@ -471,4 +471,32 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Webhooks (FB-030e)
+    |--------------------------------------------------------------------------
+    */
+
+    'webhooks' => [
+
+        // Hoechstzahl der Zustellversuche je Ereignis. Danach gilt die
+        // Zustellung als verbraucht und wird nicht weiter versucht -- ein
+        // dauerhaft nicht erreichbarer Empfaenger darf die Queue nicht fuellen.
+        'max_attempts' => (int) env('FUNNEL_WEBHOOKS_MAX_ATTEMPTS', 5),
+
+        // Wartezeiten in Sekunden zwischen den Versuchen, exponentiell
+        // steigend. Kurz genug fuer eine kurze Stoerung, lang genug, um einen
+        // ueberlasteten Empfaenger nicht weiter zu belasten.
+        'retry_delays' => [10, 60, 300, 1800],
+
+        // Zeitlimit einer einzelnen Zustellung in Sekunden. Ein Empfaenger, der
+        // laenger braucht, blockiert sonst einen Queue-Worker.
+        'timeout_seconds' => (int) env('FUNNEL_WEBHOOKS_TIMEOUT_SECONDS', 10),
+
+        // Hoechstalter einer Signatur in Sekunden, das ein Empfaenger annehmen
+        // sollte. Steht in der Dokumentation und wird von uns mitgesendet.
+        'signature_tolerance_seconds' => (int) env('FUNNEL_WEBHOOKS_SIGNATURE_TOLERANCE', 300),
+
+    ],
+
 ];

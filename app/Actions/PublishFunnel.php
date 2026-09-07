@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Constants\FunnelFieldKey;
 use App\Constants\FunnelStatus;
+use App\Events\Funnel\FunnelPublished;
 use App\Exceptions\FunnelNotPublishableException;
 use App\Funnel\Results\ResultRangeValidator;
 use App\Funnel\Snapshots\FunnelSnapshot;
@@ -62,6 +63,11 @@ class PublishFunnel
                 'status' => FunnelStatus::PUBLISHED,
                 'current_version_id' => $version->id,
             ])->save();
+
+            // Wer auf Veroeffentlichungen reagieren will -- Webhooks (FB-030e),
+            // spaeter Benachrichtigungen -- haengt sich an das Ereignis, statt
+            // dass diese Action ihn kennen muss.
+            FunnelPublished::dispatch($funnel, $version);
 
             return $version;
         });

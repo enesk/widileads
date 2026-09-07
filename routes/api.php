@@ -12,7 +12,9 @@ use App\Http\Controllers\Api\V1\FunnelResultController;
 use App\Http\Controllers\Api\V1\FunnelStepController;
 use App\Http\Controllers\Api\V1\FunnelStructureController as ManagementFunnelStructureController;
 use App\Http\Controllers\Api\V1\FunnelVersionController;
+use App\Http\Controllers\Api\V1\FunnelWebhookController;
 use App\Http\Controllers\Api\V1\TenantController;
+use App\Http\Controllers\Api\V1\WebhookDeliveryController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
@@ -150,6 +152,23 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
                 Route::post('/funnels/{funnel:public_token}/publish', [FunnelLifecycleController::class, 'publish'])->name('funnels.publish');
                 Route::post('/funnels/{funnel:public_token}/duplicate', [FunnelLifecycleController::class, 'duplicate'])->name('funnels.duplicate');
                 Route::post('/funnels/{funnel:public_token}/archive', [FunnelLifecycleController::class, 'archive'])->name('funnels.archive');
+
+            });
+
+        /*
+        | FB-030e: Webhooks. Eigene Berechtigung, weil ein Webhook Kontaktdaten
+        | nach draussen traegt -- wer Funnels bearbeiten darf, darf deshalb nicht
+        | automatisch Ereignisse umleiten.
+        */
+        Route::middleware('ability:'.TenantApiAbility::WEBHOOKS_MANAGE->value)
+            ->scopeBindings()
+            ->group(function () {
+                Route::get('/funnels/{funnel:public_token}/webhooks', [FunnelWebhookController::class, 'index'])->name('webhooks.index');
+                Route::post('/funnels/{funnel:public_token}/webhooks', [FunnelWebhookController::class, 'store'])->name('webhooks.store');
+                Route::get('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'show'])->name('webhooks.show');
+                Route::patch('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'update'])->name('webhooks.update');
+                Route::delete('/funnels/{funnel:public_token}/webhooks/{webhook}', [FunnelWebhookController::class, 'destroy'])->name('webhooks.destroy');
+                Route::get('/funnels/{funnel:public_token}/webhooks/{webhook}/deliveries', [WebhookDeliveryController::class, 'index'])->name('webhooks.deliveries.index');
             });
     });
 
