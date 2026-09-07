@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ApiProblem;
 use App\Http\Middleware\BlockedUser;
 use App\Http\Middleware\EnsureMarketplaceAccess;
 use App\Http\Middleware\EnsureTenantType;
@@ -11,6 +12,7 @@ use App\Http\Middleware\UpdateUserLastSeenAt;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -42,4 +44,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
         ]);
     })
-    ->withExceptions(function (Exceptions $exceptions) {})->create();
+    ->withExceptions(function (Exceptions $exceptions) {
+        // FB-030d: Die Management-API antwortet nach RFC 9457, wie in
+        // docs/openapi.yaml beschrieben. Alles ausserhalb von /api/v1 behaelt
+        // die gewohnten Antworten.
+        $exceptions->render(function (Throwable $exception, Request $request) {
+            return ApiProblem::handles($request)
+                ? ApiProblem::fromThrowable($exception, $request)
+                : null;
+        });
+    })->create();

@@ -104,6 +104,13 @@ return [
         // Maximale Anzahl gleichzeitig gueltiger API-Tokens je Tenant.
         'max_tokens_per_tenant' => (int) env('FUNNEL_API_MAX_TOKENS_PER_TENANT', 10),
 
+        // Seitengroesse von GET /api/v1/leads (FB-030d) und ihre Obergrenze.
+        // Ein Client, der mehr anfragt, bekommt die Obergrenze statt eines
+        // Fehlers -- eine zu grosse Seite ist kein Grund, die Anfrage zu
+        // verwerfen.
+        'leads_per_page' => (int) env('FUNNEL_API_LEADS_PER_PAGE', 25),
+        'leads_max_per_page' => (int) env('FUNNEL_API_LEADS_MAX_PER_PAGE', 100),
+
         // Oeffentliche API-Dokumentation unter /docs/api (FB-030a). Ist der
         // Schalter aus, wird weder die Seite noch die Auslieferung der
         // Spezifikation als Route registriert.

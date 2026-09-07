@@ -3,6 +3,7 @@
 use App\Constants\TenantApiAbility;
 use App\Http\Controllers\Api\PublicV1\FunnelSessionController;
 use App\Http\Controllers\Api\PublicV1\FunnelStructureController;
+use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\TenantController;
 use App\Http\Controllers\PaymentProviders\CreemController;
 use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
@@ -72,6 +73,13 @@ Route::middleware(['auth:sanctum', 'tenant.from-token'])
         Route::get('/ping/leads', [TenantController::class, 'ping'])
             ->middleware('ability:'.TenantApiAbility::LEADS_READ->value)
             ->name('ping.leads');
+
+        // FB-030d: Leads lesen. Die Maskierung entscheidet der Server je Lead
+        // ueber Lead::contactFor() -- nicht der Client und nicht ein Parameter.
+        Route::middleware('ability:'.TenantApiAbility::LEADS_READ->value)->group(function () {
+            Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+            Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('leads.show');
+        });
     });
 
 /*
