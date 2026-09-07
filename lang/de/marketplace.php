@@ -369,4 +369,42 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Abrechnung (FB-059)
+    |--------------------------------------------------------------------------
+    */
+
+    'billing' => [
+
+        'heading' => 'Abrechnung',
+        'nav_label' => 'Abrechnung',
+        'description' => 'Was ein Kaeufer in einem Monat bekommen hat und was daraus geworden ist. Bezahlt wird im Voraus per Guthaben - abgerechnet wird hier nichts, es wird Rechenschaft abgelegt.',
+        'buyer' => 'Kaeufer',
+        'month' => 'Monat',
+        'no_buyer' => 'Es ist kein Kaeufer angelegt.',
+        'export' => 'Als CSV herunterladen',
+
+        'leads' => 'Leads nach Zustand',
+        'money' => 'Guthaben und Umsatz',
+        'purchases' => 'Kaeufe insgesamt',
+        'revenue' => 'Umsatz',
+        'credits_purchased' => 'Guthaben gekauft',
+        'credits_debited' => 'Guthaben verbraucht',
+        'credits_refunded' => 'Guthaben zurueckgebucht',
+        'credits_hint' => 'Verbrauchtes Guthaben und Zahl der Kaeufe muessen uebereinstimmen. Weichen sie ab, stimmt etwas nicht.',
+
+        'invoices' => 'Rechnungen',
+        'invoices_hint' => 'Die Rechnungen zu den Guthabenkaeufen dieses Monats. Ausgestellt hat sie SaaSykit beim Kauf des Pakets.',
+        'no_invoices' => 'In diesem Monat wurde kein Guthaben gekauft.',
+
+        'csv' => [
+            'buyer' => 'Kaeufer',
+            'month' => 'Monat',
+            'state' => 'Zustand',
+            'count' => 'Anzahl',
+        ],
+
+    ],
+
 ];

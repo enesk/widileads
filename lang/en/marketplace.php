@@ -369,4 +369,42 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Billing (FB-059)
+    |--------------------------------------------------------------------------
+    */
+
+    'billing' => [
+
+        'heading' => 'Billing',
+        'nav_label' => 'Billing',
+        'description' => 'What a buyer received in a month and what became of it. Payment is prepaid via credits -- nothing is charged here, this is an account of what happened.',
+        'buyer' => 'Buyer',
+        'month' => 'Month',
+        'no_buyer' => 'No buyer has been created yet.',
+        'export' => 'Download as CSV',
+
+        'leads' => 'Leads by state',
+        'money' => 'Credits and revenue',
+        'purchases' => 'Purchases in total',
+        'revenue' => 'Revenue',
+        'credits_purchased' => 'Credits bought',
+        'credits_debited' => 'Credits spent',
+        'credits_refunded' => 'Credits refunded',
+        'credits_hint' => 'Credits spent and the number of purchases have to match. If they differ, something is wrong.',
+
+        'invoices' => 'Invoices',
+        'invoices_hint' => 'The invoices for this month\'s credit purchases. SaaSykit issued them when the package was bought.',
+        'no_invoices' => 'No credits were bought in this month.',
+
+        'csv' => [
+            'buyer' => 'Buyer',
+            'month' => 'Month',
+            'state' => 'State',
+            'count' => 'Count',
+        ],
+
+    ],
+
 ];
