@@ -45,7 +45,7 @@ class BuyerRegistrationResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('Settings');
+        return __('builder.groups.marketplace');
     }
 
     public static function getModelLabel(): string
