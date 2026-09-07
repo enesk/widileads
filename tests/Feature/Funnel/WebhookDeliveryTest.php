@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Constants\TenantApiAbility;
+use App\Constants\TenantType;
 use App\Constants\WebhookDeliveryStatus;
 use App\Constants\WebhookEvent;
 use App\Jobs\DeliverWebhook;
 use App\Models\Funnel;
 use App\Models\FunnelWebhook;
+use App\Models\Tenant;
 use App\Models\WebhookDelivery;
+use App\Services\TenantApiTokenService;
 use App\Services\WebhookDispatcher;
 use App\Services\WebhookSigner;
 use Illuminate\Support\Facades\Http;
@@ -131,6 +135,40 @@ class WebhookDeliveryTest extends FeatureTest
         app(DeliverWebhook::class, ['deliveryId' => $delivery->getKey()])->handle(app(WebhookSigner::class));
 
         $this->assertSame($firstPayloadId, $delivery->refresh()->payload['id']);
+    }
+
+    /**
+     * Die zweite Zusicherung des Tickets: Ein Kaeufer bekommt ueber diesen Weg
+     * keine Klartext-Kontaktdaten.
+     *
+     * Sie ist strukturell erfuellt, und genau das wird hier belegt: Webhooks
+     * haengen am Funnel, Funnels gehoeren dem Betreiber -- ein Kaeufer kann
+     * deshalb gar keinen Webhook anlegen, auch nicht an einem Funnel, dessen
+     * Leads er gekauft hat. Es gibt keinen Kaeufer-Webhook, dem etwas
+     * durchrutschen koennte.
+     */
+    public function test_a_buyer_cannot_subscribe_to_a_foreign_funnel(): void
+    {
+        $this->withExceptionHandling();
+
+        $operator = Tenant::factory()->create();
+        $buyer = Tenant::factory()->create(['type' => TenantType::BUYER]);
+        $funnel = Funnel::factory()->forTenant($operator)->create();
+
+        $token = app(TenantApiTokenService::class)
+            ->create($buyer, 'Kaeuferzugang', TenantApiAbility::values());
+
+        $headers = ['Authorization' => 'Bearer '.$token->plainTextToken];
+
+        $this->postJson('/api/v1/funnels/'.$funnel->public_token.'/webhooks', [
+            'url' => 'https://kaeufer.example/hooks',
+            'events' => [WebhookEvent::LEAD_CREATED->value],
+        ], $headers)->assertNotFound();
+
+        $this->getJson('/api/v1/funnels/'.$funnel->public_token.'/webhooks', $headers)
+            ->assertNotFound();
+
+        $this->assertSame(0, FunnelWebhook::query()->count());
     }
 
     public function test_a_webhook_only_receives_the_events_it_subscribed_to(): void
