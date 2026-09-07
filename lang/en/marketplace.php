@@ -258,4 +258,39 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | My leads (FB-057)
+    |--------------------------------------------------------------------------
+    */
+
+    'purchased' => [
+
+        'heading' => 'My leads',
+        'nav_label' => 'My leads',
+        'description' => 'The leads you bought. Contact details are shown in full.',
+        'empty' => 'You have not bought a lead yet.',
+        'only_without_feedback' => 'Without feedback only',
+        'export' => 'Download as CSV',
+        'bought_at' => 'Bought on :date',
+        'feedback_given' => 'Your feedback: :feedback',
+
+        'feedback' => [
+            'interested' => 'Useful',
+            'not_interested' => 'Not useful',
+        ],
+
+        'csv' => [
+            'purchased_at' => 'Bought on',
+            'funnel' => 'Questionnaire',
+            'name' => 'Name',
+            'email' => 'Email',
+            'phone' => 'Phone',
+            'postal_code' => 'Postal code',
+            'score' => 'Score',
+            'feedback' => 'Feedback',
+        ],
+
+    ],
+
 ];
