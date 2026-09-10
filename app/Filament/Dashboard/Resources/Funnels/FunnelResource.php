@@ -11,6 +11,7 @@ use App\Actions\PublishFunnel;
 use App\Constants\FunnelStatus;
 use App\Exceptions\FunnelNotPublishableException;
 use App\Filament\Dashboard\Pages\FunnelBuilder;
+use App\Filament\Dashboard\Pages\FunnelNotificationSettings;
 use App\Filament\Dashboard\Pages\FunnelRules;
 use App\Filament\Dashboard\Pages\FunnelSaleSettings;
 use App\Filament\Dashboard\Pages\ThemeEditor;
@@ -150,6 +151,10 @@ class FunnelResource extends Resource
                     ->label(__('builder.funnels.open_sale'))
                     ->icon(Heroicon::OutlinedBanknotes)
                     ->url(fn (Funnel $record): string => FunnelSaleSettings::getUrl(['funnel' => $record])),
+                Action::make('notifications')
+                    ->label(__('builder.funnels.open_notifications'))
+                    ->icon(Heroicon::OutlinedBell)
+                    ->url(fn (Funnel $record): string => FunnelNotificationSettings::getUrl(['funnel' => $record])),
                 Action::make('publish')
                     ->label(__('builder.funnels.publish'))
                     ->icon(Heroicon::OutlinedRocketLaunch)

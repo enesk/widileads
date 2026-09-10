@@ -68,4 +68,25 @@ return [
         'stale_hint' => 'Steht laenger als :days Tage im Marktplatz, ohne gekauft zu werden.',
     ],
 
+    /*
+     * FB-091: Meldung an den Betreiber ueber einen neuen Lead.
+     */
+    'notification' => [
+        'mail' => [
+            'subject' => 'Neue Anfrage aus :funnel',
+            'heading' => 'Es ist eine neue Anfrage eingegangen',
+            'intro' => 'Aus deinem Fragebogen :funnel ist gerade ein Lead entstanden. Die Angaben stehen unten.',
+            'contact_heading' => 'Kontakt',
+            'answers_heading' => 'Angaben aus dem Fragebogen',
+            'name' => 'Name',
+            'email' => 'E-Mail',
+            'phone' => 'Telefon',
+            'postal_code' => 'Postleitzahl',
+            'outro' => 'Im Dashboard siehst du den Lead mit allen Angaben und seinem Zustand.',
+            'unknown_funnel' => 'einem Fragebogen',
+            'yes' => 'Ja',
+            'no' => 'Nein',
+        ],
+    ],
+
 ];

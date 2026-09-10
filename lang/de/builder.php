@@ -147,6 +147,7 @@ return [
         'open_rules' => 'Verzweigungen',
         'open_theme' => 'Erscheinungsbild',
         'open_sale' => 'Verkauf',
+        'open_notifications' => 'Benachrichtigungen',
         'publish' => 'Veroeffentlichen',
         'publish_named' => ':name veroeffentlichen',
         'not_publishable' => 'Noch nicht veroeffentlichbar:',
@@ -193,6 +194,21 @@ return [
         'shared_price_help' => 'Leer: es gilt der Vorgabewert aus der Konfiguration. Der Preis wird beim Entstehen eines Leads festgeschrieben; eine spaetere Aenderung gilt nur fuer neue Leads.',
         'submit' => 'Speichern',
         'saved' => 'Verkaufseinstellungen gespeichert.',
+    ],
+
+    /*
+     * FB-091: Benachrichtigungsadressen eines Funnels.
+     */
+    'notifications' => [
+        'title' => 'Benachrichtigungen: :funnel',
+        'nav_label' => 'Benachrichtigungen',
+        'section' => 'Benachrichtigung bei neuen Leads',
+        'description' => 'An diese Adressen geht eine Mail, sobald aus diesem Fragebogen ein Lead entstanden ist und die Pruefung bestanden hat.',
+        'emails' => 'E-Mail-Adressen',
+        'emails_help' => 'Eine Adresse eingeben und mit Enter bestaetigen. Ohne Eintrag wird nichts verschickt. Doppelte Adressen werden beim Speichern zusammengefasst.',
+        'emails_placeholder' => 'name@beispiel.de',
+        'submit' => 'Speichern',
+        'saved' => 'Benachrichtigungsadressen gespeichert.',
     ],
 
 ];

@@ -68,4 +68,25 @@ return [
         'stale_hint' => 'Has been on the marketplace for more than :days days without being bought.',
     ],
 
+    /*
+     * FB-091: Notification to the operator about a new lead.
+     */
+    'notification' => [
+        'mail' => [
+            'subject' => 'New enquiry from :funnel',
+            'heading' => 'A new enquiry has arrived',
+            'intro' => 'A lead has just been created from your funnel :funnel. The details are below.',
+            'contact_heading' => 'Contact',
+            'answers_heading' => 'Answers from the funnel',
+            'name' => 'Name',
+            'email' => 'Email',
+            'phone' => 'Phone',
+            'postal_code' => 'Postal code',
+            'outro' => 'You can see the lead with all its details and its state in the dashboard.',
+            'unknown_funnel' => 'a funnel',
+            'yes' => 'Yes',
+            'no' => 'No',
+        ],
+    ],
+
 ];

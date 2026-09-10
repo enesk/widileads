@@ -43,6 +43,9 @@ class Funnel extends Model
     /** @use HasFactory<FunnelFactory> */
     use HasFactory;
 
+    /** Schluessel der Benachrichtigungsadressen in `settings` (FB-091). */
+    public const SETTING_NOTIFICATION_EMAILS = 'notification_emails';
+
     protected $fillable = [
         'tenant_id',
         'public_token',
@@ -214,6 +217,46 @@ class Funnel extends Model
     public function isPublished(): bool
     {
         return $this->status->isPubliclyAvailable();
+    }
+
+    /**
+     * Adressen, die ueber einen neuen Lead aus diesem Funnel benachrichtigt
+     * werden (FB-091).
+     *
+     * Abgelegt in `settings`, nicht in einer eigenen Spalte: Die Liste gehoert
+     * dem Funnel, wird nie einzeln abgefragt und wandert beim Duplizieren
+     * bereits mit, weil DuplicateFunnel `settings` uebernimmt.
+     *
+     * @return list<string>
+     */
+    public function notificationEmails(): array
+    {
+        $addresses = $this->settings[self::SETTING_NOTIFICATION_EMAILS] ?? [];
+
+        if (! is_array($addresses)) {
+            return [];
+        }
+
+        $clean = [];
+
+        foreach ($addresses as $address) {
+            if (! is_string($address)) {
+                continue;
+            }
+
+            $address = mb_strtolower(trim($address));
+
+            // Eine kaputte Adresse soll den Versand an die uebrigen nicht
+            // mitreissen -- der Betreiber merkt sonst nur, dass gar nichts
+            // ankommt.
+            if ($address === '' || filter_var($address, FILTER_VALIDATE_EMAIL) === false) {
+                continue;
+            }
+
+            $clean[$address] = $address;
+        }
+
+        return array_values($clean);
     }
 
     /**

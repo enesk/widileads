@@ -147,6 +147,7 @@ return [
         'open_rules' => 'Branching',
         'open_theme' => 'Appearance',
         'open_sale' => 'Sale',
+        'open_notifications' => 'Notifications',
         'publish' => 'Publish',
         'publish_named' => 'Publish :name',
         'not_publishable' => 'Not publishable yet:',
@@ -193,6 +194,21 @@ return [
         'shared_price_help' => 'Empty: the default from the configuration applies. The price is frozen when a lead is created; a later change only affects new leads.',
         'submit' => 'Save',
         'saved' => 'Sale settings saved.',
+    ],
+
+    /*
+     * FB-091: Notification recipients of a funnel.
+     */
+    'notifications' => [
+        'title' => 'Notifications: :funnel',
+        'nav_label' => 'Notifications',
+        'section' => 'Notification on new leads',
+        'description' => 'These addresses receive an email as soon as a lead from this funnel has been created and passed screening.',
+        'emails' => 'Email addresses',
+        'emails_help' => 'Enter an address and confirm with Enter. Without an entry nothing is sent. Duplicates are merged on save.',
+        'emails_placeholder' => 'name@example.com',
+        'submit' => 'Save',
+        'saved' => 'Notification addresses saved.',
     ],
 
 ];
