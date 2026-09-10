@@ -28,17 +28,19 @@ use Illuminate\Database\Seeder;
 class CreditPackageSeeder extends Seeder
 {
     /**
-     * Anzahl Guthaben => Preis in der kleinsten Waehrungseinheit.
+     * Die Pakete, die ein Kaeufer aufladen kann.
      *
-     * Der Staffelpreis bildet den Vorgabepreis eines Leads (15,00 EUR aus
-     * config('funnel.lead.default_price')) mit Mengenrabatt ab.
+     * Ein Guthaben kostet 5,00 EUR (config('funnel.marketplace.credit.unit_price')). Die
+     * Guthabenzahl steht deshalb nicht frei in dieser Liste, sondern wird aus
+     * dem Betrag errechnet -- so koennen Preis und Guthaben nicht
+     * auseinanderlaufen.
      *
-     * @var array<int, array{name: string, credits: int, price: int}>
+     * @var array<int, array{name: string, price: int}> Preis in Cent
      */
     private const PACKAGES = [
-        ['name' => '10 Leads', 'credits' => 10, 'price' => 15000],
-        ['name' => '50 Leads', 'credits' => 50, 'price' => 70000],
-        ['name' => '200 Leads', 'credits' => 200, 'price' => 260000],
+        ['name' => 'Guthaben 500 EUR', 'price' => 50000],
+        ['name' => 'Guthaben 1.000 EUR', 'price' => 100000],
+        ['name' => 'Guthaben 1.500 EUR', 'price' => 150000],
     ];
 
     public function run(): void
@@ -52,15 +54,27 @@ class CreditPackageSeeder extends Seeder
             return;
         }
 
+        $unitPriceCents = (int) round(((float) config('funnel.marketplace.credit.unit_price')) * 100);
+
+        if ($unitPriceCents <= 0) {
+            $this->command?->warn('funnel.marketplace.credit.unit_price ist nicht gesetzt - die Pakete wurden uebersprungen.');
+
+            return;
+        }
+
         foreach (self::PACKAGES as $package) {
-            $slug = 'lead-guthaben-'.$package['credits'];
+            // Guthaben aus dem Betrag: 500,00 EUR zu 5,00 EUR je Guthaben
+            // ergibt 100. Waere die Zahl von Hand gepflegt, muesste sie bei
+            // jeder Preisaenderung mitgepflegt werden.
+            $credits = intdiv($package['price'], $unitPriceCents);
+            $slug = 'lead-guthaben-'.$credits;
 
             $product = OneTimeProduct::query()->updateOrCreate(
                 ['slug' => $slug],
                 [
                     'name' => $package['name'],
-                    'description' => 'Guthaben fuer '.$package['credits'].' Leads im Marktplatz.',
-                    'metadata' => [CreditLedgerService::PRODUCT_METADATA_KEY => $package['credits']],
+                    'description' => $credits.' Guthaben fuer den Leadkauf im Marktplatz.',
+                    'metadata' => [CreditLedgerService::PRODUCT_METADATA_KEY => $credits],
                     'max_quantity' => 10,
                     'is_active' => true,
                     'is_visible' => true,

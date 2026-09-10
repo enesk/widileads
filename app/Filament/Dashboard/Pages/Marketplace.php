@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Dashboard\Pages;
 
 use App\Constants\FunnelFieldKey;
+use App\Exceptions\InsufficientCreditsException;
+use App\Exceptions\LeadNotPurchasableException;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
@@ -16,26 +18,18 @@ use App\Presenters\LeadPresenter;
 use App\Services\CreditLedgerService;
 use App\Services\LeadPurchaseAction;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\Layout\Panel;
-use Filament\Tables\Columns\Layout\Stack;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Url;
 
 /**
- * Der Lead-Marktplatz eines Kaeufers (FB-053, seit FB-090 als Filament-Tabelle).
+ * Der Lead-Marktplatz eines Kaeufers (FB-053).
  *
  * **Diese Seite maskiert nichts.** Kontaktdaten kommen ausschliesslich ueber
  * den LeadPresenter, der `Lead::contactFor()` aufruft; wer welche Fassung
@@ -46,14 +40,19 @@ use Illuminate\Support\Facades\Gate;
  * Ebenso wenig kauft sie: Der Knopf fragt die austauschbare Zusage
  * LeadPurchaseAction.
  *
- * Welche Leads sichtbar sind, entscheidet weiterhin das MarketplaceListing --
- * der LeadMatcher ist eine reine PHP-Funktion und laesst sich nicht in eine
- * Tabellenabfrage uebersetzen. Die Tabelle bekommt deshalb die bereits
- * geprueften Kennungen und arbeitet darauf weiter.
+ * Gerendert wird eine eigene Ansicht statt einer Filament-Tabelle. Der
+ * Marktplatz ist ein Schaufenster: Der Kaeufer vergleicht nicht Zeilen, er
+ * sieht sich Angebote an und kauft eines. Welche Leads sichtbar sind,
+ * entscheidet weiterhin das MarketplaceListing -- der LeadMatcher ist eine
+ * reine PHP-Funktion und laesst sich nicht in eine Tabellenabfrage uebersetzen.
  */
-class Marketplace extends Page implements HasTable
+class Marketplace extends Page
 {
-    use InteractsWithTable;
+    public const SORT_NEWEST = 'newest';
+
+    public const SORT_OLDEST = 'oldest';
+
+    public const SORT_SCORE = 'score';
 
     protected string $view = 'filament.dashboard.pages.marketplace';
 
@@ -61,25 +60,21 @@ class Marketplace extends Page implements HasTable
 
     protected static ?int $navigationSort = -10;
 
+    #[Url(as: 'sortierung', except: self::SORT_NEWEST)]
+    public string $sort = self::SORT_NEWEST;
+
+    /**
+     * Die Ueberschrift steht in der Ansicht selbst, damit Guthaben und
+     * Einleitung in einer Zeile stehen koennen.
+     */
     public function getHeading(): string|Htmlable
     {
-        return __('marketplace.listing.heading');
+        return '';
     }
 
     public function getTitle(): string|Htmlable
     {
         return __('marketplace.listing.heading');
-    }
-
-    public function getSubheading(): string|Htmlable|null
-    {
-        $balance = __('marketplace.purchase.balance', [
-            'credits' => app(CreditLedgerService::class)->balanceFor($this->tenant()),
-        ]);
-
-        return $this->profile() === null
-            ? $balance.' — '.__('marketplace.listing.no_profile')
-            : $balance;
     }
 
     public static function getNavigationSort(): ?int
@@ -108,115 +103,180 @@ class Marketplace extends Page implements HasTable
         return Gate::allows('marketplace.access', $tenant);
     }
 
-    public function table(Table $table): Table
+    /**
+     * Sortierungen als vollstaendige Saetze -- ein Kaeufer liest "Neueste
+     * zuerst", nicht "created_at absteigend".
+     *
+     * @return array<string, string>
+     */
+    public function sortOptions(): array
     {
-        $purchase = app(LeadPurchaseAction::class);
+        return [
+            self::SORT_NEWEST => __('marketplace.listing.sort.newest'),
+            self::SORT_OLDEST => __('marketplace.listing.sort.oldest'),
+            self::SORT_SCORE => __('marketplace.listing.sort.score'),
+        ];
+    }
 
-        return $table
-            ->query(fn (): Builder => $this->visibleLeadsQuery())
-            ->defaultSort('created_at', 'desc')
-            ->paginated([(int) config('funnel.marketplace.listing.per_page')])
-            ->description(__('marketplace.listing.description'))
-            ->emptyStateHeading(__('marketplace.listing.empty'))
-            // Karten statt Tabellenzeilen: Ein Angebot ist etwas, das man
-            // ansieht und kauft -- keine Zeile, die man mit anderen vergleicht.
-            // Die frueheren Spalten standen ohnehin fast leer, seit Region,
-            // E-Mail und Telefon draussen sind.
-            ->contentGrid(['md' => 2, 'xl' => 3])
-            ->columns([
-                // Panel gibt der Karte Rahmen und Innenabstand -- ohne ihn
-                // schweben die Angaben frei im Raster.
-                Panel::make([
-                    Stack::make([
-                        TextColumn::make('contact_name')
-                            ->label(__('leads.contact.name'))
-                            ->weight(FontWeight::Bold)
-                            ->size(TextSize::Large)
-                            // Kontaktdaten ausschliesslich ueber den Presenter.
-                            ->state(fn (Lead $record): string => $this->presenter($record)->name()),
-                        TextColumn::make('created_at')
-                            ->label(__('leads.list.received_at'))
-                            ->icon(Heroicon::OutlinedClock)
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->dateTime('d.m.Y H:i')
-                            ->sortable(),
-                        TextColumn::make('masked_hint')
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->state(fn (Lead $record): ?string => $this->presenter($record)->isContactMasked()
-                                ? __('marketplace.listing.masked_hint')
-                                : null),
-                        TextColumn::make('qualification')
-                            ->label(__('leads.detail.answers'))
-                            ->badge()
-                            ->color('gray')
-                            ->state(fn (Lead $record): array => $this->qualificationAnswers($record))
-                            ->listWithLineBreaks()
-                            ->limitList(4)
-                            ->expandableLimitedList(),
-                    ])->space(3),
-                ]),
-            ])
-            ->filters([
-                Filter::make('watchlisted')
-                    ->label(__('marketplace.listing.only_watchlisted'))
-                    ->toggle()
-                    // Die Merkliste engt schon die Vorauswahl ein (siehe
-                    // visibleLeadsQuery), sonst wuerde die Obergrenze aus
-                    // config('funnel.marketplace.listing.candidate_limit')
-                    // vorgemerkte Leads abschneiden, bevor der Filter greift.
-                    ->query(fn (Builder $query): Builder => $query),
-            ])
-            ->recordActions([
-                Action::make('purchase')
-                    ->label(__('marketplace.listing.purchase'))
-                    ->icon(Heroicon::OutlinedShoppingCart)
-                    ->button()
-                    // Eigene Farbe, im Panel als 'pastel' hinterlegt.
-                    ->color('pastel')
-                    ->requiresConfirmation()
-                    ->modalDescription(__('marketplace.purchase.confirm'))
-                    ->disabled(fn (Lead $record): bool => ! $purchase->isAvailable()
-                        || ! $purchase->canPurchase($this->tenant(), $record))
-                    ->tooltip(fn (): ?string => $purchase->isAvailable()
-                        ? null
-                        : __('marketplace.listing.purchase_unavailable'))
-                    ->action(fn (Lead $record) => $this->purchase($record)),
-            ]);
+    public function balance(): int
+    {
+        return app(CreditLedgerService::class)->balanceFor($this->tenant());
+    }
+
+    public function hasBuyerProfile(): bool
+    {
+        return $this->profile() !== null;
     }
 
     /**
-     * Die Leads, die dieser Kaeufer sehen darf -- als Abfrage, damit Filament
-     * sortieren und blaettern kann.
+     * Die Angebote dieser Seite, fertig fuer die Ansicht aufbereitet.
      *
-     * @return Builder<Lead>
+     * @return array<int, array{
+     *     id: int,
+     *     name: string,
+     *     created_at: string,
+     *     created_at_exact: string,
+     *     is_new: bool,
+     *     postal_code: string,
+     *     attributes: array<int, array{label: string, value: string}>,
+     *     price: string,
+     *     purchasable: bool,
+     * }>
      */
-    private function visibleLeadsQuery(): Builder
+    public function leads(): array
+    {
+        $purchase = app(LeadPurchaseAction::class);
+        $tenant = $this->tenant();
+
+        return $this->visibleLeads()
+            ->map(fn (Lead $lead): array => [
+                'id' => (int) $lead->getKey(),
+                // Kontaktdaten ausschliesslich ueber den Presenter.
+                'name' => $this->presenter($lead)->name(),
+                'created_at' => $this->relativeTime($lead),
+                'created_at_exact' => $lead->created_at?->format('d.m.Y H:i') ?? '',
+                'is_new' => $lead->created_at?->greaterThan(now()->subDay()) ?? false,
+                'postal_code' => $this->presenter($lead)->postalCode(),
+                'attributes' => $this->qualificationAnswers($lead),
+                'price' => __('marketplace.listing.price', ['credits' => 1]),
+                'purchasable' => $purchase->isAvailable() && $purchase->canPurchase($tenant, $lead),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Kauft einen Lead.
+     *
+     * Die Seite entscheidet nichts: Sie reicht an die PurchaseLead-Action
+     * weiter, die Reservierung, Guthaben und Zustand unter Sperre prueft. Was
+     * hier abgefangen wird, sind die beiden alltaeglichen Ausgaenge -- ein
+     * anderer war schneller, oder das Guthaben reicht nicht. Beides ist ein
+     * Hinweis an den Kaeufer, kein Fehler.
+     */
+    public function purchase(int $leadId): void
+    {
+        $actor = $this->viewer();
+
+        if (! $actor instanceof User) {
+            return;
+        }
+
+        $lead = $this->visibleLeads()->first(static fn (Lead $candidate): bool => (int) $candidate->getKey() === $leadId);
+
+        if (! $lead instanceof Lead) {
+            Notification::make()
+                ->warning()
+                ->title(__('marketplace.listing.gone'))
+                ->send();
+
+            return;
+        }
+
+        try {
+            $purchase = app(LeadPurchaseAction::class)->purchase($this->tenant(), $lead, $actor);
+        } catch (LeadNotPurchasableException|InsufficientCreditsException $exception) {
+            Notification::make()
+                ->warning()
+                ->title($exception->getMessage())
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->success()
+            ->title(__('marketplace.purchase.done'))
+            ->send();
+
+        // Direkt zum gekauften Lead: Der Kaeufer hat gerade bezahlt und will
+        // die Kontaktdaten sehen, nicht erst eine Liste durchsuchen.
+        $this->redirect(PurchasedLeadDetail::getUrl(['purchase' => $purchase->getKey()]));
+    }
+
+    /**
+     * Die Leads, die dieser Kaeufer sehen darf.
+     *
+     * @return Collection<int, Lead>
+     */
+    private function visibleLeads(): Collection
     {
         $matched = app(MarketplaceListing::class)->for(
             $this->tenant(),
             $this->profile(),
-            $this->getTableSortColumn() === 'score'
+            $this->sort === self::SORT_SCORE
                 ? MarketplaceListing::SORT_SCORE
                 : MarketplaceListing::SORT_NEWEST,
-            (bool) ($this->getTableFilterState('watchlisted')['isActive'] ?? false),
         );
 
-        return Lead::query()
+        $ids = $matched->map(static fn (Lead $lead): int => (int) $lead->getKey())->all();
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        $leads = Lead::query()
             // Der Kaeufer besitzt keinen dieser Leads -- ohne das Abschalten
             // des Mandanten-Scopes waere der Marktplatz immer leer. Welche
             // Leads das sind, hat das MarketplaceListing entschieden.
             ->withoutGlobalScopes(TenantScopes::names())
             ->with([
                 'answers',
-                // Der Funnel gehoert dem Betreiber, gelesen wird im Kontext des
-                // Kaeufers -- ohne das Abschalten der Mandanten-Scopes bliebe
-                // die Spalte "Fragebogen" leer (FB-055a).
+                // Fragebogen und Fassung gehoeren dem Betreiber, gelesen wird
+                // im Kontext des Kaeufers (FB-055a).
                 'funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
                 'funnelVersion' => static fn (Relation $version) => $version->withoutGlobalScopes(TenantScopes::names()),
             ])
-            ->whereIn('id', $matched->map(static fn (Lead $lead): int => (int) $lead->getKey())->all());
+            ->whereIn('id', $ids)
+            ->get()
+            // Die Reihenfolge hat das MarketplaceListing bestimmt; die Abfrage
+            // gibt sie nicht zurueck.
+            ->sortBy(static fn (Lead $lead): int => (int) array_search((int) $lead->getKey(), $ids, true))
+            ->values();
+
+        return $this->sort === self::SORT_OLDEST ? $leads->reverse()->values() : $leads;
+    }
+
+    /**
+     * "vor 2 Std.", "gestern, 09:22", ab zwei Tagen das Datum.
+     */
+    private function relativeTime(Lead $lead): string
+    {
+        $created = $lead->created_at;
+
+        if ($created === null) {
+            return '-';
+        }
+
+        if ($created->greaterThan(now()->subDay())) {
+            return $created->diffForHumans();
+        }
+
+        if ($created->greaterThan(now()->subDays(2))) {
+            return __('marketplace.listing.yesterday', ['time' => $created->format('H:i')]);
+        }
+
+        return $created->format('d.m.Y');
     }
 
     private function presenter(Lead $lead): LeadPresenter
@@ -233,13 +293,14 @@ class Marketplace extends Page implements HasTable
      * `telefon` und `plz`. Wer sie ungefiltert ausgibt, umgeht die Maskierung,
      * ohne je eine Kontaktspalte anzufassen.
      *
-     * @return array<int, string>
+     * Beschriftungen kommen aus der Fassung, unter der der Lead entstanden ist:
+     * Ein Kaeufer soll lesen, was der Kunde angeklickt hat, nicht
+     * "rasse_groesse: gross".
+     *
+     * @return array<int, array{label: string, value: string}>
      */
     private function qualificationAnswers(Lead $lead): array
     {
-        // Beschriftungen aus der Fassung, unter der der Lead entstanden ist:
-        // Ein Kaeufer soll lesen, was der Kunde angeklickt hat, nicht
-        // "rasse_groesse: gross".
         $snapshot = $lead->funnelVersion?->snapshot;
         $labels = SnapshotLabels::questions(is_array($snapshot) ? $snapshot : null);
         $options = SnapshotLabels::options(is_array($snapshot) ? $snapshot : null);
@@ -256,9 +317,12 @@ class Marketplace extends Page implements HasTable
 
             $value = $answer->value;
 
-            $answers[] = ($labels[$answer->field_key] ?? $answer->field_key).': '.(is_array($value)
-                ? implode(', ', array_map($readable, $value))
-                : $readable($value));
+            $answers[] = [
+                'label' => $labels[$answer->field_key] ?? $answer->field_key,
+                'value' => is_array($value)
+                    ? implode(', ', array_map($readable, $value))
+                    : $readable($value),
+            ];
         }
 
         return $answers;

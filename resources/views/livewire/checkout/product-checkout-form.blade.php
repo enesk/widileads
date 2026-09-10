@@ -1,51 +1,78 @@
 <div>
-    <form action="" method="post" wire:submit="checkout" class="mb-32">
+    {{-- Eine Karte, eine Spalte. Die Anbieterauswahl ist eine Entscheidung des
+         Betreibers und keine des Kunden -- sie erscheint nur, wenn wirklich
+         mehr als ein Anbieter aktiv ist. --}}
+    <form action="" method="post" wire:submit="checkout">
         @csrf
 
-        @php
-            $shouldDisplayFirstFirstColumn = $requiresPayment || !auth()->check();
-        @endphp
-        <x-section.columns class="max-w-none md:max-w-6xl flex-wrap-reverse">
-            @if($shouldDisplayFirstFirstColumn)
-                <x-section.column>
+        <div class="rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
+            <div class="flex flex-col gap-6">
+
+                @if ($requiresPayment || ! auth()->check())
                     @include('livewire.checkout.partials.login-or-register')
+                @endif
 
-                    @if($requiresPayment)
-                        @include('livewire.checkout.partials.payment')
-                    @endif
-                </x-section.column>
-            @endif
-
-            <x-section.column>
                 @include('livewire.checkout.partials.product-details')
-            </x-section.column>
-        </x-section.columns>
 
-        <div class="fixed bottom-0 w-full bg-white shadow-black shadow-2xl z-50 py-4">
-            <div class="flex flex-row flex-wrap justify-center items-center gap-2 md:gap-4">
-                <p class="text-xxs text-neutral-600 text-center mx-6">
-                    {{ __('By continuing, you agree to our') }} <a target="_blank" href="{{route('terms-of-service')}}"
-                          class="text-primary-900 underline">{{ __('Terms of Service') }}</a> {{ __('and') }}
-                    <a target="_blank" href="{{route('privacy-policy')}}"
-                       class="text-primary-900 underline">{{ __('Privacy Policy') }}</a>.
-                </p>
-
-                <x-button-link.primary
-                    class="flex flex-row items-center justify-center gap-3  min-w-64! disabled:opacity-40"
-                    elementType="button"
-                    type="submit"
-                    wire:loading.attr="disabled"
-                    isDisabled="{{ !$this->isCheckoutButtonEnabled() }}"
-                >
-                    {{ __('Confirm & Pay') }}
-                    <div wire:loading class="max-w-fit max-h-fit">
-                        <span class="loading loading-ring loading-xs"></span>
+                @if ($requiresPayment && count($paymentProviders) > 1)
+                    <div>
+                        <div class="mb-2 text-sm font-medium text-neutral-700">{{ __('Payment method') }}</div>
+                        <div class="inline-flex flex-wrap gap-1 rounded-xl bg-neutral-100 p-1">
+                            @foreach ($paymentProviders as $provider)
+                                <label class="cursor-pointer">
+                                    <input type="radio" class="sr-only peer" name="paymentProvider"
+                                           value="{{ $provider->getSlug() }}" wire:model="paymentProvider">
+                                    <span class="flex min-h-11 items-center rounded-lg px-4 text-sm font-medium text-neutral-600 peer-checked:border peer-checked:border-neutral-200 peer-checked:bg-white peer-checked:text-primary-900">
+                                        {{ $provider->getName() }}
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
                     </div>
-                </x-button-link.primary>
+                @endif
             </div>
         </div>
 
+        @if ($requiresPayment)
+            @foreach ($paymentProviders as $paymentProvider)
+                @includeIf('payment-providers.' . $paymentProvider->getSlug())
+            @endforeach
+        @endif
+
+        {{-- Abschluss steht direkt unter der Karte, nicht in einer fixierten
+             Leiste: Der Betrag und der Knopf, der ihn ausloest, gehoeren
+             zusammen. Der Betrag im Knopf ist zugleich die Button-Loesung nach
+             § 312j BGB. --}}
+        <div class="mt-6">
+            <button
+                type="submit"
+                @disabled(! $this->isCheckoutButtonEnabled())
+                wire:loading.attr="disabled"
+                class="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-6 py-3 font-semibold text-white transition hover:bg-primary-600 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-40"
+            >
+                <span wire:loading.remove>
+                    {{ __('Pay :amount now', ['amount' => money($totals->amountDue, $totals->currencyCode)]) }}
+                </span>
+                <span wire:loading class="flex items-center gap-2">
+                    <span class="loading loading-ring loading-xs"></span>
+                    {{ __('Redirecting…') }}
+                </span>
+            </button>
+
+            <p class="mt-3 text-center text-xs leading-relaxed text-neutral-500">
+                {!! __('By buying you agree to our :terms and :privacy. Right of withdrawal: :withdrawal.', [
+                    'terms' => '<a target="_blank" class="text-primary-500 hover:underline" href="'.route('terms-of-service').'">'.__('Terms of Service').'</a>',
+                    'privacy' => '<a target="_blank" class="text-primary-500 hover:underline" href="'.route('privacy-policy').'">'.__('Privacy Policy').'</a>',
+                    'withdrawal' => '<a target="_blank" class="text-primary-500 hover:underline" href="'.route('terms-of-service').'">'.__('notes').'</a>',
+                ]) !!}
+            </p>
+
+            @if ($requiresPayment && count($paymentProviders) > 0)
+                <p class="mt-3 flex items-center justify-center gap-2 text-xs text-neutral-400">
+                    @svg('heroicon-o-lock-closed', 'h-4 w-4')
+                    {{ __('Payment is handled securely by :provider.', ['provider' => $paymentProviders[0]->getName()]) }}
+                </p>
+            @endif
+        </div>
     </form>
-
-
 </div>

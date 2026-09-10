@@ -1,97 +1,74 @@
 <div>
-    @php $isDiscountCodeAdded = !empty($addedCode); @endphp
+    @php $isDiscountCodeAdded = ! empty($addedCode); @endphp
+
+    {{-- Gutscheincode: eingeklappt und linksbuendig. Ein rechtsbuendiger Link
+         wirkt wie ein verirrter Fussnotenverweis. --}}
     <div x-data="{ discountFormVisible: @js($isDiscountCodeAdded) }">
-        <div class="text-end">
-            <a href="#" class="text-primary-500 text-sm mt-4 mb-2 inline-block" x-on:click.prevent=" discountFormVisible = !discountFormVisible "
-               x-show="!discountFormVisible">{{ __('Have a coupon code?') }}</a>
-        </div>
+        <a href="#" x-show="! discountFormVisible" x-on:click.prevent="discountFormVisible = true"
+           class="text-sm text-primary-500 hover:underline">
+            {{ __('Redeem a coupon code') }}
+        </a>
 
-        <div class="my-6" x-show="discountFormVisible">
-            <hr class="my-4 text-neutral-200"/>
-
+        <div x-show="discountFormVisible" x-collapse>
             @if (session('success'))
-                <div class="text-xs flex flex-row gap-2 my-2">
-                    @svg('check', 'h-4 w-4 stroke-primary-500')
-                    <span>{{ session('success') }}</span>
-                </div>
+                <p class="flex items-center gap-2 text-sm text-emerald-700">
+                    @svg('check', 'h-4 w-4 stroke-emerald-700')
+                    {{ session('success') }}
+                </p>
             @endif
 
             @if (session('error'))
-                <div class="text-xs flex flex-row gap-2 my-2">
-                    @svg('error', 'h-4 w-4 stroke-primary-500')
-                    <span>{{ session('error') }}</span>
-                </div>
+                <p class="text-sm text-red-600">{{ session('error') }}</p>
             @endif
 
             @if ($isDiscountCodeAdded)
-                <div class="flex flex-row items-center gap-3 justify-end">
-                    <div class="rounded border-primary-500 py-1 px-2 text-xs border border-dashed">
-                        {{ $addedCode }}
-                    </div>
-
-                    <a wire:click.prevent="remove" class="!text-primary-500 !border-primary-500 text-xs! py-1! cursor-pointer">
-                        {{ __('Remove Discount') }}
+                <div class="mt-2 flex items-center gap-3">
+                    <span class="flex items-center gap-2 text-sm text-emerald-700">
+                        @svg('check', 'h-4 w-4 stroke-emerald-700')
+                        {{ __('Code :code redeemed', ['code' => $addedCode]) }}
+                    </span>
+                    <a href="#" wire:click.prevent="remove" class="text-sm text-neutral-500 hover:underline">
+                        {{ __('Remove') }}
                     </a>
                 </div>
             @else
-                <div class="flex flex-row items-center gap-3 mt-6">
-                    <x-input.field wire:model="code" placeholder="{{ __('Discount code') }}" type="text" class="input-sm mx-0! px-0!"
-                           wire:keydown.enter.prevent="add"
-                           value="{{$addedCode ?? ''}}" disabled="{{$isDiscountCodeAdded}}"/>
-
-                    <x-button-link.primary-outline wire:click.prevent="add" tabindex="0"
-                                                   @keydown.enter.prevent="$wire.add()"
-                                                   class="!text-primary-500 !border-primary-500 text-xs! py-1! whitespace-nowrap">
-                        {{ __('Add Discount') }}
-                    </x-button-link.primary-outline>
+                <div class="mt-2 flex gap-2">
+                    <x-input.field wire:model="code" type="text" placeholder="{{ __('Code') }}"
+                                   class="input-sm mx-0!" wire:keydown.enter.prevent="add" />
+                    <button type="button" wire:click.prevent="add"
+                            class="min-h-11 whitespace-nowrap rounded-xl border border-neutral-200 px-4 text-sm font-medium text-primary-900 hover:bg-neutral-50 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2">
+                        {{ __('Redeem') }}
+                    </button>
                 </div>
             @endif
         </div>
     </div>
 
+    {{-- Summe --}}
+    <div class="mt-4 border-t border-neutral-200 pt-4">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-neutral-500">{{ __('Subtotal') }}</span>
+            <span class="tabular-nums text-primary-900">@money($subtotal, $currencyCode)</span>
+        </div>
 
-    <hr class="mb-6 mt-2 text-neutral-200">
-    <div class="flex flex-row justify-between">
-        <div class="text-primary-900">
-            {{ __('Price') }}
+        @if ($discountAmount > 0)
+            <div class="mt-2 flex items-center justify-between text-sm">
+                <span class="text-neutral-500">
+                    {{ $addedCode ? __('Discount (:code)', ['code' => $addedCode]) : __('Discount') }}
+                </span>
+                <span class="tabular-nums text-emerald-700">-@money($discountAmount, $currencyCode)</span>
+            </div>
+        @endif
+
+        <div class="mt-3 flex items-center justify-between border-t border-neutral-200 pt-3 text-base font-semibold text-primary-900">
+            <span>{{ __('Total') }}</span>
+            <span class="tabular-nums">@money($amountDue, $currencyCode)</span>
         </div>
-        <div class="text-primary-900">
-            @money($subtotal, $currencyCode)
-        </div>
+
+        {{-- Steuerangabe ist Pflicht, nicht Deko. Welcher Satz gilt, steht in
+             der Konfiguration -- gerechnet wird die Steuer beim Anbieter. --}}
+        <p class="mt-2 text-xs text-neutral-500">
+            {{ __(config('app.checkout.vat_note', 'All prices include VAT.')) }}
+        </p>
     </div>
-
-    @if($discountAmount > 0)
-        <div class="flex flex-row justify-between">
-            <div class="text-primary-900">
-                {{ __('Discount') }}
-            </div>
-            <div class="text-primary-900">
-                @money($discountAmount, $currencyCode)
-            </div>
-        </div>
-
-        <hr class="my-6 text-neutral-200">
-
-        <div class="flex flex-row justify-between">
-            <div class="text-primary-900">
-                {{ __('Total') }}
-            </div>
-            <div class="text-primary-900">
-                @money($amountDue, $currencyCode)
-            </div>
-        </div>
-
-    @endif
-
-    <hr class="my-6 text-neutral-200">
-    <div class="flex flex-row justify-between">
-        <div class="text-primary-500 text-xl font-bold">
-            {{ __('Due now') }}
-        </div>
-        <div class="text-primary-500 text-xl font-bold">
-            @money($amountDue, $currencyCode)
-        </div>
-    </div>
-
-
 </div>

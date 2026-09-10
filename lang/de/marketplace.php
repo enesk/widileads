@@ -151,6 +151,20 @@ return [
 
     'credit' => [
 
+        // FB-092: Guthaben aufladen.
+        'top_up' => [
+            'title' => 'Guthaben aufladen',
+            'nav_label' => 'Guthaben',
+            'balance_label' => 'Dein Guthaben',
+            'balance_value' => ':credits Guthaben',
+            'unit_price_hint' => 'Ein Guthaben kostet :price €.',
+            'description' => 'Mit Guthaben kaufst du Leads im Marktplatz. Wähle ein Paket, die Zahlung läuft über Stripe. Nach erfolgreicher Zahlung wird das Guthaben sofort gutgeschrieben.',
+            'package_credits' => ':credits Guthaben',
+            'buy' => 'Jetzt aufladen',
+            'empty' => 'Zurzeit sind keine Guthabenpakete hinterlegt.',
+            'payment_hint' => 'Die Zahlung wird über Stripe abgewickelt. Rechnung und Zahlungsbeleg findest du unter „Bestellungen“.',
+        ],
+
         'type' => [
             'purchase' => 'Kauf',
             'debit' => 'Abbuchung',
@@ -202,15 +216,32 @@ return [
 
     'listing' => [
 
+        'balance_label' => 'Guthaben',
+        'balance_value' => ':credits Leads',
+        'result_count' => '{0} Kein Lead passt zu deinen Kriterien|{1} 1 Lead passt zu deinen Kriterien|[2,*] :count Leads passen zu deinen Kriterien',
+        'empty_hint' => 'Neue Anfragen erscheinen hier automatisch. Erweitere deine Kaufkriterien, um mehr Leads zu sehen.',
+        'no_credits' => 'Dein Guthaben ist aufgebraucht. Lade auf, um Leads zu kaufen.',
+        'badge_new' => 'Neu',
+        'locked_contact' => 'Telefon und E-Mail nach dem Kauf',
+        'price' => 'Kostet :credits Lead',
+        'yesterday' => 'gestern, :time',
+        'gone' => 'Der Lead wurde gerade von jemand anderem gekauft.',
+        'show_less' => 'Weniger anzeigen',
+        'show_more' => '{1} +1 weiteres Merkmal|[2,*] +:count weitere Merkmale',
+
+        'sort' => [
+            'label' => 'Sortierung',
+            'newest' => 'Neueste zuerst',
+            'oldest' => 'Älteste zuerst',
+            'score' => 'Höchste Punktzahl zuerst',
+        ],
+
         'heading' => 'Marktplatz',
         'nav_label' => 'Marktplatz',
         'description' => 'Verfügbare Leads, die deinen Kaufkriterien entsprechen. Kontaktdaten werden erst nach dem Kauf sichtbar.',
         'no_profile' => 'Du hast noch keine Kaufkriterien hinterlegt - dir werden deshalb alle verfügbaren Leads angezeigt.',
         'empty' => 'Zurzeit passt kein verfügbarer Lead zu deinen Kaufkriterien.',
 
-        'sort' => 'Sortierung',
-        'sort_newest' => 'Neueste zuerst',
-        'sort_score' => 'Höchste Punktzahl zuerst',
         'only_watchlisted' => 'Nur Merkliste',
 
         'score' => ':score Punkte',

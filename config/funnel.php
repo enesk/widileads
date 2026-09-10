@@ -458,6 +458,13 @@ return [
             // Buchen liest immer aus der Datenbank.
             'balance_cache_ttl' => (int) env('FUNNEL_MARKETPLACE_BALANCE_CACHE_TTL', 60),
 
+            // Was ein Guthaben kostet, in der Standardwaehrung. Daraus leitet
+            // der CreditPackageSeeder ab, wie viele Guthaben in einem Paket
+            // stecken, und die Aufladeseite rechnet den Betrag je Paket aus.
+            // Der Wert steht hier und nicht in den Paketen selbst, damit Preis
+            // und Guthabenzahl nicht auseinanderlaufen koennen.
+            'unit_price' => (float) env('FUNNEL_MARKETPLACE_CREDIT_UNIT_PRICE', 5.00),
+
         ],
 
         'listing' => [

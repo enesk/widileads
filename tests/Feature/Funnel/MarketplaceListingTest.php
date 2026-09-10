@@ -17,7 +17,6 @@ use App\Models\LeadAnswer;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
 use App\Models\User;
-use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
@@ -235,16 +234,15 @@ class MarketplaceListingTest extends FeatureTest
         $funnel = $this->funnelOf($operator);
         $lead = $this->lead($operator, $funnel);
 
-        [$tenant, $user] = $this->approvedBuyer();
+        [$tenant] = $this->approvedBuyer();
         [$otherTenant] = $this->approvedBuyer();
 
-        $this->actingAs($user);
-        Filament::setCurrentPanel(Filament::getPanel('dashboard'));
-        Filament::setTenant($tenant);
-
-        Livewire::actingAs($user)->test(Marketplace::class)
-            ->callAction(TestAction::make('watch')->table($lead))
-            ->assertSuccessful();
+        // Der Merken-Knopf ist aus dem Marktplatz entfernt; die Vormerkung
+        // selbst bleibt und gehoert weiterhin genau einem Kaeufer.
+        LeadWatchlistEntry::query()->create([
+            'tenant_id' => $tenant->getKey(),
+            'lead_id' => $lead->getKey(),
+        ]);
 
         $entries = LeadWatchlistEntry::query()->withoutGlobalScope('tenant')->get();
 
@@ -257,11 +255,5 @@ class MarketplaceListingTest extends FeatureTest
             LeadWatchlistEntry::query()->withoutGlobalScope('tenant')
                 ->where('tenant_id', $otherTenant->getKey())->count(),
         );
-
-        // Und ein zweiter Aufruf nimmt sie wieder zurueck.
-        Livewire::actingAs($user)->test(Marketplace::class)
-            ->callAction(TestAction::make('watch')->table($lead));
-
-        $this->assertSame(0, LeadWatchlistEntry::query()->withoutGlobalScope('tenant')->count());
     }
 }

@@ -151,6 +151,20 @@ return [
 
     'credit' => [
 
+        // FB-092: Credit top-up.
+        'top_up' => [
+            'title' => 'Top up credits',
+            'nav_label' => 'Credits',
+            'balance_label' => 'Your credits',
+            'balance_value' => ':credits credits',
+            'unit_price_hint' => 'One credit costs :price €.',
+            'description' => 'Credits are used to buy leads on the marketplace. Pick a package, payment runs through Stripe. Credits are added as soon as the payment succeeds.',
+            'package_credits' => ':credits credits',
+            'buy' => 'Top up now',
+            'empty' => 'No credit packages are configured at the moment.',
+            'payment_hint' => 'Payment is handled by Stripe. You will find the invoice and receipt under "Orders".',
+        ],
+
         'type' => [
             'purchase' => 'Purchase',
             'debit' => 'Debit',
@@ -202,15 +216,32 @@ return [
 
     'listing' => [
 
+        'balance_label' => 'Credits',
+        'balance_value' => ':credits leads',
+        'result_count' => '{0} No lead matches your criteria|{1} 1 lead matches your criteria|[2,*] :count leads match your criteria',
+        'empty_hint' => 'New enquiries appear here automatically. Widen your criteria to see more leads.',
+        'no_credits' => 'You are out of credits. Top up to buy leads.',
+        'badge_new' => 'New',
+        'locked_contact' => 'Phone and email after the purchase',
+        'price' => 'Costs :credits lead',
+        'yesterday' => 'yesterday, :time',
+        'gone' => 'Someone else just bought this lead.',
+        'show_less' => 'Show less',
+        'show_more' => '{1} +1 more detail|[2,*] +:count more details',
+
+        'sort' => [
+            'label' => 'Sorting',
+            'newest' => 'Newest first',
+            'oldest' => 'Oldest first',
+            'score' => 'Highest score first',
+        ],
+
         'heading' => 'Marketplace',
         'nav_label' => 'Marketplace',
         'description' => 'Available leads matching your purchase criteria. Contact details become visible after the purchase.',
         'no_profile' => 'You have not set any purchase criteria yet -- you are therefore seeing every available lead.',
         'empty' => 'No available lead currently matches your purchase criteria.',
 
-        'sort' => 'Sorting',
-        'sort_newest' => 'Newest first',
-        'sort_score' => 'Highest score first',
         'only_watchlisted' => 'Watchlist only',
 
         'score' => ':score points',

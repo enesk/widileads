@@ -1,69 +1,56 @@
-<div class="md:sticky md:top-2">
-    <x-heading.h2 class="text-primary-900 text-xl!">
-        {{ __('Product Details') }}
-    </x-heading.h2>
+@php
+    $cartItem = $cartDto->items[0];
+@endphp
 
-    <div class="rounded-2xl border border-neutral-200 mt-4 overflow-hidden p-6">
-        @php
-            $cartItem = $cartDto->items[0];
-        @endphp
+<div class="flex flex-col gap-6">
 
-        <div class="flex flex-row gap-3">
-            <div class="rounded-2xl text-5xl bg-primary-50 p-2 text-center w-24 h-24 text-primary-500 flex items-center justify-center min-w-20">
-                {{ substr($product->name, 0, 1) }}
-            </div>
-            <div class="flex flex-col gap-1">
-                            <span class="text-xl font-semibold flex flex-row md:gap-2 flex-wrap">
-                                <span class="py-1">
-                                    {{ $product->name }}
-                                </span>
-                            </span>
-
-                @if ($product->description)
-                    <span class="text-xs">{{ $product->description }}</span>
-                @endif
-
-                @if ($product->max_quantity == 1)
-                    <span class="text-xs">
-                        {{ __('Quantity:') }} {{ $cartItem->quantity }}
-                    </span>
-                @endif
-
-            </div>
+    {{-- Produktzeile: was man bekommt, benannt nach dem Nutzen. --}}
+    <div class="flex items-start gap-4">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-500">
+            @svg('heroicon-o-shopping-cart', 'h-7 w-7')
         </div>
 
-        <div class="flex gap-4">
+        <div class="min-w-0">
+            <div class="text-lg font-semibold text-primary-900">
+                {{ $product->name }}
+            </div>
 
-            @if ($product->max_quantity == 0 || $product->max_quantity > 1)
-                <livewire:checkout.product-quantity :product="$product" />
+            @if ($product->description)
+                <p class="text-sm text-neutral-500">{{ $product->description }}</p>
             @endif
 
-        </div>
-
-        <div class="flex gap-4">
-
-            @inject('tenantCreationService', 'App\Services\TenantCreationService')
-
-            @if ($tenantCreationService->findUserTenantsForNewOrder(auth()->user())->count() > 0)
-                <livewire:checkout.product-tenant-picker />
+            @if (intval($product->max_quantity) === 1)
+                <p class="mt-1 text-sm text-neutral-500">
+                    {{ __('Quantity:') }} {{ $cartItem->quantity }}
+                </p>
             @endif
-
         </div>
+    </div>
 
-        <div class="text-primary-900 my-4">
-            {{ __('What you get:') }}
-        </div>
+    @if ($product->max_quantity == 0 || $product->max_quantity > 1)
+        <livewire:checkout.product-quantity :product="$product" />
+    @endif
+
+    @inject('tenantCreationService', 'App\Services\TenantCreationService')
+    @if ($tenantCreationService->findUserTenantsForNewOrder(auth()->user())->count() > 0)
+        <livewire:checkout.product-tenant-picker />
+    @endif
+
+    {{-- "Das bekommst du" wird nur gerendert, wenn es etwas zu zeigen gibt --
+         ein leerer Abschnitt darf nie erscheinen. --}}
+    @if (! empty($product->features))
         <div>
-            <ul class="flex flex-col items-start gap-3">
-                @if ($product->features)
-                    @foreach($product->features as $feature)
-                        <x-features.li-item>{{ $feature['feature'] }}</x-features.li-item>
-                    @endforeach
-                @endif
+            <div class="text-sm font-medium text-neutral-700">{{ __('What you get') }}</div>
+            <ul class="mt-2 flex flex-col gap-2 text-sm text-neutral-700">
+                @foreach ($product->features as $feature)
+                    <li class="flex items-start gap-2">
+                        @svg('check', 'mt-0.5 h-4 w-4 shrink-0 stroke-primary-500')
+                        <span>{{ $feature['feature'] }}</span>
+                    </li>
+                @endforeach
             </ul>
         </div>
+    @endif
 
-        <livewire:checkout.product-totals :totals="$totals" :product="$product" page="{{request()->fullUrl()}}"/>
-
-    </div>
+    <livewire:checkout.product-totals :totals="$totals" :product="$product" page="{{ request()->fullUrl() }}" />
 </div>

@@ -157,6 +157,12 @@ return [
 
     'support_email' => 'support@saasykit.com',
 
+    // Checkout: Die Steuerangabe ist eine Pflichtangabe. Welcher Satz gilt,
+    // haengt am Betreiber -- Kleinunternehmer setzen hier den § 19-Hinweis.
+    'checkout' => [
+        'vat_note' => env('CHECKOUT_VAT_NOTE', 'All prices include VAT.'),
+    ],
+
     'email_color_tint' => '#003781',  // used to add brand color to email templates (since it's not possible to use tailwind vars in emails)
 
     'google_tracking_id' => env('GOOGLE_TRACKING_ID'),
