@@ -15,15 +15,15 @@ return [
     'problems' => [
         'validation_failed' => [
             'title' => 'Eingabe fehlerhaft',
-            'detail' => 'Die uebermittelten Daten sind unvollstaendig oder ungueltig.',
+            'detail' => 'Die übermittelten Daten sind unvollständig oder ungültig.',
         ],
         'unauthenticated' => [
             'title' => 'Nicht authentifiziert',
-            'detail' => 'Die Anfrage traegt kein gueltiges API-Token.',
+            'detail' => 'Die Anfrage trägt kein gültiges API-Token.',
         ],
         'insufficient_ability' => [
             'title' => 'Berechtigung fehlt',
-            'detail' => 'Dieses Token traegt die verlangte Berechtigung nicht.',
+            'detail' => 'Dieses Token trägt die verlangte Berechtigung nicht.',
         ],
         'not_found' => [
             'title' => 'Nicht gefunden',
@@ -31,7 +31,7 @@ return [
         ],
         'rate_limit' => [
             'title' => 'Zu viele Anfragen',
-            'detail' => 'Das Token hat sein Anfragekontingent ausgeschoepft.',
+            'detail' => 'Das Token hat sein Anfragekontingent ausgeschöpft.',
         ],
         'unexpected' => [
             'title' => 'Unerwarteter Fehler',
@@ -39,11 +39,11 @@ return [
         ],
         'funnel_has_leads' => [
             'title' => 'Funnel hat bereits Leads',
-            'detail' => 'Dieser Funnel kann nicht geloescht werden, weil bereits Leads daraus entstanden sind. Archiviere ihn stattdessen.',
+            'detail' => 'Dieser Funnel kann nicht gelöscht werden, weil bereits Leads daraus entstanden sind. Archiviere ihn stattdessen.',
         ],
         'idempotency_key_reused' => [
-            'title' => 'Schluessel bereits mit anderem Inhalt verwendet',
-            'detail' => 'Dieser Idempotency-Key wurde bereits fuer eine Anfrage mit anderem Inhalt verwendet. Waehle einen neuen Schluessel.',
+            'title' => 'Schlüssel bereits mit anderem Inhalt verwendet',
+            'detail' => 'Dieser Idempotency-Key wurde bereits für eine Anfrage mit anderem Inhalt verwendet. Wähle einen neuen Schlüssel.',
         ],
     ],
 

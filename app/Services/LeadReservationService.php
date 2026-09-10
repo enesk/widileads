@@ -8,6 +8,7 @@ use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
 use App\Exceptions\IllegalLeadTransition;
 use App\Models\Lead;
+use App\Models\Scopes\TenantScopes;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -35,7 +36,7 @@ class LeadReservationService
 
         $expired = Lead::query()
             // Der Lauf gehoert keinem Mandanten -- er raeumt ueber alle hinweg auf.
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('lead_state', LeadState::RESERVIERT->value)
             ->whereNotNull('reserved_until')
             ->where('reserved_until', '<=', now())

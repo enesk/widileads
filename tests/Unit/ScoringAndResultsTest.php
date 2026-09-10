@@ -173,7 +173,7 @@ class ScoringAndResultsTest extends TestCase
                     ['min_score' => 4, 'max_score' => 9, 'title' => 'Hoch'],
                 ],
                 false,
-                'ueberschneiden sich',
+                'überschneiden sich',
             ],
             'vertauschte Grenzen' => [
                 [
@@ -181,7 +181,7 @@ class ScoringAndResultsTest extends TestCase
                     ['min_score' => 7, 'max_score' => 2, 'title' => 'Verdreht'],
                 ],
                 false,
-                'ungueltig',
+                'ungültig',
             ],
             'ohne Ergebnisse ist zulaessig' => [[], true, null],
         ];

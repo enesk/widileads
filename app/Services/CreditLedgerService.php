@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Constants\CreditLedgerType;
 use App\Exceptions\InsufficientCreditsException;
 use App\Models\CreditLedgerEntry;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -188,7 +189,7 @@ class CreditLedgerService
     private function existingEntryFor(Tenant $tenant, CreditLedgerType $type, Model $reference): ?CreditLedgerEntry
     {
         return CreditLedgerEntry::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $tenant->getKey())
             ->where('type', $type->value)
             ->where('reference_type', $reference->getMorphClass())
@@ -203,7 +204,7 @@ class CreditLedgerService
     private function readBalance(Tenant $tenant): int
     {
         return (int) CreditLedgerEntry::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $tenant->getKey())
             ->sum('credits');
     }

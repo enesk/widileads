@@ -11,6 +11,7 @@ use App\Events\Lead\LeadStateChanged;
 use App\Exceptions\IllegalLeadTransition;
 use App\Models\Lead;
 use App\Models\LeadStateLog;
+use App\Models\Scopes\TenantScopes;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -86,7 +87,7 @@ class LeadStateService
                 // nur der Mehrfachverkauf, sondern FB-054 vollstaendig. Ein
                 // Scope an der Sperre schuetzt nichts; er verhindert nur den
                 // legitimen Zugriff.
-                ->withoutGlobalScope('tenant')
+                ->withoutGlobalScopes(TenantScopes::names())
                 ->whereKey($lead->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();

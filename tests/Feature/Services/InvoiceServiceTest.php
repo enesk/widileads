@@ -67,7 +67,7 @@ class InvoiceServiceTest extends FeatureTest
 
         $this->assertCount(2, $items);
         $this->assertEquals($plan->name, $items[0]->title);
-        $this->assertEquals('Setup Fee', $items[1]->title);
+        $this->assertEquals(__('Setup Fee'), $items[1]->title);
     }
 
     public function test_subscription_invoice_does_not_include_setup_fee_on_subsequent_transactions(): void
@@ -284,6 +284,6 @@ class InvoiceServiceTest extends FeatureTest
 
         // Should include setup fee since no prior SUCCESSFUL transaction exists
         $this->assertCount(2, $items);
-        $this->assertEquals('Setup Fee', $items[1]->title);
+        $this->assertEquals(__('Setup Fee'), $items[1]->title);
     }
 }

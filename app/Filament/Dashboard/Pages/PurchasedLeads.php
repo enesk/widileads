@@ -152,7 +152,13 @@ class PurchasedLeads extends Page implements HasTable
                     ->icon(Heroicon::OutlinedArrowDownTray)
                     ->action(fn (): StreamedResponse => $this->exportCsv()),
             ])
+            ->recordUrl(fn (LeadPurchase $record): string => PurchasedLeadDetail::getUrl(['purchase' => $record->getKey()]))
             ->recordActions([
+                Action::make('open')
+                    ->label(__('marketplace.purchased.detail.open'))
+                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->link()
+                    ->url(fn (LeadPurchase $record): string => PurchasedLeadDetail::getUrl(['purchase' => $record->getKey()])),
                 Action::make('feedback')
                     ->label(__('marketplace.purchased.csv.feedback'))
                     ->icon(Heroicon::OutlinedHandThumbUp)

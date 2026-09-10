@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\LeadPurchaseNotAvailableException;
 use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
 
@@ -29,7 +30,7 @@ class LeadPurchaseUnavailable implements LeadPurchaseAction
         return false;
     }
 
-    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase
     {
         throw LeadPurchaseNotAvailableException::notImplementedYet();
     }

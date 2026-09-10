@@ -88,13 +88,13 @@ class UserResource extends Resource
                         })
                         ->preload(),
                     Checkbox::make('is_admin')
-                        ->label('Is Admin?')
+                        ->label(__('Is Admin?'))
                         ->helperText('If checked, this user will be able to access the admin panel. There has to be at least 1 admin user, so if this field is disabled, you will have to create another admin user first before you can disable this one.')
                         // there has to be at least 1 admin user
                         ->disabled(fn (?User $user): bool => $user && $user->is_admin && User::where('is_admin', true)->count() === 1)
                         ->default(false),
                     Checkbox::make('is_blocked')
-                        ->label('Is Blocked?')
+                        ->label(__('Is Blocked?'))
                         ->disabled(fn (?User $user, string $context): bool => $context === 'create' || $user->is_admin == true)
                         ->helperText('If checked, this user will not be able to log in or use any services provided.')
                         ->default(false),

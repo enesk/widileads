@@ -15,8 +15,8 @@ return [
         'from' => 'Von',
         'until' => 'Bis',
         'views' => 'Aufrufe',
-        'submissions' => 'Abschluesse',
-        'abandoned' => 'Abbrueche',
+        'submissions' => 'Abschlüsse',
+        'abandoned' => 'Abbrüche',
         'completion_rate' => 'Abschlussquote',
         'steps' => 'Schritte',
         'step' => 'Schritt',
@@ -24,8 +24,8 @@ return [
         'step_completions' => 'Abgeschlossen',
         'drop_offs' => 'Abgesprungen',
         'drop_off_rate' => 'Absprungquote',
-        'no_funnel' => 'Fuer diesen Workspace gibt es noch keinen Funnel.',
-        'no_steps' => 'Diese Fassung hat keine Schritte - oder der Funnel ist noch nicht veroeffentlicht.',
+        'no_funnel' => 'Für diesen Workspace gibt es noch keinen Funnel.',
+        'no_steps' => 'Diese Fassung hat keine Schritte - oder der Funnel ist noch nicht veröffentlicht.',
     ],
 
 ];

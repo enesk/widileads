@@ -42,7 +42,12 @@ return [
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Ohne Zeitgrenze haengt ein nicht erreichbarer Mailserver den
+            // gesamten Request, bis PHP abbricht. Mit QUEUE_CONNECTION=sync
+            // laeuft der Versand im Request mit -- ein Leadkauf blieb dadurch
+            // minutenlang stehen. Fuenf Sekunden reichen fuer jeden gesunden
+            // Mailserver.
+            'timeout' => (int) env('MAIL_TIMEOUT', 5),
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
         ],
 

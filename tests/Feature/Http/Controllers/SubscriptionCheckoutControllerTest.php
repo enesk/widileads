@@ -31,7 +31,7 @@ class SubscriptionCheckoutControllerTest extends FeatureTest
 
         $response->assertStatus(200);
 
-        $response->assertSee('Complete Subscription');
+        $response->assertSee('Abo abschließen');
     }
 
     public function test_checkout_loads_for_plan_with_trial()
@@ -58,7 +58,7 @@ class SubscriptionCheckoutControllerTest extends FeatureTest
 
         $response->assertStatus(200);
 
-        $response->assertSee('Complete Subscription');
+        $response->assertSee('Abo abschließen');
     }
 
     public function test_checkout_loads_for_plan_with_trial_without_payment_details_enabled()
@@ -87,6 +87,6 @@ class SubscriptionCheckoutControllerTest extends FeatureTest
 
         $response->assertStatus(200);
 
-        $response->assertSee('Complete Subscription');
+        $response->assertSee('Abo abschließen');
     }
 }

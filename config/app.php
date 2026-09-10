@@ -85,7 +85,7 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'de'),
 
     /*
     |--------------------------------------------------------------------------
@@ -149,11 +149,15 @@ return [
     'datetime_format' => 'd/m/Y H:i',
     'date_format' => 'd/m/Y',
 
-    'default_currency' => 'USD',
+    // Vorgabewaehrung der Plattform. Der Admin-Bereich kann sie ueber
+    // ConfigConstants::OVERRIDABLE_CONFIGS uebersteuern; ohne Eintrag in der
+    // Datenbank gilt dieser Wert. Er stand auf USD, waehrend die Plattform in
+    // Euro abrechnet -- damit trugen alle Kaufbelege die falsche Waehrung.
+    'default_currency' => env('APP_DEFAULT_CURRENCY', 'EUR'),
 
     'support_email' => 'support@saasykit.com',
 
-    'email_color_tint' => '#6f27e5',  // used to add brand color to email templates (since it's not possible to use tailwind vars in emails)
+    'email_color_tint' => '#003781',  // used to add brand color to email templates (since it's not possible to use tailwind vars in emails)
 
     'google_tracking_id' => env('GOOGLE_TRACKING_ID'),
     'tracking_scripts' => env('TRACKING_SCRIPTS'),

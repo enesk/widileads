@@ -68,7 +68,7 @@ class PricesRelationManager extends RelationManager
                         ->live()
                         ->required(),
                     Select::make('currency_id')
-                        ->label('Currency')
+                        ->label(__('Currency'))
                         ->live()
                         ->options(
                             $this->currencyService->getAllCurrencies()

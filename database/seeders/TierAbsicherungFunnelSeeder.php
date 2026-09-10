@@ -99,7 +99,8 @@ class TierAbsicherungFunnelSeeder extends Seeder
         FunnelTheme::query()->updateOrCreate(
             ['funnel_id' => $funnel->getKey()],
             [
-                'primary_color' => '#1d5c9e',
+                // Allianz-Blau als Primaerfarbe der Strecke.
+                'primary_color' => '#003781',
                 'secondary_color' => '#64748b',
                 'background_color' => '#ffffff',
                 'text_color' => '#0f172a',
@@ -107,7 +108,7 @@ class TierAbsicherungFunnelSeeder extends Seeder
                 'progress_style' => 'none',
                 'border_radius' => 10,
                 'button_next_label' => 'Weiter',
-                'button_back_label' => 'Zurueck',
+                'button_back_label' => 'Zurück',
                 'button_submit_label' => 'Jetzt absichern lassen',
             ],
         );

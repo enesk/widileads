@@ -9,7 +9,7 @@
     {
       "position": 1,
       "title": "Sichere dein Tier jetzt ab",
-      "description": "30 Sekunden - bevor die naechste Rechnung kommt.",
+      "description": "30 Sekunden - bevor die nächste Rechnung kommt.",
       "questions": [
         {
           "field_key": "tierart",
@@ -67,7 +67,7 @@
     {
       "position": 2,
       "title": "Deine Kontaktdaten",
-      "description": "Fuer dein Angebot & schnelle Rueckfragen - kein Verkaufsdruck.",
+      "description": "Für dein Angebot & schnelle Rückfragen - kein Verkaufsdruck.",
       "questions": [
         {
           "field_key": "name",
@@ -117,7 +117,7 @@
           "field_key": "telefon",
           "type": "phone",
           "label": "Deine Telefonnummer",
-          "help_text": "Fuer dein Angebot & schnelle Rueckfragen - kein Verkaufsdruck.",
+          "help_text": "Für dein Angebot & schnelle Rückfragen - kein Verkaufsdruck.",
           "required": true,
           "position": 5,
           "validation": {},
@@ -139,7 +139,7 @@
     "progress_style": "none",
     "border_radius": 10,
     "button_next_label": "Weiter",
-    "button_back_label": "Zurueck",
+    "button_back_label": "Zurück",
     "button_submit_label": "Jetzt absichern lassen"
   }
 }

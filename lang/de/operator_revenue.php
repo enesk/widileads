@@ -22,8 +22,8 @@ return [
     'refunds' => 'Gutschriften',
     'net' => 'Netto',
     'by_funnel' => 'Je Funnel',
-    'by_buyer' => 'Je Kaeufer',
+    'by_buyer' => 'Je Käufer',
     'without_funnel' => 'Ohne Funnel',
-    'empty' => 'Im gewaehlten Zeitraum wurde kein Lead verkauft.',
+    'empty' => 'Im gewählten Zeitraum wurde kein Lead verkauft.',
 
 ];

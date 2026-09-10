@@ -41,7 +41,7 @@ class PricesRelationManager extends RelationManager
                         ->gte(0)
                         ->helperText(__('Enter price in lowest denomination for a currency (cents). E.g. 1000 = 10.00')),
                     Select::make('currency_id')
-                        ->label('Currency')
+                        ->label(__('Currency'))
                         ->options(
                             $this->currencyService->getAllCurrencies()
                                 ->mapWithKeys(function ($currency) {
@@ -70,7 +70,7 @@ class PricesRelationManager extends RelationManager
                         return money($state, $record->currency->code);
                     }),
                 TextColumn::make('currency.name')
-                    ->label('Currency'),
+                    ->label(__('Currency')),
             ])
             ->filters([
                 //

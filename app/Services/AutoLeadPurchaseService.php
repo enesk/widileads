@@ -11,6 +11,7 @@ use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Log;
 
@@ -48,7 +49,7 @@ class AutoLeadPurchaseService
 
         $profiles = BuyerProfile::query()
             // Der Lauf gehoert keinem Mandanten -- er bedient alle.
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->autoBuying()
             ->with('tenant')
             ->orderBy('id')

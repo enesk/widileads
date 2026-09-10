@@ -13,6 +13,7 @@ use App\Exceptions\LeadNotPurchasableException;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\CreditLedgerService;
@@ -134,7 +135,7 @@ class PurchaseLead
             // den Lead nicht -- und zwar mit einer Ausnahme, nicht mit einer
             // Fehlermeldung, die einem Kaeufer etwas sagt (FB-055a).
             $locked = Lead::query()
-                ->withoutGlobalScope('tenant')
+                ->withoutGlobalScopes(TenantScopes::names())
                 ->whereKey($lead->getKey())
                 ->lockForUpdate()
                 ->firstOrFail();
@@ -268,7 +269,7 @@ class PurchaseLead
         }
 
         $funnel = Funnel::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->find($lead->funnel_id);
 
         return $funnel instanceof Funnel ? $funnel : null;

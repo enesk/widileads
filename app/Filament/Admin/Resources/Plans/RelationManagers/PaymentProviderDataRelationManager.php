@@ -40,7 +40,7 @@ class PaymentProviderDataRelationManager extends RelationManager
         return $schema
             ->components([
                 Select::make('payment_provider_id')
-                    ->label('Payment Provider')
+                    ->label(__('Payment Provider'))
                     ->options(
                         PaymentProvider::where('slug', '!=', PaymentProviderConstants::OFFLINE_SLUG)
                             ->get()
@@ -58,7 +58,7 @@ class PaymentProviderDataRelationManager extends RelationManager
                     ->preload()
                     ->required(),
                 TextInput::make('payment_provider_product_id')
-                    ->label('Payment Provider Product/Variant ID')
+                    ->label(__('Payment Provider Product/Variant ID'))
                     ->helperText('For Lemon Squeezy, this should be equal to the variant ID.')
                     ->required()
                     ->maxLength(255),
@@ -152,11 +152,11 @@ class PaymentProviderDataRelationManager extends RelationManager
             ->recordTitleAttribute('Payment Provider Product/Variant ID')
             ->columns([
                 TextColumn::make('payment_provider_id')
-                    ->label('Payment Provider')->formatStateUsing(function ($record) {
+                    ->label(__('Payment Provider'))->formatStateUsing(function ($record) {
                         return $record->paymentProvider->name;
                     }),
                 TextColumn::make('payment_provider_product_id')
-                    ->label('Payment Provider Product/Variant ID'),
+                    ->label(__('Payment Provider Product/Variant ID')),
             ])
             ->filters([
                 //

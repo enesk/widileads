@@ -11,7 +11,7 @@ return [
     'heading' => 'Exporte',
     'nav_label' => 'Export',
     'new' => 'Neuen Export anfordern',
-    'hint' => 'Der Export laeuft im Hintergrund. Sobald die Datei fertig ist, erscheint hier ein befristeter Download-Link.',
+    'hint' => 'Der Export läuft im Hintergrund. Sobald die Datei fertig ist, erscheint hier ein befristeter Download-Link.',
     'columns_legend' => 'Spalten',
     'request' => 'Export anfordern',
     'requested_at' => 'Angefordert',
@@ -23,7 +23,7 @@ return [
 
     'status' => [
         'pending' => 'Wartet',
-        'running' => 'Laeuft',
+        'running' => 'Läuft',
         'ready' => 'Fertig',
         'failed' => 'Fehlgeschlagen',
     ],
@@ -47,8 +47,8 @@ return [
     ],
 
     'errors' => [
-        'no_columns' => 'Waehle mindestens eine Spalte aus.',
-        'no_requester' => 'Der Export laesst sich ohne anfordernden Benutzer nicht erzeugen.',
+        'no_columns' => 'Wähle mindestens eine Spalte aus.',
+        'no_requester' => 'Der Export lässt sich ohne anfordernden Benutzer nicht erzeugen.',
         'not_writable' => 'Die Exportdatei konnte nicht angelegt werden.',
         'failed' => 'Der Export ist abgebrochen. Versuche es erneut.',
     ],

@@ -10,7 +10,9 @@ use App\Mail\Lead\LeadReceived;
 use App\Models\Funnel;
 use App\Services\LeadContactResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Meldet dem Betreiber per Mail, dass aus seinem Funnel ein Lead entstanden ist
@@ -70,7 +72,18 @@ class SendNewLeadNotification implements ShouldQueue
         // die Instanz ein. Wird dieselbe Instanz zweimal verschickt, sammelt sie
         // die Adressen an -- der zweite Empfaenger saehe dann auch den ersten.
         foreach ($recipients as $recipient) {
-            Mail::to($recipient)->send(new LeadReceived($lead, $contact, $answers));
+            // Ein stummer Mailserver darf den Zustandswechsel nicht mitreissen:
+            // Mit QUEUE_CONNECTION=sync laeuft dieser Listener im Request mit,
+            // und der Lead ist zu diesem Zeitpunkt bereits verfuegbar.
+            try {
+                Mail::to($recipient)->send(new LeadReceived($lead, $contact, $answers));
+            } catch (Throwable $exception) {
+                Log::warning('Lead-Benachrichtigung konnte nicht verschickt werden.', [
+                    'lead_id' => $lead->getKey(),
+                    'recipient' => $recipient,
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
         }
     }
 }

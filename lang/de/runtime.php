@@ -20,15 +20,15 @@ return [
     'continue' => 'Weiter zu den Kontaktdaten',
     'thanks_title' => 'Vielen Dank!',
     'thanks_body' => 'Deine Anfrage ist eingegangen. Ein passender Anbieter meldet sich bei dir.',
-    'archived_title' => 'Diese Anfrage ist nicht mehr verfuegbar',
-    'archived_body' => 'Der Fragebogen wurde archiviert und kann nicht mehr ausgefuellt werden.',
+    'archived_title' => 'Diese Anfrage ist nicht mehr verfügbar',
+    'archived_body' => 'Der Fragebogen wurde archiviert und kann nicht mehr ausgefüllt werden.',
 
     'errors' => [
         'rate_limited' => 'Wir haben von hier gerade sehr viele Anfragen erhalten. Bitte versuche es in einer Stunde noch einmal.',
         'origin_not_allowed' => 'Dieser Fragebogen darf auf dieser Seite nicht eingebettet werden.',
         'phone_not_dialable' => 'Diese Telefonnummer konnten wir nicht lesen. Bitte gib sie mit Vorwahl an.',
-        'event_not_updatable' => 'Ein Ereignis im Sitzungsprotokoll kann nach dem Anlegen nicht mehr geaendert werden.',
-        'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht geloescht werden.',
+        'event_not_updatable' => 'Ein Ereignis im Sitzungsprotokoll kann nach dem Anlegen nicht mehr geändert werden.',
+        'event_not_deletable' => 'Ein Ereignis im Sitzungsprotokoll kann nicht gelöscht werden.',
     ],
 
     // FB-027: Fuer Screenreader, wo der Stern allein nicht genuegt.

@@ -8,6 +8,7 @@ use App\Constants\CreditLedgerType;
 use App\Constants\LeadState;
 use App\Models\CreditLedgerEntry;
 use App\Models\LeadPurchase;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\Transaction;
 use Carbon\CarbonInterface;
@@ -93,7 +94,7 @@ class BuyerBillingService
     private function creditsOfType(Tenant $buyer, CreditLedgerType $type, Carbon $from, Carbon $until): int
     {
         $sum = CreditLedgerEntry::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $buyer->getKey())
             ->where('type', $type->value)
             ->whereBetween('created_at', [$from, $until])

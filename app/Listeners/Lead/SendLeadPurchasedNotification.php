@@ -8,7 +8,9 @@ use App\Events\Lead\LeadPurchased;
 use App\Mail\Lead\LeadPurchased as LeadPurchasedMail;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Schickt dem Kaeufer die Kaufbestaetigung mit den Kontaktdaten (FB-054).
@@ -43,7 +45,19 @@ class SendLeadPurchasedNotification implements ShouldQueue
             return;
         }
 
-        Mail::to($address)->send(new LeadPurchasedMail($event->lead, $event->purchase, $recipient));
+        // Der Kauf ist zu diesem Zeitpunkt festgeschrieben. Ein stummer oder
+        // kaputter Mailserver darf ihn nicht nachtraeglich in einen Fehler
+        // verwandeln -- mit QUEUE_CONNECTION=sync laeuft dieser Listener im
+        // Request des Kaeufers mit und wuerde ihn sonst mitreissen.
+        try {
+            Mail::to($address)->send(new LeadPurchasedMail($event->lead, $event->purchase, $recipient));
+        } catch (Throwable $exception) {
+            Log::warning('Kaufbestaetigung konnte nicht verschickt werden.', [
+                'lead_id' => $event->lead->getKey(),
+                'purchase_id' => $event->purchase->getKey(),
+                'exception' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function notifyAddressFor(LeadPurchased $event): ?string

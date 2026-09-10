@@ -13,15 +13,15 @@ return [
 
     'title' => 'Vorschau: :name',
     'badge' => 'Vorschau',
-    'status' => 'Aktueller Stand: :status. Gezeigt wird der Entwurf, nicht die veroeffentlichte Fassung.',
-    'hint' => 'Dieser Link ist befristet und nicht oeffentlich verlinkt. Wer ihn hat, sieht diese Seite.',
+    'status' => 'Aktueller Stand: :status. Gezeigt wird der Entwurf, nicht die veröffentlichte Fassung.',
+    'hint' => 'Dieser Link ist befristet und nicht öffentlich verlinkt. Wer ihn hat, sieht diese Seite.',
     'step' => 'Schritt :position',
     'points' => ':points Punkte',
     'results' => 'Ergebnis-Screens',
 
     'publishable' => [
-        'heading' => 'Bereit zur Veroeffentlichung?',
-        'ready' => 'Ja - dieser Stand laesst sich veroeffentlichen.',
+        'heading' => 'Bereit zur Veröffentlichung?',
+        'ready' => 'Ja - dieser Stand lässt sich veröffentlichen.',
         'blocked' => 'Noch nicht. Das steht im Weg:',
     ],
 

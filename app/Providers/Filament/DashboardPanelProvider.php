@@ -20,7 +20,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -41,7 +40,41 @@ class DashboardPanelProvider extends PanelProvider
             ->id('dashboard')
             ->path('dashboard')
             ->colors([
-                'primary' => Color::Teal,
+                // Allianz-Blau, dieselbe Farbe wie in den E-Mails
+                // (config('app.email_color_tint')).
+                'primary' => [
+                    // Feste Palette statt einer aus einem einzigen Wert
+                    // errechneten: Filament nimmt fuer Knopfflaechen den Ton
+                    // 600 und faerbt sie damit dunkler ein, als die Marke ist.
+                    // Hier sitzt 600 genau auf Allianz-Blau.
+                    50 => '#eef4fb',
+                    100 => '#d5e3f4',
+                    200 => '#a9c5e7',
+                    300 => '#76a2d6',
+                    400 => '#3f7ec0',
+                    500 => '#1259a4',
+                    600 => '#003781',
+                    700 => '#002f6d',
+                    800 => '#00265a',
+                    900 => '#001d45',
+                    950 => '#00122c',
+                ],
+
+                // Pastellgruen fuer den Kaufknopf. Eigene Farbe statt der
+                // Primaerfarbe, damit der Kauf sich vom Rest abhebt.
+                'pastel' => [
+                    50 => '#f2faf5',
+                    100 => '#e2f4e9',
+                    200 => '#c7e9d5',
+                    300 => '#a7dabe',
+                    400 => '#8ecda9',
+                    500 => '#7cc59c',
+                    600 => '#6bb98d',
+                    700 => '#559a73',
+                    800 => '#437a5c',
+                    900 => '#345f48',
+                    950 => '#1d3a2b',
+                ],
             ])
             ->userMenuItems([
                 Action::make('admin-panel')

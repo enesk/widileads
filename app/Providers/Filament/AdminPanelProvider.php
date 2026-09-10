@@ -10,7 +10,6 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -29,7 +28,25 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->colors([
-                'primary' => Color::Amber,
+                // Allianz-Blau, dieselbe Farbe wie in den E-Mails
+                // (config('app.email_color_tint')).
+                'primary' => [
+                    // Feste Palette statt einer aus einem einzigen Wert
+                    // errechneten: Filament nimmt fuer Knopfflaechen den Ton
+                    // 600 und faerbt sie damit dunkler ein, als die Marke ist.
+                    // Hier sitzt 600 genau auf Allianz-Blau.
+                    50 => '#eef4fb',
+                    100 => '#d5e3f4',
+                    200 => '#a9c5e7',
+                    300 => '#76a2d6',
+                    400 => '#3f7ec0',
+                    500 => '#1259a4',
+                    600 => '#003781',
+                    700 => '#002f6d',
+                    800 => '#00265a',
+                    900 => '#001d45',
+                    950 => '#00122c',
+                ],
             ])
             ->navigation()
             ->userMenuItems([

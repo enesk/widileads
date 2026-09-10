@@ -278,6 +278,14 @@ return [
     */
 
     'purchased' => [
+        'detail' => [
+            'subheading' => 'From :funnel, purchased on :date',
+            'facts' => 'Purchase',
+            'back' => 'Back to my leads',
+            'open' => 'Open',
+            'no_answers' => 'No further details were submitted with this lead.',
+            'feedback_saved' => 'Feedback saved.',
+        ],
 
         'heading' => 'My leads',
         'nav_label' => 'My leads',
@@ -313,6 +321,19 @@ return [
     */
 
     'complaint' => [
+
+        'mail' => [
+            'subject' => 'Complaint about lead #:lead',
+            'label' => 'Complaint',
+            'heading' => 'A buyer has filed a complaint',
+            'intro' => 'A buyer is asking for this lead to be moved to a different state. If the complaint is approved, their credit is refunded.',
+            'filed_at' => 'Filed on :date at :time',
+            'facts_heading' => 'The request',
+            'lead' => 'Lead',
+            'buyer' => 'Buyer',
+            'cta' => 'Review complaint',
+            'outro' => 'A person decides on this request. Until then the lead stays as it is.',
+        ],
 
         'open' => 'Report this lead',
         'help' => 'Request that this lead counts as unreachable or invalid. A member of staff reviews the request; if it is accepted, you get your credit back.',

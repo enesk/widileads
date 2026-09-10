@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
 
@@ -39,7 +40,11 @@ interface LeadPurchaseAction
     public function canPurchase(Tenant $buyer, Lead $lead): bool;
 
     /**
-     * Fuehrt den Kauf aus.
+     * Fuehrt den Kauf aus und gibt den Kaufbeleg zurueck.
+     *
+     * Den Beleg braucht die Oberflaeche, um den Kaeufer danach direkt auf
+     * seinen Lead zu fuehren -- ohne ihn muesste sie den Kauf nachtraeglich
+     * suchen und koennte im Mehrfachverkauf den falschen finden.
      */
-    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void;
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase;
 }

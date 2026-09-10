@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Actions\PurchaseLead;
 use App\Constants\LeadState;
 use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
 
@@ -39,8 +40,8 @@ class LeadPurchaseThroughAction implements LeadPurchaseAction
             && $this->tenantTypes->canAccessMarketplace($buyer);
     }
 
-    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): void
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase
     {
-        $this->purchaseLead->handle($buyer, $lead, $actor);
+        return $this->purchaseLead->handle($buyer, $lead, $actor);
     }
 }

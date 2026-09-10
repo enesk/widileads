@@ -9,11 +9,16 @@ use App\Constants\ComplaintStatus;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
 use App\Exceptions\ComplaintNotAllowedException;
+use App\Mail\Lead\LeadComplaintFiled;
 use App\Models\LeadComplaint;
 use App\Models\LeadPurchase;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Reklamationen: beantragen, entscheiden, abrechnen (FB-058).
@@ -54,7 +59,41 @@ class LeadComplaintService
         $complaint->status = ComplaintStatus::PENDING;
         $complaint->save();
 
+        $this->notifySupport($complaint);
+
         return $complaint;
+    }
+
+    /**
+     * Meldet den Antrag an die Support-Adresse.
+     *
+     * Ueber eine Reklamation entscheidet ein Mensch -- ohne diese Meldung
+     * bliebe sie liegen, bis jemand von sich aus in die Pruefliste schaut.
+     *
+     * Ein fehlender oder unbrauchbarer Eintrag in `app.support_email` darf den
+     * Antrag nicht scheitern lassen: Der Kaeufer hat seinen Teil getan, die
+     * Reklamation steht in der Datenbank.
+     */
+    private function notifySupport(LeadComplaint $complaint): void
+    {
+        $recipient = (string) config('app.support_email');
+
+        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            Log::warning('Reklamation ohne Support-Meldung: app.support_email ist nicht gesetzt.', [
+                'lead_complaint_id' => $complaint->getKey(),
+            ]);
+
+            return;
+        }
+
+        Mail::to($recipient)->send(new LeadComplaintFiled($complaint->loadMissing([
+            'buyer',
+            'purchase',
+            // Ohne Mandanten-Scope: Lead und Fragebogen gehoeren dem Betreiber,
+            // reklamiert wird im Kontext des Kaeufers.
+            'lead' => static fn (Relation $lead) => $lead->withoutGlobalScopes(TenantScopes::names())
+                ->with(['funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names())]),
+        ])));
     }
 
     /**

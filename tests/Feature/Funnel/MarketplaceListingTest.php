@@ -222,13 +222,11 @@ class MarketplaceListingTest extends FeatureTest
         $this->assertStringNotContainsString(self::POSTAL_CODE, $html);
         $this->assertStringNotContainsString('mara.lindqvist', $html);
 
-        // Die verdeckten Fassungen sind da -- der Kaeufer sieht die Region.
-        $this->assertStringContainsString('76…', $html);
-
-        // Qualifizierungsdaten dagegen im Klartext, samt Zustandshinweis.
+        // Qualifizierungsdaten dagegen im Klartext. Region, E-Mail, Telefon,
+        // Punkte, Funnel und Verfuegbarkeit stehen bewusst nicht mehr in der
+        // Uebersicht -- sie gehoeren in die Detailansicht.
         $this->assertStringContainsString('tierart', $html);
         $this->assertStringContainsString('hund', $html);
-        $this->assertStringContainsString(__('marketplace.listing.taken'), $html);
     }
 
     public function test_the_watchlist_belongs_to_the_buyer_who_created_it(): void

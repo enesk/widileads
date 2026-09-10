@@ -65,7 +65,7 @@ class BlogPostResource extends Resource
                     Textarea::make('description')
                         ->maxLength(1000)
                         ->helperText(__('A short description of the post (will be used in meta tags).'))
-                        ->label('Description')
+                        ->label(__('Description'))
                         ->rows(2),
                     RichEditor::make('body')
                         ->columns(10)

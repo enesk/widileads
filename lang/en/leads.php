@@ -37,6 +37,15 @@ return [
         'utm_campaign' => 'Campaign',
         'embed_origin' => 'Embedded on',
         'state_log' => 'State history',
+        'subheading' => 'From :funnel, received on :date',
+        'unknown_funnel' => 'a funnel',
+        'overview' => 'Overview',
+        'answers_hint' => 'What the customer answered in the funnel.',
+        'question' => 'Question',
+        'answer' => 'Answer',
+        'duplicate_label' => 'Duplicate',
+        'yes' => 'Yes',
+        'no' => 'No',
     ],
 
     'resource' => [

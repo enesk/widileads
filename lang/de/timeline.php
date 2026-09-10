@@ -12,7 +12,7 @@ return [
     'nav_label' => 'Zeitverlauf',
     'filters' => 'Filter',
     'granularity' => 'Zeitraster',
-    'breakdown' => 'Aufschluesseln nach',
+    'breakdown' => 'Aufschlüsseln nach',
     'funnel' => 'Funnel',
     'state' => 'Zustand',
     'from' => 'Von',
@@ -22,7 +22,7 @@ return [
     'total' => 'Gesamt',
     'all_leads' => 'Alle Leads',
     'unknown' => 'Ohne Angabe',
-    'empty' => 'Im gewaehlten Zeitraum sind keine Leads eingegangen.',
+    'empty' => 'Im gewählten Zeitraum sind keine Leads eingegangen.',
 
     'granularities' => [
         'day' => 'Tag',
@@ -31,7 +31,7 @@ return [
     ],
 
     'breakdowns' => [
-        'none' => 'Nicht aufschluesseln',
+        'none' => 'Nicht aufschlüsseln',
         'funnel' => 'Funnel',
         'origin' => 'Herkunft',
         'state' => 'Zustand',
