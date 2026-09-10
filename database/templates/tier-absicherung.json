@@ -1,0 +1,145 @@
+{
+  "funnel": {
+    "name": "Sichere dein Tier jetzt ab",
+    "slug": "tier-absicherung",
+    "lead_price": 15.00,
+    "contact_step_position": 2
+  },
+  "steps": [
+    {
+      "position": 1,
+      "title": "Sichere dein Tier jetzt ab",
+      "description": "30 Sekunden - bevor die naechste Rechnung kommt.",
+      "questions": [
+        {
+          "field_key": "tierart",
+          "type": "single_choice",
+          "label": "Wer soll versichert werden?",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "hund", "label": "Hund", "score": 2, "position": 1, "image_path": null },
+            { "value": "katze", "label": "Katze", "score": 1, "position": 2, "image_path": null },
+            { "value": "pferd", "label": "Pferd", "score": 3, "position": 3, "image_path": null }
+          ]
+        },
+        {
+          "field_key": "rasse",
+          "type": "text",
+          "label": "Rasse",
+          "help_text": null,
+          "required": true,
+          "position": 2,
+          "validation": {},
+          "meta": { "placeholder": "z. B. Labrador" },
+          "options": []
+        },
+        {
+          "field_key": "tier_alter",
+          "type": "text",
+          "label": "Alter des Tiers",
+          "help_text": null,
+          "required": true,
+          "position": 3,
+          "validation": {},
+          "meta": { "placeholder": "z. B. 3 Jahre" },
+          "options": []
+        },
+        {
+          "field_key": "gesundheitszustand",
+          "type": "single_choice",
+          "label": "Gesundheitszustand des Tiers",
+          "help_text": null,
+          "required": true,
+          "position": 4,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "gesund", "label": "Gesund", "score": 0, "position": 1, "image_path": null },
+            { "value": "vorerkrankungen", "label": "Vorerkrankungen", "score": 3, "position": 2, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "title": "Deine Kontaktdaten",
+      "description": "Fuer dein Angebot & schnelle Rueckfragen - kein Verkaufsdruck.",
+      "questions": [
+        {
+          "field_key": "name",
+          "type": "text",
+          "label": "Dein Name",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": { "placeholder": "z. B. Alex Schmidt" },
+          "options": []
+        },
+        {
+          "field_key": "halter_alter",
+          "type": "number",
+          "label": "Dein Alter",
+          "help_text": null,
+          "required": true,
+          "position": 2,
+          "validation": { "min": 18, "max": 120 },
+          "meta": { "placeholder": "z. B. 35" },
+          "options": []
+        },
+        {
+          "field_key": "plz",
+          "type": "postal_code",
+          "label": "PLZ",
+          "help_text": null,
+          "required": true,
+          "position": 3,
+          "validation": {},
+          "meta": { "placeholder": "z. B. 10115" },
+          "options": []
+        },
+        {
+          "field_key": "email",
+          "type": "email",
+          "label": "Deine E-Mail",
+          "help_text": null,
+          "required": true,
+          "position": 4,
+          "validation": {},
+          "meta": { "placeholder": "name@beispiel.de" },
+          "options": []
+        },
+        {
+          "field_key": "telefon",
+          "type": "phone",
+          "label": "Deine Telefonnummer",
+          "help_text": "Fuer dein Angebot & schnelle Rueckfragen - kein Verkaufsdruck.",
+          "required": true,
+          "position": 5,
+          "validation": {},
+          "meta": { "placeholder": "z. B. 0151 23456789" },
+          "options": []
+        }
+      ]
+    }
+  ],
+  "conditions": [],
+  "results": [],
+  "theme": {
+    "primary_color": "#1d5c9e",
+    "secondary_color": "#64748b",
+    "background_color": "#ffffff",
+    "text_color": "#0f172a",
+    "font": "inter",
+    "logo_path": null,
+    "progress_style": "none",
+    "border_radius": 10,
+    "button_next_label": "Weiter",
+    "button_back_label": "Zurueck",
+    "button_submit_label": "Jetzt absichern lassen"
+  }
+}
