@@ -71,21 +71,68 @@ class LeadReceived extends Mailable implements ShouldQueue
     public static function answersOf(Lead $lead): array
     {
         $labels = self::labelsFromVersion($lead);
+        $optionLabels = self::optionLabelsFromVersion($lead);
         $out = [];
 
         foreach ($lead->answers as $answer) {
             /** @var LeadAnswer $answer */
             $value = $answer->value;
 
+            $readable = static fn (mixed $single): string => $optionLabels[$answer->field_key][(string) $single]
+                ?? (string) $single;
+
             $out[$labels[$answer->field_key] ?? $answer->field_key] = match (true) {
-                is_array($value) => implode(', ', array_map(strval(...), $value)),
+                is_array($value) => implode(', ', array_map($readable, $value)),
                 is_bool($value) => $value ? __('leads.notification.mail.yes') : __('leads.notification.mail.no'),
-                is_scalar($value) => (string) $value,
+                is_scalar($value) => $readable($value),
                 default => '',
             };
         }
 
         return $out;
+    }
+
+    /**
+     * Beschriftungen der Antwortoptionen, ebenfalls aus der Fassung, unter der
+     * der Lead entstanden ist.
+     *
+     * Gespeichert wird der Wert einer Option ("hund"), gelesen werden soll ihre
+     * Beschriftung ("Hund"). Ohne diese Aufloesung stuenden in der Meldung die
+     * technischen Werte -- fuer den Betreiber schlechter lesbar als das, was
+     * sein Kunde angeklickt hat.
+     *
+     * @return array<string, array<string, string>> field_key => [Wert => Beschriftung]
+     */
+    private static function optionLabelsFromVersion(Lead $lead): array
+    {
+        $snapshot = $lead->funnelVersion?->snapshot;
+
+        if (! is_array($snapshot)) {
+            return [];
+        }
+
+        $labels = [];
+
+        foreach ($snapshot['steps'] ?? [] as $step) {
+            foreach ($step['questions'] ?? [] as $question) {
+                $fieldKey = $question['field_key'] ?? null;
+
+                if (! is_string($fieldKey)) {
+                    continue;
+                }
+
+                foreach ($question['options'] ?? [] as $option) {
+                    $value = $option['value'] ?? null;
+                    $label = $option['label'] ?? null;
+
+                    if (is_scalar($value) && is_string($label) && $label !== '') {
+                        $labels[$fieldKey][(string) $value] = $label;
+                    }
+                }
+            }
+        }
+
+        return $labels;
     }
 
     /**

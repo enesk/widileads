@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\BuyerLeadFeedback;
+use App\Models\Scopes\TenantScopes;
 use Database\Factories\LeadPurchaseFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -67,7 +68,7 @@ class LeadPurchase extends Model
      */
     public function lead(): BelongsTo
     {
-        return $this->belongsTo(Lead::class)->withoutGlobalScope('tenant');
+        return $this->belongsTo(Lead::class)->withoutGlobalScopes(TenantScopes::names());
     }
 
     /**

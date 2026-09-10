@@ -75,7 +75,7 @@ return [
         'mail' => [
             'subject' => 'Neue Anfrage aus :funnel',
             'heading' => 'Es ist eine neue Anfrage eingegangen',
-            'intro' => 'Aus deinem Fragebogen :funnel ist gerade ein Lead entstanden. Die Angaben stehen unten.',
+            'intro' => 'Jemand hat den Fragebogen gerade abgeschlossen. Hier sind die Angaben.',
             'contact_heading' => 'Kontakt',
             'answers_heading' => 'Angaben aus dem Fragebogen',
             'name' => 'Name',
@@ -86,6 +86,12 @@ return [
             'unknown_funnel' => 'einem Fragebogen',
             'yes' => 'Ja',
             'no' => 'Nein',
+            'funnel_label' => 'Fragebogen',
+            'received_at' => 'Eingegangen am :date um :time Uhr',
+            'score' => ':score Punkte',
+            'cta' => 'Lead im Dashboard ansehen',
+            'no_answers' => 'Zu diesem Lead wurden keine weiteren Angaben uebermittelt.',
+            'masked_hint' => 'Die Kontaktdaten sind verdeckt, weil dieser Lead nicht deinem Workspace gehoert.',
         ],
     ],
 

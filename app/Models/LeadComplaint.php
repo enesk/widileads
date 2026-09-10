@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Constants\ComplaintStatus;
 use App\Constants\LeadState;
+use App\Models\Scopes\TenantScopes;
 use Database\Factories\LeadComplaintFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -66,7 +67,7 @@ class LeadComplaint extends Model
      */
     public function lead(): BelongsTo
     {
-        return $this->belongsTo(Lead::class)->withoutGlobalScope('tenant');
+        return $this->belongsTo(Lead::class)->withoutGlobalScopes(TenantScopes::names());
     }
 
     /**

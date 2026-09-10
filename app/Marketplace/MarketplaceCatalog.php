@@ -6,6 +6,7 @@ namespace App\Marketplace;
 
 use App\Constants\TenantType;
 use App\Models\Funnel;
+use App\Models\Scopes\TenantScopes;
 
 /**
  * Was ein Kaeufer vom Angebot der Plattform sehen darf (FB-051).
@@ -45,7 +46,7 @@ class MarketplaceCatalog
         return Funnel::query()
             // Der Kaeufer-Mandant besitzt keinen dieser Funnels -- ohne das
             // Abschalten des Mandanten-Scopes waere die Liste immer leer.
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->published()
             ->whereHas('tenant', static fn ($query) => $query->where('type', TenantType::OPERATOR->value))
             // Ausdruecklich nur diese zwei Spalten: was nicht gelesen wird, kann

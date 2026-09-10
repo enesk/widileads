@@ -75,7 +75,7 @@ return [
         'mail' => [
             'subject' => 'New enquiry from :funnel',
             'heading' => 'A new enquiry has arrived',
-            'intro' => 'A lead has just been created from your funnel :funnel. The details are below.',
+            'intro' => 'Someone has just completed the funnel. Here are the details.',
             'contact_heading' => 'Contact',
             'answers_heading' => 'Answers from the funnel',
             'name' => 'Name',
@@ -86,6 +86,12 @@ return [
             'unknown_funnel' => 'a funnel',
             'yes' => 'Yes',
             'no' => 'No',
+            'funnel_label' => 'Funnel',
+            'received_at' => 'Received on :date at :time',
+            'score' => ':score points',
+            'cta' => 'View lead in the dashboard',
+            'no_answers' => 'No further details were submitted with this lead.',
+            'masked_hint' => 'The contact details are hidden because this lead does not belong to your workspace.',
         ],
     ],
 

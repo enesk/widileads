@@ -184,6 +184,11 @@ return [
         'dark' => 'images/logo-dark.png',
     ],
 
+    // Wortmarke fuer E-Mails. Dort steht die Marke als Schrift statt als Bild:
+    // Viele Postfaecher blockieren Bilder von Haus aus, und ein leerer Platz
+    // ganz oben laesst eine Mail wie Spam aussehen.
+    'wordmark' => env('APP_WORDMARK', 'widimedia'),
+
     'roadmap_enabled' => env('ROADMAP_ENABLED', true),
 
     'recaptcha_enabled' => env('RECAPTCHA_ENABLED', false),

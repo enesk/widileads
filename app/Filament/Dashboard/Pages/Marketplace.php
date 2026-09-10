@@ -14,6 +14,7 @@ use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\LeadWatchlistEntry;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Presenters\LeadPresenter;
@@ -32,6 +33,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -199,7 +201,7 @@ class Marketplace extends Page implements HasTable
     private function toggleWatchlist(Lead $lead): void
     {
         $existing = LeadWatchlistEntry::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $this->tenant()->getKey())
             ->where('lead_id', $lead->getKey())
             ->first();
@@ -271,8 +273,14 @@ class Marketplace extends Page implements HasTable
             // Der Kaeufer besitzt keinen dieser Leads -- ohne das Abschalten
             // des Mandanten-Scopes waere der Marktplatz immer leer. Welche
             // Leads das sind, hat das MarketplaceListing entschieden.
-            ->withoutGlobalScope('tenant')
-            ->with(['answers', 'funnel'])
+            ->withoutGlobalScopes(TenantScopes::names())
+            ->with([
+                'answers',
+                // Der Funnel gehoert dem Betreiber, gelesen wird im Kontext des
+                // Kaeufers -- ohne das Abschalten der Mandanten-Scopes bliebe
+                // die Spalte "Fragebogen" leer (FB-055a).
+                'funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
+            ])
             ->whereIn('id', $matched->map(static fn (Lead $lead): int => (int) $lead->getKey())->all());
     }
 
@@ -336,7 +344,7 @@ class Marketplace extends Page implements HasTable
     private function isWatchlisted(Lead $lead): bool
     {
         return LeadWatchlistEntry::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $this->tenant()->getKey())
             ->where('lead_id', $lead->getKey())
             ->exists();
@@ -345,7 +353,7 @@ class Marketplace extends Page implements HasTable
     private function profile(): ?BuyerProfile
     {
         return BuyerProfile::query()
-            ->withoutGlobalScope('tenant')
+            ->withoutGlobalScopes(TenantScopes::names())
             ->where('tenant_id', $this->tenant()->getKey())
             ->first();
     }

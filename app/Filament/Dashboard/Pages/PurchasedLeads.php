@@ -10,6 +10,7 @@ use App\Constants\FunnelFieldKey;
 use App\Constants\LeadState;
 use App\Exceptions\ComplaintNotAllowedException;
 use App\Models\LeadPurchase;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Presenters\LeadPresenter;
@@ -347,7 +348,7 @@ class PurchasedLeads extends Page implements HasTable
                 // Ohne Mandanten-Scope: Der Fragebogen gehoert dem Betreiber,
                 // nicht dem Kaeufer. Mit Scope kaeme hier immer null heraus,
                 // und der Kaeufer saehe seine eigenen Kaeufe ohne Herkunft.
-                'lead.funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScope('tenant'),
+                'lead.funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
             ])
             ->ofBuyer($this->tenant());
     }
