@@ -31,10 +31,9 @@ class AdminPanelProvider extends PanelProvider
                 // Allianz-Blau, dieselbe Farbe wie in den E-Mails
                 // (config('app.email_color_tint')).
                 'primary' => [
-                    // Feste Palette statt einer aus einem einzigen Wert
-                    // errechneten: Filament nimmt fuer Knopfflaechen den Ton
-                    // 600 und faerbt sie damit dunkler ein, als die Marke ist.
-                    // Hier sitzt 600 genau auf Allianz-Blau.
+                    // Markenfarbe der Vorlage. Feste Palette, weil Filament
+                    // fuer Knopfflaechen den Ton 600 nimmt: Hier sitzt 600
+                    // genau auf der Marke.
                     50 => '#eef4fb',
                     100 => '#d5e3f4',
                     200 => '#a9c5e7',

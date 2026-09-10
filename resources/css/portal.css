@@ -1,0 +1,230 @@
+/*
+ | Portal-Bausteine
+ |--------------------------------------------------------------------------
+ |
+ | Die Klassen der oeffentlichen Seiten (Startseite, spaeter weitere): Karte,
+ | Knopf, Eingabefeld, Container. Sie stehen hier als gewoehnliches CSS und
+ | nicht als Utility-Wolke im Markup, damit ein Knopf auf jeder Seite gleich
+ | aussieht und an einer Stelle geaendert wird.
+ |
+ | Die Markenfarbe kommt als eine einzige Angabe herein (--brand). Alle
+ | Abstufungen leiten sich daraus ab -- so laesst sich ein Portal umfaerben,
+ | ohne eine zweite Palette zu pflegen.
+ */
+
+:root {
+    /* Eine Quelle fuer die Markenfarbe: dieselbe Stufe, die auch die
+       primary-Palette in colors.css traegt. */
+    --brand: #003781;
+    --brand-50: color-mix(in oklab, var(--brand) 8%, #fff);
+    --brand-100: color-mix(in oklab, var(--brand) 16%, #fff);
+    --brand-600: var(--brand);
+    --brand-700: color-mix(in oklab, var(--brand) 85%, #000);
+}
+
+/* Portalschrift und Basisgroesse, wie im Entwurf. */
+html.portal {
+    font-size: 125%;
+}
+
+.font-portal {
+    font-family: 'Figtree', system-ui, sans-serif;
+}
+
+@layer components {
+
+    .font-portal .container-portal {
+        margin-inline: auto;
+        width: 100%;
+        max-width: 72rem;
+        padding-inline: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        .font-portal .container-portal {
+            padding-inline: 1.5rem;
+        }
+    }
+
+    .font-portal .section {
+        padding-block: 3rem;
+    }
+
+    @media (min-width: 768px) {
+        .font-portal .section {
+            padding-block: 4rem;
+        }
+    }
+
+    /* Flaechen */
+
+    .font-portal .card,
+    .font-portal .card-interactive {
+        border: 1px solid #e4e4e7;
+        border-radius: 1rem;
+        background-color: #fff;
+    }
+
+    .font-portal .card-interactive {
+        transition: border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .font-portal .card-interactive:hover {
+        border-color: #d4d4d8;
+    }
+
+    /* Knoepfe. Alle teilen Form und Groesse, nur die Farbe unterscheidet sie. */
+
+    .font-portal .btn-primary,
+    .font-portal .btn-secondary,
+    .font-portal .btn-ghost,
+    .font-portal .btn-inverse,
+    .font-portal .btn-outline-white {
+        display: inline-flex;
+        min-height: 2.75rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-radius: 0.75rem;
+        padding-inline: 1.25rem;
+        font-size: 1rem;
+        line-height: 1.5rem;
+        font-weight: 600;
+        transition:
+            color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .font-portal .btn-primary:focus-visible,
+    .font-portal .btn-secondary:focus-visible,
+    .font-portal .btn-ghost:focus-visible,
+    .font-portal .btn-inverse:focus-visible,
+    .font-portal .btn-outline-white:focus-visible,
+    .font-portal .input:focus-visible {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    .font-portal .btn-primary {
+        background-color: var(--brand-600);
+        color: #fff;
+    }
+
+    .font-portal .btn-primary:hover {
+        background-color: var(--brand-700);
+    }
+
+    .font-portal .btn-secondary {
+        border: 1px solid #d4d4d8;
+        background-color: #fff;
+        color: #18181b;
+    }
+
+    .font-portal .btn-secondary:hover {
+        background-color: #fafafa;
+    }
+
+    .font-portal .btn-ghost {
+        color: var(--brand-600);
+    }
+
+    .font-portal .btn-ghost:hover {
+        background-color: var(--brand-50);
+    }
+
+    /* Auf farbigem Grund: heller Knopf, farbige Schrift. */
+    .font-portal .btn-inverse {
+        background-color: #fff;
+        color: var(--brand-600);
+    }
+
+    .font-portal .btn-inverse:hover {
+        background-color: var(--brand-50);
+    }
+
+    .font-portal .btn-outline-white {
+        border: 1px solid rgb(255 255 255 / 0.4);
+        color: #fff;
+    }
+
+    .font-portal .btn-outline-white:hover {
+        background-color: rgb(255 255 255 / 0.1);
+    }
+
+    /* Eingabe */
+
+    /* daisyUI bringt ein eigenes .input mit und rechnet seine Schriftgroesse
+       ueber Variablen aus. Die setzen wir hier zurueck, sonst steht im Feld
+       eine andere Groesse als im Entwurf. */
+    .font-portal .input {
+        --font-size: 1rem;
+        --font-size-min: 1rem;
+        font-size: 1rem;
+        min-height: 2.75rem;
+        width: 100%;
+        border: 1px solid #d4d4d8;
+        border-radius: 0.75rem;
+        background-color: #fff;
+        padding-inline: 1rem;
+        font-size: 1rem;
+        line-height: 1.5rem;
+        color: #18181b;
+    }
+
+    .font-portal .input::placeholder {
+        color: #a1a1aa;
+    }
+
+    .font-portal .input:focus {
+        border-color: var(--brand-600);
+        outline: 2px solid var(--brand-100);
+        outline-offset: 0;
+    }
+
+    /* Pillen */
+
+    .font-portal .pill,
+    .font-portal .pill-brand,
+    .font-portal .pill-solid {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        border-radius: 9999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        background-color: #f4f4f5;
+        color: #3f3f46;
+    }
+
+    .font-portal .pill-brand {
+        background-color: var(--brand-50);
+        color: var(--brand-700);
+    }
+
+    .font-portal .pill-solid {
+        background-color: var(--brand-600);
+        color: #fff;
+    }
+
+    /* Markenfarbe als Utility, damit sie im Markup benennbar bleibt. */
+
+    .font-portal .bg-brand {
+        background-color: var(--brand-600);
+    }
+
+    .font-portal .bg-brand-50 {
+        background-color: var(--brand-50);
+    }
+
+    .font-portal .text-brand {
+        color: var(--brand-600);
+    }
+
+    .font-portal .border-brand {
+        border-color: var(--brand-600);
+    }
+
+}

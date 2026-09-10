@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Constants\OrderStatus;
 use App\Dto\CartItemDto;
+use App\Models\OneTimeProduct;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Tenant;
+use App\Services\CreditLedgerService;
 use App\Services\DiscountService;
 use App\Services\OneTimeProductService;
 use App\Services\SessionService;
@@ -83,20 +89,85 @@ class ProductCheckoutController extends Controller
         return redirect()->route('checkout.product');
     }
 
-    public function productCheckoutSuccess()
+    /**
+     * Erfolgsseite des Guthabenkaufs.
+     *
+     * Die Seite ist idempotent: Sie zeigt den Zustand einer Bestellung und
+     * loest nichts aus. Deshalb wandert die Bestellung nach dem einmaligen
+     * Einloesen des Gutscheins in die Adresszeile -- ein Neuladen oder der
+     * Zurueck-Knopf fuehrt dann auf dieselbe Ansicht statt auf die Startseite.
+     */
+    public function productCheckoutSuccess(CreditLedgerService $creditLedger)
     {
-        $cartDto = $this->sessionService->getCartDto();
+        $orderUuid = request()->query('bestellung');
 
-        if ($cartDto->orderId === null) {
-            return redirect()->route('home');
+        if (! is_string($orderUuid) || $orderUuid === '') {
+            $cartDto = $this->sessionService->getCartDto();
+
+            if ($cartDto->orderId === null) {
+                return view('checkout.product-thank-you', ['order' => null]);
+            }
+
+            if ($cartDto->discountCode !== null) {
+                $this->discountService->redeemCodeForOrder($cartDto->discountCode, auth()->user(), $cartDto->orderId);
+            }
+
+            $order = Order::query()->whereKey($cartDto->orderId)->first();
+
+            $this->sessionService->clearCartDto();
+
+            if (! $order instanceof Order) {
+                return view('checkout.product-thank-you', ['order' => null]);
+            }
+
+            return redirect()->route('checkout.product.success', ['bestellung' => $order->uuid]);
         }
 
-        if ($cartDto->discountCode !== null) {
-            $this->discountService->redeemCodeForOrder($cartDto->discountCode, auth()->user(), $cartDto->orderId);
+        // Nur eigene Bestellungen: Eine fremde Kennung ist hier nicht
+        // "verboten", sondern schlicht nicht vorhanden.
+        $order = Order::query()
+            ->where('uuid', $orderUuid)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $order instanceof Order) {
+            return view('checkout.product-thank-you', ['order' => null]);
         }
 
-        $this->sessionService->clearCartDto();
+        $tenant = $order->tenant_id === null ? null : Tenant::query()->withoutGlobalScopes()->find($order->tenant_id);
 
-        return view('checkout.product-thank-you');
+        return view('checkout.product-thank-you', [
+            'order' => $order,
+            'tenant' => $tenant,
+            'credits' => $this->creditsIn($order),
+            'balance' => $tenant instanceof Tenant ? $creditLedger->balanceFor($tenant) : 0,
+            'isPending' => $order->status !== OrderStatus::SUCCESS,
+        ]);
+    }
+
+    /**
+     * Wie viel Guthaben diese Bestellung enthaelt. Gelesen wird dasselbe
+     * Metadatenfeld, aus dem der Listener bucht -- eine zweite Zaehlweise waere
+     * genau die Stelle, an der Anzeige und Buchung auseinanderlaufen.
+     */
+    private function creditsIn(Order $order): int
+    {
+        $items = OrderItem::query()->where('order_id', $order->getKey())->get();
+
+        $creditsPerProduct = OneTimeProduct::query()
+            ->whereIn('id', $items->pluck('one_time_product_id')->all())
+            ->get()
+            ->mapWithKeys(static fn (OneTimeProduct $product): array => [
+                (int) $product->getKey() => (int) (($product->metadata ?? [])[CreditLedgerService::PRODUCT_METADATA_KEY] ?? 0),
+            ])
+            ->all();
+
+        $credits = 0;
+
+        foreach ($items as $item) {
+            $credits += ($creditsPerProduct[(int) $item->one_time_product_id] ?? 0) * (int) $item->quantity;
+        }
+
+        return $credits;
     }
 }

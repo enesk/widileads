@@ -8,6 +8,7 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
+                'resources/js/portal.js',
                 'resources/js/blog.js',
                 'resources/js/components.js',
                 'resources/js/funnel-builder.js',

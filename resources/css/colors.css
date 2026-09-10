@@ -1,16 +1,19 @@
 @theme {
     /* Colors */
-    --color-primary-50: #f1e9fc;
-    --color-primary-100: #d2bcf7;
-    --color-primary-200: #bd9cf3;
-    --color-primary-300: #9f6eee;
-    --color-primary-400: #8c52ea;
-    --color-primary-500: #6f27e5;
-    --color-primary-600: #6523d0;
-    --color-primary-700: #4f1ca3;
-    --color-primary-800: #3d157e;
-    --color-primary-900: #2f1060;
-    --color-primary-950: #1f0a3f;
+    /* Markenfarbe des Portals (siehe portal.css). Die oeffentlichen Seiten
+       nutzen sie ueber die primary-Stufen, damit Startseite, Checkout und
+       Erfolgsseite dieselbe Farbe tragen. */
+    --color-primary-50: #eef4fb;
+    --color-primary-100: #d5e3f4;
+    --color-primary-200: #a9c5e7;
+    --color-primary-300: #6f9ecf;
+    --color-primary-400: #2f6aa8;
+    --color-primary-500: #003781;
+    --color-primary-600: #003070;
+    --color-primary-700: #00285e;
+    --color-primary-800: #001f4a;
+    --color-primary-900: #001836;
+    --color-primary-950: #000f22;
 
     --color-secondary-50: #f5fcff;
     --color-secondary-100: #dff5ff;
