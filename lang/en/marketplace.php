@@ -165,6 +165,26 @@ return [
             'payment_hint' => 'Payment is handled by Stripe. You will find the invoice and receipt under "Orders".',
         ],
 
+        // FB-092: Order confirmation for a credit top-up. The mail is only
+        // sent once the payment went through and the credits were booked --
+        // it may therefore describe the credits as available.
+        'mail' => [
+            'subject' => 'Your order at :app',
+            'label' => 'Credit purchase',
+            'heading' => 'Order confirmed',
+            'intro' => 'Thank you for your order. The payment arrived, your credits are ready on the marketplace.',
+            'order_number' => 'Order number',
+            'date' => 'Ordered on',
+            'items_heading' => 'Ordered packages',
+            'quantity' => 'Quantity: :count',
+            'subtotal' => 'Subtotal',
+            'discount' => 'Discount',
+            'total' => 'Total',
+            'cta' => 'To the marketplace',
+            'support' => 'Questions about your order? Write to us at :email.',
+            'outro' => 'Kind regards, your :app team',
+        ],
+
         'type' => [
             'purchase' => 'Purchase',
             'debit' => 'Debit',
