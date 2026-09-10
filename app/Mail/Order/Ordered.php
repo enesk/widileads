@@ -3,6 +3,7 @@
 namespace App\Mail\Order;
 
 use App\Models\Order;
+use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -30,7 +31,7 @@ class Ordered extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __('Thanks for your order at :app_name!', ['app_name' => config('app.name')]),
+            subject: __('marketplace.credit.mail.subject', ['app' => config('app.wordmark')]),
         );
     }
 
@@ -41,7 +42,32 @@ class Ordered extends Mailable implements ShouldQueue
     {
         return new Content(
             view: 'emails.order.ordered',
+            with: [
+                'marketplaceUrl' => $this->marketplaceUrl(),
+            ],
         );
+    }
+
+    /**
+     * Link auf den Marktplatz des Workspace, fuer den gekauft wurde.
+     *
+     * Die Mail laeuft in der Queue und damit ohne aktiven Mandanten -- ohne
+     * `withoutGlobalScopes()` faende die Abfrage den Workspace nicht und der
+     * Kaeufer bekaeme eine Bestaetigung ohne Weg zurueck in die Anwendung.
+     */
+    private function marketplaceUrl(): ?string
+    {
+        if ($this->order->tenant_id === null) {
+            return null;
+        }
+
+        $tenant = Tenant::query()->withoutGlobalScopes()->find($this->order->tenant_id);
+
+        if (! $tenant instanceof Tenant) {
+            return null;
+        }
+
+        return route('filament.dashboard.pages.marketplace', ['tenant' => $tenant]);
     }
 
     /**

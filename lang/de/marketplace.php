@@ -165,6 +165,26 @@ return [
             'payment_hint' => 'Die Zahlung wird über Stripe abgewickelt. Rechnung und Zahlungsbeleg findest du unter „Bestellungen“.',
         ],
 
+        // FB-092: Bestellbestaetigung nach dem Guthabenkauf. Die Mail geht
+        // erst raus, wenn die Zahlung durch ist und das Guthaben gebucht
+        // wurde -- sie darf das Guthaben deshalb als vorhanden beschreiben.
+        'mail' => [
+            'subject' => 'Deine Bestellung bei :app',
+            'label' => 'Guthabenkauf',
+            'heading' => 'Bestellung bestätigt',
+            'intro' => 'Danke für deine Bestellung. Die Zahlung ist eingegangen, dein Guthaben steht im Marktplatz bereit.',
+            'order_number' => 'Bestellnummer',
+            'date' => 'Bestellt am',
+            'items_heading' => 'Bestellte Pakete',
+            'quantity' => 'Menge: :count',
+            'subtotal' => 'Zwischensumme',
+            'discount' => 'Rabatt',
+            'total' => 'Gesamt',
+            'cta' => 'Zum Marktplatz',
+            'support' => 'Fragen zur Bestellung? Schreib uns an :email.',
+            'outro' => 'Viele Grüße, dein :app-Team',
+        ],
+
         'type' => [
             'purchase' => 'Kauf',
             'debit' => 'Abbuchung',
