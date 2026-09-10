@@ -150,13 +150,22 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // assign any permissions that the user role should have here
 
-        // Kaeufer-Rolle (FB-002): Nutzer eines Kaeufer-Tenants. Die
-        // marktplatzspezifischen Berechtigungen kommen mit FB-E5 dazu.
-        Role::query()->firstOrCreate([
+        // Kaeufer-Rolle (FB-002): Nutzer eines Kaeufer-Tenants.
+        $buyerRole = Role::query()->firstOrCreate([
             'name' => TenancyPermissionConstants::ROLE_BUYER,
             'is_tenant_role' => true,
         ], [
             'guard_name' => 'web',
+        ]);
+
+        // FB-092: Ohne "create orders" kann ein Kaeufer kein Guthaben
+        // aufladen. Der Checkout sucht sich dann einen anderen Workspace des
+        // Benutzers und legt notfalls einen neuen an -- das Guthaben landete
+        // auf einem Workspace, den der Kaeufer nie zu sehen bekommt.
+        $buyerRole->givePermissionTo([
+            Permission::findOrCreate(TenancyPermissionConstants::PERMISSION_CREATE_ORDERS),
+            Permission::findOrCreate(TenancyPermissionConstants::PERMISSION_VIEW_ORDERS),
+            Permission::findOrCreate(TenancyPermissionConstants::PERMISSION_VIEW_TRANSACTIONS),
         ]);
     }
 }

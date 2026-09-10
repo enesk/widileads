@@ -118,7 +118,14 @@ class CreditTopUp extends Page
                 'description' => $product->description,
                 'credits' => self::creditsOf($product),
                 'price' => ((int) $price->price) / 100,
-                'url' => route('buy.product', ['productSlug' => $product->slug]),
+                // Der Workspace muss mit: Ohne ihn sucht sich der Checkout
+                // einen beliebigen Workspace des Benutzers und legt notfalls
+                // einen neuen an. Das Guthaben landete dann dort, und der
+                // Kaeufer saehe es nie.
+                'url' => route('buy.product', [
+                    'productSlug' => $product->slug,
+                    'tenant' => $this->tenant()->uuid,
+                ]),
             ];
         }
 

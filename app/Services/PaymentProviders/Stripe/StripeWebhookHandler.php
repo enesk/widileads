@@ -18,7 +18,9 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Stripe\Event;
+use Stripe\Exception\SignatureVerificationException;
 use Stripe\PaymentIntent;
 use Stripe\Stripe;
 use Stripe\Webhook;
@@ -36,7 +38,26 @@ class StripeWebhookHandler
     {
         try {
             $event = $this->buildStripeEvent($request);
+        } catch (SignatureVerificationException $e) {
+            // Getrennt vom kaputten Rumpf, weil die Ursache eine voellig
+            // andere ist: Hier stimmt die Signatur nicht, fast immer wegen
+            // eines falschen oder fehlenden Webhook-Secrets. Frueher meldete
+            // auch dieser Fall "Invalid payload" -- und schickte damit jeden,
+            // der ihn sah, in die falsche Richtung.
+            Log::warning('Stripe-Webhook: Signatur nicht gueltig.', [
+                'reason' => $e->getMessage(),
+                'signing_secret_configured' => filled(config('services.stripe.webhook_signing_secret')),
+            ]);
+
+            return response()->json([
+                'message' => 'Invalid signature',
+            ], 400);
         } catch (Throwable $e) {
+            Log::warning('Stripe-Webhook: Rumpf nicht lesbar.', [
+                'reason' => $e->getMessage(),
+                'content_length' => strlen((string) $request->getContent()),
+            ]);
+
             return response()->json([
                 'message' => 'Invalid payload',
             ], 400);

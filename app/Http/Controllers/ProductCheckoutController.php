@@ -30,6 +30,19 @@ class ProductCheckoutController extends Controller
     {
         $cartDto = $this->sessionService->clearCartDto();  // use getCartDto() instead of clearCartDto() when allowing full cart checkout with multiple items
 
+        // FB-092: Der Workspace, fuer den gekauft wird, kommt als Parameter mit.
+        // Ohne ihn sucht der Checkout sich irgendeinen Workspace des Benutzers
+        // und legt notfalls einen neuen an -- das Guthaben landete dann auf
+        // einem Workspace, den der Kaeufer nie zu sehen bekommt. Ob der
+        // Benutzer zu diesem Workspace gehoert, prueft spaeter der
+        // CheckoutService; eine fremde Kennung faellt dort auf den bisherigen
+        // Weg zurueck.
+        $tenantUuid = request()->query('tenant');
+
+        if (is_string($tenantUuid) && $tenantUuid !== '') {
+            $cartDto->tenantUuid = $tenantUuid;
+        }
+
         $product = $this->productService->getProductWithPriceBySlug($productSlug);
 
         if ($product === null) {
