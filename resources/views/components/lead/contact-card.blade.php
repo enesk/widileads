@@ -24,6 +24,9 @@
         <div>
             <dt class="text-base-content/60">{{ __('leads.contact.phone') }}</dt>
             <dd class="font-medium">{{ $presenter->phone() }}</dd>
+            @if ($presenter->phoneHint() !== null)
+                <dd class="mt-1 text-xs text-base-content/60">{{ $presenter->phoneHint() }}</dd>
+            @endif
         </div>
         <div>
             <dt class="text-base-content/60">{{ __('leads.contact.postal_code') }}</dt>

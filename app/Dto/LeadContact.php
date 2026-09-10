@@ -34,6 +34,7 @@ final class LeadContact
         public readonly ?string $phone,
         public readonly ?string $postalCode,
         public readonly bool $masked,
+        public readonly bool $phoneMasked,
     ) {}
 
     /**
@@ -73,6 +74,7 @@ final class LeadContact
             phone: $lead->phone_e164 ?? $answer(FunnelFieldKey::TELEFON),
             postalCode: $lead->postal_code ?? $answer(FunnelFieldKey::PLZ),
             masked: false,
+            phoneMasked: false,
         );
     }
 
@@ -99,6 +101,33 @@ final class LeadContact
             phone: self::maskPhone($this->phone),
             postalCode: self::maskPostalCode($this->postalCode),
             masked: true,
+            phoneMasked: true,
+        );
+    }
+
+    /**
+     * Dieselben Daten, aber mit einer eigens gesetzten Rufnummer (FB-085).
+     *
+     * Gedacht fuer den einen Fall, in dem Rufnummer und uebrige Kontaktdaten
+     * auseinanderfallen: Ein Kaeufer, der den Lead gekauft hat, sieht Name,
+     * E-Mail und Postleitzahl im Klartext, die Rufnummer aber erst, wenn die
+     * Erreichbarkeitspruefung mit `billable` geendet hat. Bis dahin steht hier
+     * die verkuerzte Fassung aus Lead::maskedPhone().
+     *
+     * Wer die Methode aufruft, entscheidet nichts selbst -- das tut allein
+     * App\Services\LeadContactResolver.
+     */
+    public function withPhone(?string $phone, bool $phoneMasked): self
+    {
+        return new self(
+            firstName: $this->firstName,
+            lastName: $this->lastName,
+            name: $this->name,
+            email: $this->email,
+            phone: $phone,
+            postalCode: $this->postalCode,
+            masked: $this->masked,
+            phoneMasked: $phoneMasked,
         );
     }
 
@@ -117,7 +146,7 @@ final class LeadContact
     }
 
     /**
-     * @return array{name: string|null, first_name: string|null, last_name: string|null, email: string|null, phone: string|null, postal_code: string|null, masked: bool}
+     * @return array{name: string|null, first_name: string|null, last_name: string|null, email: string|null, phone: string|null, postal_code: string|null, masked: bool, phone_masked: bool}
      */
     public function toArray(): array
     {
@@ -129,6 +158,7 @@ final class LeadContact
             'phone' => $this->phone,
             'postal_code' => $this->postalCode,
             'masked' => $this->masked,
+            'phone_masked' => $this->phoneMasked,
         ];
     }
 
@@ -168,13 +198,86 @@ final class LeadContact
         $international = self::internationalFormat($phone);
 
         if ($international === null) {
-            // Nicht lesbar -- dann bleibt nur die Landesvorwahl stehen.
-            return mb_substr($phone, 0, 3).' …';
+            // Nicht lesbar: Nach Zeichenposition zu schneiden waere geraten --
+            // bei einer national notierten Nummer stuenden dort schon Ziffern
+            // des Anschlusses. Dann lieber gar nichts zeigen.
+            return '…';
         }
 
         $groups = explode(' ', $international);
 
+        if (count($groups) < 3) {
+            // libphonenumber hat die Nummer nicht in Landesvorwahl,
+            // Netzkennzahl und Teilnehmeranschluss zerlegt. Die zweite Gruppe
+            // waere hier bereits die ganze Nummer -- also nur die
+            // Landesvorwahl stehen lassen.
+            return $groups[0].' …';
+        }
+
         return implode(' ', array_slice($groups, 0, 2)).' …';
+    }
+
+    /**
+     * Die Fassung fuer den Kaeufer vor der Abrechnung (FB-085).
+     *
+     * `+491711234567` wird zu `+49 171 ***** 67`: Landesvorwahl und
+     * Netzkennzahl bleiben stehen, jede weitere Ziffer wird zu einem Stern,
+     * nur die letzten beiden bleiben lesbar. Damit kann ein Kaeufer einen
+     * Lead wiedererkennen und eine Nummer aus seinem Telefonprotokoll
+     * zuordnen -- waehlen kann er sie nicht.
+     *
+     * Bewusst grosszuegiger als masked(): Diese Fassung sieht nur, wer den
+     * Lead bereits gekauft hat.
+     */
+    public static function maskPhoneToLastDigits(?string $phone): ?string
+    {
+        if ($phone === null || trim($phone) === '') {
+            return null;
+        }
+
+        $international = self::internationalFormat($phone);
+
+        if ($international === null) {
+            // Nicht lesbar: kein Praefix, das man gefahrlos stehen lassen
+            // koennte -- dann bleiben nur die letzten beiden Ziffern.
+            return self::maskAllButLastDigits($phone);
+        }
+
+        $groups = explode(' ', $international);
+
+        // Landesvorwahl und erste Gruppe bleiben stehen; alles danach ist der
+        // Teilnehmeranschluss und wird verdeckt.
+        $prefix = array_slice($groups, 0, 2);
+        $rest = preg_replace('/\D/', '', implode('', array_slice($groups, 2))) ?? '';
+
+        if ($rest === '') {
+            // libphonenumber hat die Nummer nicht in Landesvorwahl, Netzkennzahl
+            // und Teilnehmeranschluss zerlegt (FB-085). Das Praefix waere hier
+            // die ganze Nummer -- also verdecken wie bei einer nicht lesbaren.
+            return self::maskAllButLastDigits($international);
+        }
+
+        $visible = mb_substr($rest, -2);
+        $hidden = str_repeat('*', max(0, mb_strlen($rest) - 2));
+
+        return trim(implode(' ', $prefix).' '.$hidden.' '.$visible);
+    }
+
+    /**
+     * Jede Ziffer bis auf die letzten beiden wird zu einem Stern.
+     *
+     * Der Rueckfallweg fuer jede Nummer, die sich nicht verlaesslich in
+     * Vorwahl und Teilnehmeranschluss zerlegen laesst.
+     */
+    private static function maskAllButLastDigits(string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', $phone) ?? '';
+
+        if ($digits === '') {
+            return '…';
+        }
+
+        return trim(str_repeat('*', max(0, mb_strlen($digits) - 2)).' '.mb_substr($digits, -2));
     }
 
     private static function internationalFormat(string $phone): ?string

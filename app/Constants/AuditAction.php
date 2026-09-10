@@ -57,6 +57,12 @@ enum AuditAction: string
     /** Kaeufer vom Plattform-Admin abgelehnt -- wird von FB-050 aufgerufen. */
     case BUYER_REJECTED = 'buyer.rejected';
 
+    /** Bestaetigung einer Rufnummer bei Twilio angefordert (FB-080). */
+    case CALLER_ID_REQUESTED = 'caller_id.requested';
+
+    /** Rufnummer von Twilio bestaetigt und als Rufnummernanzeige zugelassen (FB-080). */
+    case CALLER_ID_VERIFIED = 'caller_id.verified';
+
     /**
      * Deutsche Beschriftung fuer die Anzeige im Admin-Panel.
      */

@@ -302,9 +302,13 @@ return [
 
         'mail' => [
             'subject' => 'Dein gekaufter Lead',
+            'label' => 'Leadkauf',
+            'funnel_label' => 'Fragebogen',
             'heading' => 'Lead gekauft',
             'intro' => 'Du hast einen Lead aus dem Fragebogen ":funnel" gekauft. Die Kontaktdaten stehen unten.',
             'contact_heading' => 'Kontaktdaten',
+            'phone_note' => 'Die Rufnummer steht aus Datenschutzgründen nicht in dieser E-Mail. Du erreichst den Lead über die Schaltfläche "Anrufen" im Portal; freigegeben wird die Nummer, sobald der Lead abgerechnet ist.',
+            'cta' => 'Lead im Portal öffnen',
             'outro' => 'Melde dich zeitnah -- die Abschlussquote fällt mit jedem Tag, der vergeht.',
         ],
 

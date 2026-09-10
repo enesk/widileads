@@ -64,6 +64,8 @@ return [
             'embed_origin_rejected' => 'Embedding rejected (unlisted origin)',
             'buyer_approved' => 'Buyer approved',
             'buyer_rejected' => 'Buyer rejected',
+            'caller_id_requested' => 'Caller ID verification requested',
+            'caller_id_verified' => 'Caller ID verified',
         ],
 
         'errors' => [

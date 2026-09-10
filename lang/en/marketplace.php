@@ -302,9 +302,13 @@ return [
 
         'mail' => [
             'subject' => 'Your purchased lead',
+            'label' => 'Lead purchase',
+            'funnel_label' => 'Questionnaire',
             'heading' => 'Lead purchased',
             'intro' => 'You purchased a lead from the questionnaire ":funnel". The contact details are below.',
             'contact_heading' => 'Contact details',
+            'phone_note' => 'For data protection reasons the phone number is not part of this email. Use the "Call" button in the portal to reach the lead; the number is released once the lead is billable.',
+            'cta' => 'Open lead in the portal',
             'outro' => 'Get in touch soon -- the conversion rate drops with every day that passes.',
         ],
 

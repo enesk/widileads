@@ -8,6 +8,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     setUpMobileMenu();
+    setUpPasswordToggles();
 });
 
 /**
@@ -27,6 +28,25 @@ function setUpMobileMenu() {
             const isHidden = menu.classList.toggle('hidden');
 
             button.setAttribute('aria-expanded', String(! isHidden));
+        });
+    });
+}
+
+/**
+ * Zeigt ein Passwort im Klartext und wieder verdeckt. Der Knopf verweist ueber
+ * data-password-toggle auf die Kennung des Feldes.
+ */
+function setUpPasswordToggles() {
+    document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+        const field = document.getElementById(button.dataset.passwordToggle);
+
+        if (field === null) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            field.type = field.type === 'password' ? 'text' : 'password';
+            button.setAttribute('aria-pressed', String(field.type === 'text'));
         });
     });
 }

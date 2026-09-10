@@ -7,11 +7,13 @@ namespace App\Filament\Admin\Resources\Leads;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitions;
 use App\Filament\Admin\Resources\Leads\Pages\ListLeads;
+use App\Filament\Admin\Resources\Leads\Pages\ViewLead;
 use App\Models\Lead;
 use App\Models\User;
 use App\Services\ManualLeadStateService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -99,6 +101,7 @@ class LeadResource extends Resource
                     ->options(fn (): array => LeadState::labels()),
             ])
             ->recordActions([
+                ViewAction::make(),
                 self::forceStateAction(),
             ])
             ->toolbarActions([]);
@@ -108,6 +111,7 @@ class LeadResource extends Resource
     {
         return [
             'index' => ListLeads::route('/'),
+            'view' => ViewLead::route('/{record}'),
         ];
     }
 

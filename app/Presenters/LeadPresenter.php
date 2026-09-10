@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Presenters;
 
+use App\Constants\LeadContactStatus;
 use App\Dto\LeadContact;
 use App\Models\Lead;
 use App\Models\User;
@@ -50,6 +51,36 @@ class LeadPresenter
     public function phone(): string
     {
         return $this->contact->phone ?? __('leads.contact.missing');
+    }
+
+    /**
+     * Ist die Rufnummer verkuerzt? (FB-085)
+     *
+     * Kann auch dann true sein, wenn die uebrigen Kontaktdaten im Klartext
+     * stehen: Ein Kaeufer sieht Name, E-Mail und Postleitzahl sofort nach dem
+     * Kauf, die Rufnummer aber erst nach der Abrechnung.
+     */
+    public function isPhoneMasked(): bool
+    {
+        return $this->contact->phoneMasked;
+    }
+
+    /**
+     * Warum die Rufnummer verkuerzt ist -- oder null, wenn sie vollstaendig
+     * dasteht (FB-085).
+     *
+     * Bei vollstaendig verdeckten Kontaktdaten sagt bereits der allgemeine
+     * Hinweis alles; ein zweiter Satz nur zur Rufnummer waere dort Laerm.
+     */
+    public function phoneHint(): ?string
+    {
+        if (! $this->contact->phoneMasked || $this->contact->masked) {
+            return null;
+        }
+
+        return $this->lead->contact_status === LeadContactStatus::UNREACHABLE
+            ? __('call.phone_release.unreachable')
+            : __('call.phone_release.pending');
     }
 
     public function postalCode(): string

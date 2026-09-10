@@ -11,6 +11,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Livewire\Component;
 
@@ -53,7 +54,8 @@ class InvoiceSettings extends Component implements HasForms
                     ->schema([
                         Toggle::make('invoices_enabled')
                             ->label(__('Enable invoice generation'))
-                            ->helperText(__('If enabled, invoices will be generated for each successful transaction. Customers will be able to see their invoices in their dashboard.'))
+                            ->helperText(__('If enabled, invoices will be generated for each successful transaction. Customers will be able to see their invoices in their dashboard. Company name and address are required, otherwise no invoice is generated.'))
+                            ->live()
                             ->required(),
                         TextInput::make('serial_number_series')
                             ->required()
@@ -61,12 +63,14 @@ class InvoiceSettings extends Component implements HasForms
                             ->label(__('Invoice number prefix')),
                         TextInput::make('seller_name')
                             ->default('')
+                            ->required(fn (Get $get): bool => (bool) $get('invoices_enabled'))
                             ->label(__('Company name')),
                         TextInput::make('seller_code')
                             ->default('')
                             ->label(__('Company code')),
                         TextInput::make('seller_address')
                             ->default('')
+                            ->required(fn (Get $get): bool => (bool) $get('invoices_enabled'))
                             ->label(__('Company address')),
                         TextInput::make('seller_tax_number')
                             ->default('')

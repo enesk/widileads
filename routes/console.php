@@ -46,3 +46,23 @@ Schedule::command('app:auto-purchase-leads')->everyFiveMinutes()->withoutOverlap
 // Frist steht in config('funnel.call.deadline_days'); taeglich zu pruefen
 // genuegt, sie zaehlt in Tagen.
 Schedule::command('app:settle-elapsed-complaint-periods')->dailyAt('01:00');
+
+// FB-084 (Ticket #11): Leads abschliessen, deren Frist zur
+// Erreichbarkeitspruefung abgelaufen ist. Taeglich um 03:00 Ortszeit -- die
+// Frist zaehlt in Tagen, nachts stoert der Lauf niemanden. withoutOverlapping
+// und onOneServer, weil jeder abgeschlossene Lead eine Abrechnung ausloest.
+Schedule::command('leads:resolve-expired')
+    ->dailyAt('03:00')
+    ->timezone('Europe/Berlin')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// FB-084 (Ticket #14): Kaeufer erinnern, bevor die Frist zur
+// Erreichbarkeitspruefung ablaeuft. Stuendlich, weil die Erinnerung 24 Stunden
+// vor Fristende hinausgehen soll und die Fristen ueber den Tag verteilt
+// ablaufen. withoutOverlapping und onOneServer, damit derselbe Lead nicht aus
+// zwei Laeufen zugleich erinnert wird.
+Schedule::command('leads:send-deadline-reminders')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();

@@ -9,6 +9,7 @@ use App\Http\Middleware\Sitemapped;
 use App\Http\Middleware\TrackCouponCode;
 use App\Http\Middleware\TrackReferralCode;
 use App\Http\Middleware\UpdateUserLastSeenAt;
+use App\Http\Middleware\VerifyTwilioSignature;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -46,6 +47,28 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolveTenantFromToken::class,
         );
 
+        // FB-084: Die Signaturpruefung muss VOR SubstituteBindings stehen. Sonst
+        // loest ein unsignierter Aufruf erst die Route-Modellbindung aus und
+        // beantwortet einen unbekannten {attempt} mit 404 statt mit 403 -- die
+        // Adresse wuerde verraten, welche Versuchs-IDs es gibt.
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            VerifyTwilioSignature::class,
+        );
+
+        // Die Twilio-Rueckrufe kommen von aussen und tragen kein CSRF-Token.
+        // Sie sind allein durch die Signatur geschuetzt.
+        $middleware->validateCsrfTokens(except: [
+            'api/twilio/*',
+        ]);
+
+        // Die vertrauten Proxys werden NICHT hier gesetzt, sondern in
+        // AppServiceProvider::boot(). Diese Closure laeuft, waehrend der
+        // HTTP-Kernel aufgeloest wird -- also bevor die .env geladen ist.
+        // env('TRUSTED_PROXIES') lieferte hier im Web null, waehrend es in der
+        // Konsole den richtigen Wert hatte: Die Einstellung war jahrelang
+        // scheinbar vorhanden und im Web wirkungslos.
+
         $middleware->alias([
             'sitemapped' => Sitemapped::class,
             'tenant.type' => EnsureTenantType::class,
@@ -55,6 +78,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ability' => CheckForAnyAbility::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
+            'twilio.signature' => VerifyTwilioSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

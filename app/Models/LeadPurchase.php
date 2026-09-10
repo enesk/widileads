@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
@@ -79,6 +80,22 @@ class LeadPurchase extends Model
     public function complaint(): HasOne
     {
         return $this->hasOne(LeadComplaint::class);
+    }
+
+    /**
+     * Die Anrufversuche dieses Kaeufers bei dem gekauften Lead (FB-082),
+     * neueste zuerst.
+     *
+     * Bewusst am Kaufbeleg und nicht am Lead: Bei einem geteilten Lead
+     * (FB-055) sieht jeder Kaeufer nur seine eigenen Versuche. Die
+     * Mandantentrennung kommt zusaetzlich ueber den Tenant-Scope des
+     * Versuchs.
+     *
+     * @return HasMany<CallAttempt, $this>
+     */
+    public function callAttempts(): HasMany
+    {
+        return $this->hasMany(CallAttempt::class)->latest('created_at');
     }
 
     /**

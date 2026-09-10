@@ -190,7 +190,8 @@ class PurchasedLeadDetail extends Page
                         TextEntry::make('contact_phone')
                             ->label(__('leads.contact.phone'))
                             ->icon(Heroicon::OutlinedPhone)
-                            ->copyable()
+                            ->copyable(fn (): bool => ! $presenter->isPhoneMasked())
+                            ->helperText(fn (): ?string => $presenter->phoneHint())
                             ->state(fn (): string => $presenter->phone()),
                         TextEntry::make('contact_postal_code')
                             ->label(__('leads.contact.postal_code'))

@@ -153,6 +153,26 @@ class PurchaseLead
                 'purchased_at' => now(),
             ]);
 
+            // Mit dem ersten Kauf ist der Lead ausgeliefert -- ab hier laeuft
+            // die Frist der Erreichbarkeitspruefung (FB-084, Ticket #11). Bei
+            // einem geteilten Lead (FB-055) zaehlt der erste Kauf: Die Frist
+            // gehoert dem Lead, nicht dem einzelnen Kaeufer, genau wie die
+            // Versuche im LeadResolver leadweit gezaehlt werden.
+            if ($locked->delivered_at === null) {
+                $deliveredAt = $purchase->purchased_at ?? now();
+
+                $locked->forceFill([
+                    'delivered_at' => $deliveredAt,
+                    'deadline_at' => $deliveredAt->copy()
+                        ->addDays((int) config('lead_calls.deadline_days')),
+                ])->save();
+
+                // Die Instanz des Aufrufers auf denselben Stand bringen, ohne
+                // sie beim naechsten update() erneut schreiben zu lassen.
+                $lead->forceFill($locked->only(['delivered_at', 'deadline_at']))
+                    ->syncOriginalAttributes(['delivered_at', 'deadline_at']);
+            }
+
             // Wirft InsufficientCreditsException, wenn das Guthaben nicht
             // reicht -- dann faellt die gesamte Transaktion zurueck, samt
             // Kaufbeleg.

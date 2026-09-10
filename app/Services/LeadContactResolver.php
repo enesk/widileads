@@ -36,7 +36,17 @@ class LeadContactResolver
     {
         $contact = LeadContact::fromLead($lead);
 
-        return $this->maySeeClearText($lead, $viewer) ? $contact : $contact->masked();
+        if ($this->isOwnLead($lead, $viewer)) {
+            return $contact;
+        }
+
+        $buyer = $this->purchasingTenantOf($lead, $viewer);
+
+        if ($buyer instanceof Tenant) {
+            return $this->withGatedPhone($lead, $contact, $buyer);
+        }
+
+        return $contact->masked();
     }
 
     /**
@@ -52,7 +62,86 @@ class LeadContactResolver
     {
         $contact = LeadContact::fromLead($lead);
 
-        return $this->tenantMaySeeClearText($lead, $tenant) ? $contact : $contact->masked();
+        if (! $tenant instanceof Tenant) {
+            return $contact->masked();
+        }
+
+        if ((int) $tenant->getKey() === (int) $lead->tenant_id) {
+            return $contact;
+        }
+
+        if ($this->purchases->hasPurchased($tenant, $lead)) {
+            return $this->withGatedPhone($lead, $contact, $tenant);
+        }
+
+        return $contact->masked();
+    }
+
+    /**
+     * Die Rufnummernsperre des Kaeufers (FB-085).
+     *
+     * Ein Kauf allein gibt die Rufnummer nicht frei. Angerufen wird ueber die
+     * Bridge, die die Nummer serverseitig waehlt; der Kaeufer selbst bekommt
+     * sie erst, wenn die Erreichbarkeitspruefung mit `billable` geendet hat --
+     * also wenn der Lead abgerechnet wird. Bei `unreachable` bleibt sie
+     * dauerhaft verdeckt: Dafuer gibt es eine Gutschrift und keine Nummer.
+     *
+     * Fuer den Betreiber gilt das nicht: Ihm gehoeren die Daten, er hat sie
+     * selbst erhoben.
+     */
+    private function withGatedPhone(Lead $lead, LeadContact $contact, Tenant $buyer): LeadContact
+    {
+        $revealed = $lead->revealedPhone($buyer);
+
+        if ($revealed !== null) {
+            return $contact->withPhone($revealed, phoneMasked: false);
+        }
+
+        return $contact->withPhone($lead->maskedPhone(), phoneMasked: true);
+    }
+
+    /**
+     * Gehoert der Lead dem Betrachter selbst -- als Plattform-Admin oder als
+     * Mitglied des Eigentuemer-Workspaces?
+     */
+    private function isOwnLead(Lead $lead, ?User $viewer): bool
+    {
+        if (! $viewer instanceof User) {
+            return false;
+        }
+
+        if ((bool) $viewer->is_admin) {
+            return true;
+        }
+
+        foreach ($viewer->tenants as $tenant) {
+            if ($tenant instanceof Tenant && (int) $tenant->getKey() === (int) $lead->tenant_id) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Der Kaeufer-Workspace des Betrachters, der diesen Lead gekauft hat.
+     *
+     * Ein Benutzer kann in mehreren Workspaces sein; massgeblich ist der, ueber
+     * den der Kauf laeuft, denn an ihm haengt auch die Freigabe der Rufnummer.
+     */
+    private function purchasingTenantOf(Lead $lead, ?User $viewer): ?Tenant
+    {
+        if (! $viewer instanceof User) {
+            return null;
+        }
+
+        foreach ($viewer->tenants as $tenant) {
+            if ($tenant instanceof Tenant && $this->purchases->hasPurchased($tenant, $lead)) {
+                return $tenant;
+            }
+        }
+
+        return null;
     }
 
     public function tenantMaySeeClearText(Lead $lead, ?Tenant $tenant): bool

@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\Buyer\LeadCallController;
 use App\Http\Controllers\Funnel\FunnelPreviewController;
 use App\Http\Controllers\Funnel\LeadExportDownloadController;
 use App\Http\Controllers\Funnel\ThemePreviewController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Middleware\AddFunnelSecurityHeaders;
 use App\Livewire\Funnel\FunnelRunner;
 use App\Models\Funnel;
+use App\Services\CompanyProfile;
 use App\Services\PlanService;
 use App\Services\SessionService;
 use App\Services\TenantCreationService;
@@ -207,13 +209,26 @@ if (config('funnel.features.blog')) {
         });
 }
 
-Route::get('/terms-of-service', function () {
-    return view('pages.terms-of-service');
+// AGB und Datenschutzerklaerung (Ticket #33). Beide nennen den Anbieter und
+// speisen ihn aus denselben Rechnungseinstellungen wie Impressum und Rechnung.
+// Anders als das Impressum bleiben die Seiten auch ohne gepflegte Stammdaten
+// erreichbar -- der Anbieterblock bleibt dann leer statt erfunden.
+Route::get('/terms-of-service', function (CompanyProfile $company) {
+    return view('pages.terms-of-service', ['company' => $company]);
 })->name('terms-of-service')->middleware('sitemapped');
 
-Route::get('/privacy-policy', function () {
-    return view('pages.privacy-policy');
+Route::get('/privacy-policy', function (CompanyProfile $company) {
+    return view('pages.privacy-policy', ['company' => $company]);
 })->name('privacy-policy')->middleware('sitemapped');
+
+// Impressum (Paragraf 5 DDG). Die Angaben kommen aus den Rechnungseinstellungen
+// im Admin; solange sie fehlen, gibt es die Seite nicht -- und der Portal-Fuss
+// verweist auch nicht darauf. Lieber kein Impressum als ein erfundenes.
+Route::get('/impressum', function (CompanyProfile $company) {
+    abort_unless($company->isComplete(), 404);
+
+    return view('pages.imprint', ['company' => $company]);
+})->name('imprint')->middleware('sitemapped');
 
 // Product checkout routes
 
@@ -305,3 +320,19 @@ if (config('funnel.api.docs_enabled')) {
 Route::get('/kaeufer/registrierung', function () {
     return view('pages.buyer-registration');
 })->name('buyer.register')->middleware('auth');
+
+/*
+|--------------------------------------------------------------------------
+| Click-to-Call des Kaeufers (FB-081)
+|--------------------------------------------------------------------------
+|
+| Stoesst den Anruf zu einem gekauften Lead an. Angemeldet und je Benutzer
+| begrenzt: Jeder Aufruf kostet Geld und laesst beim Lead das Telefon
+| klingeln. Der Lead wird ueber seine oeffentliche Kennung angesprochen, der
+| passende Kaufbeleg im Controller dazu gesucht.
+|
+*/
+
+Route::post('/leads/{lead}/call', LeadCallController::class)
+    ->middleware(['auth', 'throttle:lead-calls'])
+    ->name('buyer.leads.call');

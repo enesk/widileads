@@ -242,6 +242,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Vertraute Proxys
+    |--------------------------------------------------------------------------
+    |
+    | Hinter Reverse Proxy, Load Balancer oder Tunnel steht das https-Schema nur
+    | in den weitergereichten Kopfzeilen. Ohne vertrauten Proxy baut Laravel
+    | jede Adresse mit http: Der Browser blockt die Stylesheets als Mixed
+    | Content, und die von Twilio ueber die volle URL gerechnete Signatur passt
+    | nicht mehr -- jeder Rueckruf endet in 403.
+    |
+    | Der Wert steht bewusst hier und nicht in bootstrap/app.php: Dort wird die
+    | Middleware konfiguriert, bevor die .env geladen ist, und env() liefert
+    | null. Ausgewertet wird er in AppServiceProvider::boot().
+    |
+    | Kommaseparierte IPs oder "*"; leer heisst: keinem Proxy vertrauen.
+    |
+    */
+
+    'trusted_proxies' => (string) env('TRUSTED_PROXIES', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Telefonische Kontaktaufnahme durch den Kaeufer
     |--------------------------------------------------------------------------
     */
@@ -249,8 +270,9 @@ return [
     'call' => [
 
         // Ab dieser Gespraechsdauer in Sekunden gilt ein Anruf als angenommen
-        // (kuerzere Verbindungen zaehlen als nicht erreicht).
-        'answered_after_seconds' => (int) env('FUNNEL_CALL_ANSWERED_AFTER_SECONDS', 30),
+        // (kuerzere Verbindungen zaehlen als nicht erreicht). Am 10.09.2026 auf
+        // 20 Sekunden entschieden (Ticket #12).
+        'answered_after_seconds' => (int) env('FUNNEL_CALL_ANSWERED_AFTER_SECONDS', 20),
 
         // Anzahl erfolgloser Anrufversuche, nach denen der Kaeufer seine
         // Kontaktpflicht erfuellt hat und der Lead nicht reklamiert werden kann.
@@ -267,6 +289,33 @@ return [
         // Tage ab Lead-Zustellung, innerhalb derer der Kaeufer die
         // Kontaktversuche abgeschlossen haben muss.
         'deadline_days' => (int) env('FUNNEL_CALL_DEADLINE_DAYS', 7),
+
+        /*
+        | Rufnummer des Kaeufer-Mitarbeiters (FB-080)
+        |
+        | Beim Endkunden erscheint die Nummer des anrufenden Mitarbeiters, nicht
+        | eine Plattformnummer (Entscheidung vom 10.09.2026). Twilio laesst eine
+        | fremde Nummer nur dann als Rufnummernanzeige zu, wenn sie als
+        | Outgoing Caller ID bestaetigt ist -- Twilio ruft sie an und sagt einen
+        | Code an. Ohne diese Bestaetigung gibt es keinen Anruf.
+        */
+
+        // Zeitlimit in Sekunden, wie lange es beim Lead klingelt, bevor der
+        // Versuch als nicht angenommen gilt (FB-081).
+        'ring_timeout_seconds' => (int) env('FUNNEL_CALL_RING_TIMEOUT_SECONDS', 30),
+
+        'caller_id' => [
+
+            // Wie lange eine begonnene Bestaetigung gilt. Danach ist der
+            // angesagte Code wertlos und die Bestaetigung wird neu begonnen.
+            // Twilio laesst eine Validation Request rund zehn Minuten offen.
+            'validation_ttl_minutes' => (int) env('FUNNEL_CALL_CALLER_ID_TTL_MINUTES', 10),
+
+            // Region, gegen die eine ohne Laendervorwahl eingegebene Nummer
+            // gelesen wird. Gespeichert wird immer E.164.
+            'region' => (string) env('FUNNEL_CALL_CALLER_ID_REGION', 'DE'),
+
+        ],
 
     ],
 

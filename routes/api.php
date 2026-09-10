@@ -21,6 +21,12 @@ use App\Http\Controllers\PaymentProviders\LemonSqueezyController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
 use App\Http\Controllers\PaymentProviders\PolarController;
 use App\Http\Controllers\PaymentProviders\StripeController;
+use App\Http\Controllers\Twilio\CallBridgeController;
+use App\Http\Controllers\Twilio\CallDialDoneController;
+use App\Http\Controllers\Twilio\CallerIdValidationController;
+use App\Http\Controllers\Twilio\CallLegStatusController;
+use App\Http\Controllers\Twilio\CallMachineDetectionController;
+use App\Http\Controllers\Twilio\CallStatusController;
 use App\Http\Middleware\EnsureAllowedFunnelOrigin;
 use App\Http\Middleware\EnsureIdempotentRequest;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +61,44 @@ Route::post('/payments-providers/creem/webhook', [
     CreemController::class,
     'handleWebhook',
 ])->name('payments-providers.creem.webhook');
+
+/*
+|--------------------------------------------------------------------------
+| Twilio-Rueckrufe (FB-080)
+|--------------------------------------------------------------------------
+|
+| Die Adresse ist oeffentlich erreichbar und traegt kein Geheimnis. Sie ist
+| ausschliesslich durch die Signaturpruefung geschuetzt -- ohne sie koennte
+| jeder eine fremde Rufnummer als Rufnummernanzeige freischalten.
+|
+*/
+
+Route::middleware('twilio.signature')->group(function (): void {
+    Route::post('/twilio/caller-id/validation-status', CallerIdValidationController::class)
+        ->name('twilio.caller-id.validation-status');
+
+    // FB-081/FB-082: Anweisung zum Durchstellen und die Meldungen zum Verlauf.
+    // Die Bridge nimmt GET und POST an -- Twilio ruft die Anweisungsadresse je
+    // nach Konfiguration mit beiden Verfahren ab.
+    Route::match(['get', 'post'], '/twilio/bridge/{attempt}', CallBridgeController::class)
+        ->name('twilio.calls.bridge');
+
+    // Stand des Kaeufer-Beins: nimmt der Mitarbeiter ab, klingelt es, legt er
+    // auf?
+    Route::post('/twilio/calls/{attempt}/status', CallStatusController::class)
+        ->name('twilio.calls.status');
+
+    // Ergebnis des Dial-Verbs mit DialCallStatus und DialCallDuration. Hier --
+    // und nur hier -- wird bewertet und ueber die Erreichbarkeit entschieden.
+    Route::post('/twilio/calls/{attempt}/dial-done', CallDialDoneController::class)
+        ->name('twilio.calls.dial-done');
+
+    Route::post('/twilio/calls/{attempt}/leg-status', CallLegStatusController::class)
+        ->name('twilio.calls.leg-status');
+
+    Route::post('/twilio/calls/{attempt}/machine-detection', CallMachineDetectionController::class)
+        ->name('twilio.calls.machine-detection');
+});
 
 Route::post('/payments-providers/polar/webhook', [
     PolarController::class,

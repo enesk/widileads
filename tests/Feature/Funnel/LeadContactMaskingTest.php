@@ -6,11 +6,13 @@ namespace Tests\Feature\Funnel;
 
 use App\Actions\CreateLeadFromSession;
 use App\Actions\PublishFunnel;
+use App\Constants\LeadContactStatus;
 use App\Constants\TenantType;
 use App\Dto\FunnelSubmissionData;
 use App\Marketplace\MatchableLead;
 use App\Models\Lead;
 use App\Models\PublicSession;
+use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Presenters\LeadPresenter;
@@ -129,21 +131,44 @@ class LeadContactMaskingTest extends FeatureTest
         $this->assertSame(self::EMAIL, $operatorContact->email);
         $this->assertSame(self::PHONE, $operatorContact->phone);
 
-        // Und der Kaeufer, sobald er gekauft hat. Den Kauf selbst baut FB-054;
-        // hier steht nur seine Zusage.
+        // Und der Kaeufer, sobald er gekauft hat -- mit einer Ausnahme: Die
+        // Rufnummer bleibt nach dem Kauf verdeckt, bis die
+        // Erreichbarkeitspruefung mit `billable` geendet hat (FB-085).
         $buyer = $this->buyer();
-        $this->app->bind(LeadPurchaseLookup::class, fn () => new class implements LeadPurchaseLookup
-        {
-            public function hasPurchased(Tenant $tenant, Lead $lead): bool
-            {
-                return true;
-            }
-        });
+        $this->assumeEveryTenantHasPurchased();
 
         $html = $this->renderDetailFor($lead, $buyer);
 
         $this->assertStringContainsString(self::EMAIL, $html);
+        $this->assertStringContainsString(self::POSTAL_CODE, $html);
+
+        $this->assertStringNotContainsString(self::PHONE, $html);
+        $this->assertStringNotContainsString('3012345678', $html, 'Auch nicht ohne Landesvorwahl.');
+        $this->assertStringContainsString((string) $lead->maskedPhone(), $html);
+    }
+
+    public function test_a_buyer_sees_the_clear_text_phone_once_the_lead_is_billable(): void
+    {
+        $lead = $this->lead();
+        $buyer = $this->buyer();
+        $this->assumeEveryTenantHasPurchased();
+
+        // FB-085: Erst der Abschluss der Erreichbarkeitspruefung gibt die
+        // Nummer frei. Gesetzt wird der Stand sonst vom LeadResolver.
+        Lead::query()
+            ->withoutGlobalScopes(TenantScopes::names())
+            ->whereKey($lead->getKey())
+            ->update([
+                'contact_status' => LeadContactStatus::BILLABLE->value,
+                'resolved_at' => now(),
+            ]);
+
+        $lead->setAttribute('contact_status', LeadContactStatus::BILLABLE);
+
+        $html = $this->renderDetailFor($lead, $buyer);
+
         $this->assertStringContainsString(self::PHONE, $html);
+        $this->assertStringContainsString(self::EMAIL, $html);
         $this->assertStringContainsString(self::POSTAL_CODE, $html);
     }
 
@@ -157,5 +182,19 @@ class LeadContactMaskingTest extends FeatureTest
         $matchable = MatchableLead::fromLead($lead->fresh(['answers']));
 
         $this->assertSame(self::POSTAL_CODE, $matchable->postalCode);
+    }
+
+    /**
+     * Den Kauf selbst baut FB-054; hier steht nur seine Zusage.
+     */
+    private function assumeEveryTenantHasPurchased(): void
+    {
+        $this->app->bind(LeadPurchaseLookup::class, fn () => new class implements LeadPurchaseLookup
+        {
+            public function hasPurchased(Tenant $tenant, Lead $lead): bool
+            {
+                return true;
+            }
+        });
     }
 }

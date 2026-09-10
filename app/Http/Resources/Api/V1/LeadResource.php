@@ -75,6 +75,9 @@ class LeadResource extends JsonResource
             'answers' => $this->answers($lead),
             'created_at' => $lead->created_at?->toIso8601String(),
             'contact_visibility' => $contact->masked ? 'masked' : 'full',
+            // Eigene Achse (FB-085): Ein Kaeufer sieht die uebrigen Kontaktdaten
+            // im Klartext, die Rufnummer aber erst nach der Abrechnung.
+            'phone_visibility' => $contact->phoneMasked ? 'masked' : 'full',
             'contact' => [
                 'first_name' => $contact->firstName,
                 'last_name' => $contact->lastName,

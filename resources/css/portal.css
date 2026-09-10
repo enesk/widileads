@@ -154,22 +154,33 @@ html.portal {
 
     /* Eingabe */
 
-    /* daisyUI bringt ein eigenes .input mit und rechnet seine Schriftgroesse
-       ueber Variablen aus. Die setzen wir hier zurueck, sonst steht im Feld
-       eine andere Groesse als im Entwurf. */
+    /* daisyUI bringt ein eigenes .input mit. Es steht in einer spaeteren
+       Kaskadenschicht und gewinnt dort auch gegen einen laengeren Selektor --
+       Schichten schlagen Spezifitaet. Was es setzt, muss deshalb ausdruecklich
+       zurueckgenommen werden:
+       - display: inline-flex laesst das Feld auf Inhaltsbreite schrumpfen,
+         dadurch stand das Auge neben dem Feld statt darin.
+       - position: relative macht das Feld selbst zum Bezugspunkt.
+       - eigenes padding-inline und eine eigene Schriftgroesse. */
     .font-portal .input {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        padding-inline: 1rem !important;
         --font-size: 1rem;
         --font-size-min: 1rem;
         font-size: 1rem;
         min-height: 2.75rem;
-        width: 100%;
         border: 1px solid #d4d4d8;
         border-radius: 0.75rem;
         background-color: #fff;
-        padding-inline: 1rem;
-        font-size: 1rem;
         line-height: 1.5rem;
         color: #18181b;
+    }
+
+    /* Felder mit einem Knopf darin brauchen rechts Platz fuer ihn. */
+    .font-portal .input.pr-12 {
+        padding-right: 3rem !important;
     }
 
     .font-portal .input::placeholder {

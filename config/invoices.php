@@ -49,10 +49,17 @@ return [
 
         /*
          * Default attributes for Seller::class
+         *
+         * Bewusst leer: die echten Verkaeuferangaben stehen in der Tabelle
+         * `configs` und werden ueber die Admin-Seite "Rechnungen" gepflegt
+         * (App\Livewire\Filament\InvoiceSettings). Platzhalter des
+         * Starterkits wuerden sonst als Absender auf einer echten Rechnung
+         * landen. Solange die Angaben fehlen, erzeugt App\Services\
+         * InvoiceService gar keine Rechnung (siehe canGenerateInvoices()).
          */
         'attributes' => [
-            'name' => 'SaaSykit Company Inc.',
-            'address' => 'SaaSy Street 123',
+            'name' => '',
+            'address' => '',
             'code' => '',
             'vat' => '',
             'phone' => '',

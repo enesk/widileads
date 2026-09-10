@@ -23,6 +23,7 @@ class InvoiceService
 {
     public function __construct(
         private CountryResolver $countryResolver,
+        private CompanyProfile $companyProfile,
     ) {}
 
     public function generate(Transaction $transaction, bool $regenerate = false)
@@ -229,9 +230,21 @@ class InvoiceService
         return $customFields;
     }
 
+    /**
+     * Darf fuer diesen Vorgang eine Rechnung erzeugt werden?
+     *
+     * Neben dem Schalter und dem Zahlungsstand haengt das an den eigenen
+     * Firmenstammdaten (FB-Ticket #35): fehlen Name, Anschrift oder
+     * Kontaktadresse, entstuende eine Rechnung ohne Absender. Es gilt
+     * derselbe Massstab wie beim Impressum -- App\Services\CompanyProfile.
+     */
     public function canGenerateInvoices(Transaction $transaction): bool
     {
         if (config('invoices.enabled', false) !== true) {
+            return false;
+        }
+
+        if (! $this->companyProfile->isComplete()) {
             return false;
         }
 

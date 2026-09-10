@@ -1,28 +1,40 @@
-<x-layouts.focus>
-    <x-slot name="left">
-        <div class="flex flex-col py-2 md:p-10 gap-4 justify-center h-full items-center">
-            <div class="card w-full md:max-w-xl bg-base-100 shadow-xl p-4 md:p-8">
+<x-layouts.portal-focus>
 
-                @if($isOtpLoginEnabled)
-                    <livewire:auth.login.one-time-password-login />
-                @else
-                    @include('auth.partials.traditional-login-form')
-                @endif
+    <x-slot name="title">
+        {{ __('Login') }}
+    </x-slot>
 
+    {{-- Farbband, in das die Karte hineinragt -- wie auf der Startseite. --}}
+    <div class="bg-brand h-40 md:h-52"></div>
+
+    <div class="max-w-md mx-auto px-4 -mt-28 md:-mt-36 pb-12">
+
+        @if (session('status'))
+            <div class="rounded-2xl bg-white/15 p-4 flex items-start gap-3 mb-4 text-sm text-white">
+                <svg class="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                {{ session('status') }}
             </div>
+        @endif
+
+        <div class="card shadow-lg p-5 md:p-8">
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900">{{ __('Login') }}</h1>
+            <p class="text-zinc-500 mt-1">{{ __('Welcome back.') }}</p>
+
+            @if ($isOtpLoginEnabled)
+                {{-- Anmeldung per Einmalcode: eigene Livewire-Strecke, gerahmt
+                     von derselben Karte. --}}
+                <div class="mt-6">
+                    <livewire:auth.login.one-time-password-login />
+                </div>
+            @else
+                @include('auth.partials.traditional-login-form')
+            @endif
         </div>
-    </x-slot>
 
+        <p class="text-sm text-zinc-500 text-center mt-6">
+            {{ __('No account?') }}
+            <a href="{{ route('register') }}" class="text-brand font-medium hover:underline">{{ __('Register') }}</a>
+        </p>
+    </div>
 
-    <x-slot name="right">
-        <div class="py-4 md:px-12 md:pt-36 h-full">
-            <x-heading.h1 class="text-3xl! md:text-4xl! font-semibold!">
-                {{ __('Login.') }}
-            </x-heading.h1>
-            <p class="mt-4">
-                {{ __('It\'s great to see you back again :)') }}
-            </p>
-        </div>
-    </x-slot>
-
-</x-layouts.focus>
+</x-layouts.portal-focus>

@@ -6,9 +6,12 @@ namespace App\Filament\Dashboard\Pages;
 
 use App\Constants\AuditAction;
 use App\Constants\BuyerLeadFeedback;
+use App\Constants\CallAttemptOutcome;
 use App\Constants\FunnelFieldKey;
+use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Exceptions\ComplaintNotAllowedException;
+use App\Funnel\Snapshots\SnapshotLabels;
 use App\Models\LeadPurchase;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
@@ -24,7 +27,12 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\Layout\Panel;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -94,51 +102,99 @@ class PurchasedLeads extends Page implements HasTable
             ->paginated([(int) config('funnel.marketplace.listing.per_page')])
             ->description(__('marketplace.purchased.description'))
             ->emptyStateHeading(__('marketplace.purchased.empty'))
+            // Karten statt einer elfspaltigen Tabelle: Auf dem Telefon
+            // schiebt eine solche Tabelle den halben Inhalt aus dem Bild.
+            // Mobil eine Karte je Kauf, ab mittleren Bildschirmen zwei, auf
+            // grossen drei.
+            ->contentGrid(['md' => 2, 'xl' => 3])
             ->columns([
-                TextColumn::make('purchased_at')
-                    ->label(__('marketplace.purchased.csv.purchased_at'))
-                    ->dateTime('d.m.Y H:i')
-                    ->sortable(),
-                TextColumn::make('contact_name')
-                    ->label(__('leads.contact.name'))
-                    // Kontaktdaten ausschliesslich ueber den Presenter.
-                    ->state(fn (LeadPurchase $record): string => $this->presenter($record)->name()),
-                TextColumn::make('lead.funnel.name')
-                    ->label(__('leads.list.funnel'))
-                    ->placeholder(__('marketplace.listing.unknown_funnel')),
-                TextColumn::make('contact_email')
-                    ->label(__('marketplace.listing.email'))
-                    ->state(fn (LeadPurchase $record): string => $this->presenter($record)->email()),
-                TextColumn::make('contact_phone')
-                    ->label(__('marketplace.listing.phone'))
-                    ->state(fn (LeadPurchase $record): string => $this->presenter($record)->phone()),
-                TextColumn::make('contact_postal_code')
-                    ->label(__('marketplace.listing.region'))
-                    ->state(fn (LeadPurchase $record): string => $this->presenter($record)->postalCode()),
-                TextColumn::make('lead.score')
-                    ->label(__('leads.list.score')),
-                TextColumn::make('buyer_feedback')
-                    ->label(__('marketplace.purchased.csv.feedback'))
-                    ->badge()
-                    ->formatStateUsing(fn (BuyerLeadFeedback $state): string => $state->label())
-                    ->placeholder('-'),
-                TextColumn::make('complaint.status')
-                    ->label(__('marketplace.complaint.fields.status'))
-                    ->badge()
-                    ->state(fn (LeadPurchase $record): ?string => $record->complaint === null
-                        ? null
-                        : __('marketplace.complaint.filed', [
-                            'state' => $record->complaint->requested_state->label(),
-                            'status' => $record->complaint->status->label(),
-                        ]))
-                    ->placeholder('-'),
-                TextColumn::make('qualification')
-                    ->label(__('leads.detail.answers'))
-                    ->state(fn (LeadPurchase $record): array => $this->qualificationAnswers($record))
-                    ->listWithLineBreaks()
-                    ->limitList(3)
-                    ->expandableLimitedList()
-                    ->toggleable(),
+                Panel::make([
+                    Stack::make([
+                        // Kopf der Karte: Wer, und seit wann gehoert er dir.
+                        TextColumn::make('contact_name')
+                            ->label(__('leads.contact.name'))
+                            ->weight(FontWeight::Bold)
+                            ->size(TextSize::Large)
+                            // Kontaktdaten ausschliesslich ueber den Presenter.
+                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->name()),
+                        TextColumn::make('purchased_at')
+                            ->label(__('marketplace.purchased.csv.purchased_at'))
+                            ->icon(Heroicon::OutlinedClock)
+                            ->color('gray')
+                            ->size(TextSize::Small)
+                            ->dateTime('d.m.Y H:i')
+                            ->sortable(),
+
+                        // Zustaende als Abzeichen nebeneinander.
+                        Split::make([
+                            TextColumn::make('contact_status')
+                                ->label(__('call.panel.list.contact_status'))
+                                ->badge()
+                                // Der Stand der Erreichbarkeit, nicht der
+                                // Verkaufsstand: beide Achsen bewegen sich
+                                // unabhaengig voneinander.
+                                ->state(fn (LeadPurchase $record): string => $this->contactStatusLabel($record))
+                                ->color(fn (LeadPurchase $record): string => $this->contactStatusColor($record)),
+                            TextColumn::make('buyer_feedback')
+                                ->label(__('marketplace.purchased.csv.feedback'))
+                                ->badge()
+                                ->formatStateUsing(fn (BuyerLeadFeedback $state): string => $state->label())
+                                ->placeholder(''),
+                        ])->from('sm'),
+
+                        TextColumn::make('failed_attempts_count')
+                            ->label(__('call.panel.list.attempts'))
+                            ->color('gray')
+                            ->size(TextSize::Small)
+                            ->state(fn (LeadPurchase $record): string => __('call.panel.counter', [
+                                'count' => (int) ($record->failed_attempts_count ?? 0),
+                                'required' => (int) config('lead_calls.unreachable_attempts'),
+                            ])),
+
+                        // Kontaktdaten: der Grund, warum man diese Seite oeffnet.
+                        TextColumn::make('contact_phone')
+                            ->label(__('marketplace.listing.phone'))
+                            ->icon(Heroicon::OutlinedPhone)
+                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->phone()),
+                        TextColumn::make('contact_email')
+                            ->label(__('marketplace.listing.email'))
+                            ->icon(Heroicon::OutlinedEnvelope)
+                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->email()),
+                        TextColumn::make('contact_postal_code')
+                            ->label(__('marketplace.listing.region'))
+                            ->icon(Heroicon::OutlinedMapPin)
+                            ->color('gray')
+                            ->size(TextSize::Small)
+                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->postalCode()),
+
+                        TextColumn::make('lead.funnel.name')
+                            ->label(__('leads.list.funnel'))
+                            ->color('gray')
+                            ->size(TextSize::Small)
+                            ->placeholder(__('marketplace.listing.unknown_funnel')),
+
+                        TextColumn::make('complaint.status')
+                            ->label(__('marketplace.complaint.fields.status'))
+                            ->badge()
+                            ->color('warning')
+                            ->state(fn (LeadPurchase $record): ?string => $record->complaint === null
+                                ? null
+                                : __('marketplace.complaint.filed', [
+                                    'state' => $record->complaint->requested_state->label(),
+                                    'status' => $record->complaint->status->label(),
+                                ]))
+                            ->placeholder(''),
+
+                        TextColumn::make('qualification')
+                            ->label(__('leads.detail.answers'))
+                            ->badge()
+                            ->color('gray')
+                            ->state(fn (LeadPurchase $record): array => $this->qualificationAnswers($record))
+                            ->listWithLineBreaks()
+                            ->limitList(3)
+                            ->expandableLimitedList(),
+                    ])->space(2),
+                ]),
             ])
             ->filters([
                 Filter::make('without_feedback')
@@ -355,8 +411,39 @@ class PurchasedLeads extends Page implements HasTable
                 // nicht dem Kaeufer. Mit Scope kaeme hier immer null heraus,
                 // und der Kaeufer saehe seine eigenen Kaeufe ohne Herkunft.
                 'lead.funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
+                // Die Fassung liefert die Beschriftungen der Fragen und
+                // Antwortoptionen; auch sie gehoert dem Betreiber.
+                'lead.funnelVersion' => static fn (Relation $version) => $version->withoutGlobalScopes(TenantScopes::names()),
+            ])
+            ->withCount([
+                // Nur die gueltigen Fehlversuche -- genau die Menge, die das
+                // Regelwerk zaehlt (FB-083).
+                'callAttempts as failed_attempts_count' => static fn (Builder $attempts): Builder => $attempts
+                    ->where('outcome', CallAttemptOutcome::FAILED_VALID),
             ])
             ->ofBuyer($this->tenant());
+    }
+
+    /**
+     * Beschriftung und Farbe des Erreichbarkeits-Abzeichens -- dieselben wie im
+     * LeadCallPanel auf der Detailseite.
+     */
+    private function contactStatusLabel(LeadPurchase $purchase): string
+    {
+        return match ($purchase->lead?->contact_status) {
+            LeadContactStatus::BILLABLE => __('call.panel.badge.billable'),
+            LeadContactStatus::UNREACHABLE => __('call.panel.badge.unreachable'),
+            default => __('call.panel.badge.open'),
+        };
+    }
+
+    private function contactStatusColor(LeadPurchase $purchase): string
+    {
+        return match ($purchase->lead?->contact_status) {
+            LeadContactStatus::BILLABLE => 'success',
+            LeadContactStatus::UNREACHABLE => 'danger',
+            default => 'gray',
+        };
     }
 
     /**
@@ -371,6 +458,13 @@ class PurchasedLeads extends Page implements HasTable
      */
     private function qualificationAnswers(LeadPurchase $purchase): array
     {
+        // Beschriftungen aus der Fassung, unter der der Lead entstanden ist --
+        // wie im Marktplatz und auf der Detailseite. Ein Kaeufer soll lesen,
+        // was der Kunde angeklickt hat, nicht "rasse_groesse: gross".
+        $snapshot = $purchase->lead->funnelVersion?->snapshot;
+        $labels = SnapshotLabels::questions(is_array($snapshot) ? $snapshot : null);
+        $options = SnapshotLabels::options(is_array($snapshot) ? $snapshot : null);
+
         $answers = [];
 
         foreach ($purchase->lead->answers as $answer) {
@@ -378,11 +472,14 @@ class PurchasedLeads extends Page implements HasTable
                 continue;
             }
 
+            $readable = static fn (mixed $single): string => $options[$answer->field_key][(string) $single]
+                ?? (string) $single;
+
             $value = $answer->value;
 
-            $answers[] = $answer->field_key.': '.(is_array($value)
-                ? implode(', ', array_map(static fn (mixed $part): string => (string) $part, $value))
-                : (string) $value);
+            $answers[] = ($labels[$answer->field_key] ?? $answer->field_key).': '.(is_array($value)
+                ? implode(', ', array_map($readable, $value))
+                : $readable($value));
         }
 
         return $answers;

@@ -15,12 +15,19 @@ use App\Services\PaymentProviders\PaymentService;
 use App\Services\PaymentProviders\Polar\PolarProvider;
 use App\Services\PaymentProviders\Stripe\StripeProvider;
 use App\Services\RecordedLeadPurchases;
+use App\Services\Twilio\CallerIdValidationClient;
+use App\Services\Twilio\OutboundCallClient;
+use App\Services\Twilio\TwilioCallerIdValidationClient;
+use App\Services\Twilio\TwilioOutboundCallClient;
 use App\Services\UserVerificationService;
 use App\Services\VerificationProviders\TwilioProvider;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 use libphonenumber\PhoneNumberUtil;
+use Twilio\Exceptions\ConfigurationException as TwilioConfigurationException;
+use Twilio\Rest\Client as TwilioClient;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -47,6 +54,27 @@ class AppServiceProvider extends ServiceProvider
 
         // Und der Kaufknopf im Marktplatz wirkt (FB-054).
         $this->app->bind(LeadPurchaseAction::class, LeadPurchaseThroughAction::class);
+
+        // Die Twilio-Anbindung fuer Rufnummern-Bestaetigungen (FB-080). Als
+        // Bindung, damit Tests den Anruf ersetzen koennen.
+        $this->app->bind(CallerIdValidationClient::class, TwilioCallerIdValidationClient::class);
+
+        // Und die Anbindung fuer den Anruf selbst (FB-081).
+        $this->app->bind(OutboundCallClient::class, TwilioOutboundCallClient::class);
+
+        // Der Twilio-REST-Client (FB-082). Als Singleton, damit alle Anrufe
+        // eines Requests denselben HTTP-Client teilen. Die Aufloesung ist lazy:
+        // Wer Twilio nicht anfasst, braucht auch keine Zugangsdaten.
+        $this->app->singleton(TwilioClient::class, static function (): TwilioClient {
+            $sid = (string) config('twilio.account_sid');
+            $token = (string) config('twilio.auth_token');
+
+            if ($sid === '' || $token === '') {
+                throw new TwilioConfigurationException('Twilio ist nicht eingerichtet: twilio.account_sid oder twilio.auth_token fehlt.');
+            }
+
+            return new TwilioClient($sid, $token);
+        });
 
         // PhoneNumberUtil hat einen privaten Konstruktor und laesst sich deshalb
         // nicht automatisch aufloesen (FB-011, E.164-Normalisierung).
@@ -81,8 +109,36 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->trustConfiguredProxies();
+
         FilamentAsset::register([
             Js::make('components-script', __DIR__.'/../../resources/js/components.js'),
         ]);
+    }
+
+    /**
+     * Vertraute Proxys aus config('funnel.trusted_proxies') setzen.
+     *
+     * Gehoert bewusst hierher und nicht in bootstrap/app.php: Die dortige
+     * Middleware-Closure laeuft, waehrend der HTTP-Kernel aufgeloest wird --
+     * vor dem Laden der .env. env() liefert dort im Web null, in der Konsole
+     * dagegen den richtigen Wert. Die Einstellung sah deshalb gesetzt aus und
+     * wirkte im Web nie: Laravel baute jede Adresse mit http, der Browser
+     * blockte die Stylesheets, und die ueber die volle URL gerechnete
+     * Twilio-Signatur konnte nicht passen.
+     *
+     * Ueber die Konfiguration statt ueber env(), damit der Wert einen
+     * config:cache ueberlebt -- mit gecachter Konfiguration wird die .env gar
+     * nicht mehr gelesen.
+     */
+    private function trustConfiguredProxies(): void
+    {
+        $proxies = trim((string) config('funnel.trusted_proxies'));
+
+        if ($proxies === '') {
+            return;
+        }
+
+        TrustProxies::at($proxies === '*' ? '*' : array_map(trim(...), explode(',', $proxies)));
     }
 }

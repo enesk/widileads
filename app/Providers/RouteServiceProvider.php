@@ -48,6 +48,14 @@ class RouteServiceProvider extends ServiceProvider
                 ->by(app(IpHasher::class)->hash($request->ip()) ?? 'unknown');
         });
 
+        // FB-081: Click-to-Call wird je Benutzer begrenzt, nicht je IP -- ein
+        // Anruf kostet Geld und laesst beim Lead das Telefon klingeln. Zehn
+        // Klicks je Minute sind mehr, als ein Mitarbeiter sinnvoll waehlen
+        // kann, und wenig genug, um Missbrauch zu begrenzen.
+        RateLimiter::for('lead-calls', function (Request $request) {
+            return Limit::perMinute(10)->by('user:'.($request->user()?->getKey() ?? $request->ip()));
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

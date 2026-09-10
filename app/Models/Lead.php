@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Constants\LeadContactStatus;
+use App\Constants\LeadResolutionReason;
 use App\Constants\LeadState;
 use App\Dto\LeadContact;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Scopes\TenantScopes;
 use App\Services\LeadContactResolver;
+use App\Services\LeadPurchaseLookup;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -69,6 +73,13 @@ use Illuminate\Support\Str;
  *                                            beim Schreiben ist jeder numerische Wert erlaubt.
  * @property-write float|string|null $settled_price
  * @property Carbon|null $settled_at
+ * @property Carbon|null $delivered_at
+ * @property Carbon|null $deadline_at
+ * @property LeadContactStatus $contact_status
+ * @property Carbon|null $resolved_at
+ * @property LeadResolutionReason|null $resolved_by
+ * @property Carbon|null $phone_revealed_at
+ * @property Carbon|null $reminder_sent_at Gesetzt heisst: die Erinnerung vor Fristende ist raus (FB-084).
  * @property Carbon|null $anonymized_at Gesetzt heisst: der Personenbezug wurde entfernt (FB-037).
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -90,6 +101,33 @@ class Lead extends Model
         'lead_state',
         'settled_price',
         'settled_at',
+    ];
+
+    /**
+     * Ein frisch gebauter Lead ist erreichbarkeitsseitig offen -- derselbe
+     * Wert, den auch die Datenbank setzt. So ist contact_status nie null und
+     * isOpen() auch vor dem ersten Speichern beantwortbar.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'contact_status' => 'open',
+    ];
+
+    /**
+     * Die Rufnummer verlaesst das Model nie ueber eine Serialisierung.
+     *
+     * $hidden wirkt auf toArray() und toJson() -- und damit auf Livewire, auf
+     * API-Resources und auf jedes versehentliche dd($lead) im Frontend. Wer
+     * die Nummer wirklich braucht, holt sie ueber contactFor() -- oder, wenn es
+     * ausdruecklich um die Freigabe nach Abrechnung geht, ueber
+     * revealedPhone() bzw. maskedPhone() (FB-085); ein direkter Spaltenzugriff
+     * bleibt technisch moeglich, faellt aber im Architektur-Test auf.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'phone_e164',
     ];
 
     /**
@@ -154,6 +192,52 @@ class Lead extends Model
     }
 
     /**
+     * Alle Anrufversuche zu diesem Lead, neueste zuerst (FB-082).
+     *
+     * Ueber alle Kaeufer hinweg: Bei einem geteilten Lead (FB-055) ruft jeder
+     * Kaeufer fuer sich an, die Frist gilt aber dem Lead als Ganzem.
+     *
+     * @return HasMany<CallAttempt, $this>
+     */
+    public function callAttempts(): HasMany
+    {
+        return $this->hasMany(CallAttempt::class)->latest('created_at');
+    }
+
+    /**
+     * Die gueltigen erfolglosen Versuche, aelteste zuerst.
+     *
+     * Die Menge, aus der das Regelwerk (FB-083) Zahl und Zeitspanne der
+     * Versuche liest. Verworfene Versuche -- etwa unter dem Mindestabstand --
+     * sind hier bewusst nicht dabei.
+     *
+     * @return HasMany<CallAttempt, $this>
+     */
+    public function validFailedAttempts(): HasMany
+    {
+        return $this->hasMany(CallAttempt::class)->validFailed();
+    }
+
+    /**
+     * Laeuft die Erreichbarkeitspruefung noch?
+     *
+     * Nur dann darf angerufen werden und nur dann zaehlt ein Versuch. Ist der
+     * Lead bereits entschieden, aendert kein weiterer Anruf etwas daran.
+     */
+    public function isOpen(): bool
+    {
+        return ! $this->contact_status->isResolved();
+    }
+
+    /**
+     * Ist die Frist abgelaufen? Ohne Auslieferung laeuft keine Frist.
+     */
+    public function isPastCallDeadline(): bool
+    {
+        return $this->deadline_at !== null && $this->deadline_at->isPast();
+    }
+
+    /**
      * Kontaktdaten dieses Leads aus Sicht eines Betrachters -- im Klartext
      * oder verdeckt (FB-032).
      *
@@ -175,6 +259,91 @@ class Lead extends Model
     public function contactForTenant(?Tenant $tenant): LeadContact
     {
         return app(LeadContactResolver::class)->forTenant($this, $tenant);
+    }
+
+    /**
+     * Die Rufnummer in der Fassung, die ein Kaeufer vor der Abrechnung sieht
+     * (FB-085): `+49 171 ***** 67`.
+     *
+     * Maskiert wird nicht hier, sondern in App\Dto\LeadContact
+     * (Architekturleitsatz 5) -- diese Methode ist nur der bequeme Zugang vom
+     * Lead aus.
+     */
+    public function maskedPhone(): ?string
+    {
+        return LeadContact::maskPhoneToLastDigits($this->phone_e164);
+    }
+
+    /**
+     * Ist die Rufnummer fuer den Kaeufer freigegeben? (FB-085)
+     *
+     * Genau ein Fall gibt sie frei: Die Erreichbarkeitspruefung ist mit
+     * `billable` zu Ende gegangen, der Lead wird also abgerechnet. Bei
+     * `unreachable` bleibt sie dauerhaft verdeckt -- der Kaeufer bekommt eine
+     * Gutschrift und keine Nummer.
+     */
+    public function isPhoneReleased(): bool
+    {
+        return $this->contact_status === LeadContactStatus::BILLABLE;
+    }
+
+    /**
+     * Die volle Rufnummer fuer einen Kaeufer -- oder null (FB-085).
+     *
+     * Zwei Bedingungen, beide zwingend: Der Lead ist abgerechnet
+     * (`contact_status = billable`) und der fragende Mandant hat ihn gekauft.
+     * Fehlt eine davon, kommt null zurueck; die verdeckte Fassung holt sich der
+     * Aufrufer ueber maskedPhone().
+     *
+     * Beim ersten erfolgreichen Abruf wird `phone_revealed_at` gesetzt. Der
+     * Zeitstempel ist der Beleg dafuer, wann der Kaeufer die Nummer bekommen
+     * hat -- er wird nie ueberschrieben.
+     */
+    public function revealedPhone(Tenant $buyer): ?string
+    {
+        if (! $this->isPhoneReleased()) {
+            return null;
+        }
+
+        if (! app(LeadPurchaseLookup::class)->hasPurchased($buyer, $this)) {
+            return null;
+        }
+
+        $phone = $this->phone_e164;
+
+        if ($phone === null || trim($phone) === '') {
+            return null;
+        }
+
+        $this->markPhoneRevealed();
+
+        return $phone;
+    }
+
+    /**
+     * Haelt fest, dass die Rufnummer einem Kaeufer ausgeliefert wurde.
+     *
+     * Nur beim ersten Mal und ohne Umweg ueber das Model: Ein save() wuerde
+     * andere Aenderungen mitschreiben, die zufaellig am Objekt haengen. Der
+     * Mandanten-Scope muss dabei weichen -- der Lead gehoert dem Betreiber, die
+     * Freigabe passiert aber im Kontext des Kaeufers.
+     */
+    public function markPhoneRevealed(): void
+    {
+        if ($this->phone_revealed_at !== null) {
+            return;
+        }
+
+        $now = Carbon::now();
+
+        static::query()
+            ->withoutGlobalScopes(TenantScopes::names())
+            ->whereKey($this->getKey())
+            ->whereNull('phone_revealed_at')
+            ->update(['phone_revealed_at' => $now]);
+
+        $this->setAttribute('phone_revealed_at', $now);
+        $this->syncOriginalAttribute('phone_revealed_at');
     }
 
     /**
@@ -209,10 +378,17 @@ class Lead extends Model
     {
         return [
             'lead_state' => LeadState::class,
+            'contact_status' => LeadContactStatus::class,
+            'resolved_by' => LeadResolutionReason::class,
             'score' => 'integer',
             'price_at_creation' => 'decimal:2',
             'settled_price' => 'decimal:2',
             'settled_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'deadline_at' => 'datetime',
+            'resolved_at' => 'datetime',
+            'phone_revealed_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'anonymized_at' => 'datetime',
         ];
     }

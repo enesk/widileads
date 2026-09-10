@@ -64,6 +64,8 @@ return [
             'embed_origin_rejected' => 'Einbettung abgelehnt (fremde Herkunft)',
             'buyer_approved' => 'Käufer freigeschaltet',
             'buyer_rejected' => 'Käufer abgelehnt',
+            'caller_id_requested' => 'Rufnummer-Bestätigung angefordert',
+            'caller_id_verified' => 'Rufnummer bestätigt',
         ],
 
         'errors' => [
