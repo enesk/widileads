@@ -1,37 +1,58 @@
+{{-- Bestaetigung der Kuendigung eines Abonnements. --}}
+@php
+    $tint = config('app.email_color_tint');
+@endphp
+
 <x-layouts.email>
     <x-slot name="preview">
-        {{ __('Sorry to see you go! :(') }}
+        {{ __('mail.subscription_cancelled.heading') }}
     </x-slot>
 
     <tr>
-        <td class="sm-px-6" style="border-radius: 4px; padding: 48px; font-size: 16px; color: #334155; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" bgcolor="#ffffff">
-            <h1 class="sm-leading-8" style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #000">
-                {{ __('Hi :name,', ['name' => $subscription->user->name]) }}
-            </h1>
-            <p style="margin: 0; line-height: 24px">
-                {{ __('We are sad to see you go. Please let us know if there is anything we can do to improve our service.') }}
-            </p>
+        <td>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" cellpadding="0" cellspacing="0" role="none" bgcolor="#ffffff">
 
-            <p style="margin-top: 16px; padding-top: 12px; padding-bottom: 12px">
-                {{ __('Please drop us an email if you have any suggestions or feedback that you would like to share with us at') }}
-                <a href="mailto:{{ config('app.support_email') }}">
-                    {{ config('app.support_email') }}
-                </a>.
-            </p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; background-color: {{ $tint }}" bgcolor="{{ $tint }}">
+                        <p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75)">
+                            {{ __('mail.subscription_cancelled.label') }}
+                        </p>
+                        <h1 class="sm-leading-8" style="margin: 0; font-size: 24px; font-weight: 700; line-height: 32px; color: #ffffff">
+                            {{ __('mail.subscription_cancelled.heading') }}
+                        </h1>
+                    </td>
+                </tr>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('If you change your mind in the future, you can always subscribe again from your account dashboard.') }}
-            </p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; font-size: 16px; color: #334155">
+                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.payment_failed.greeting', ['name' => $subscription->user->name]) }}
+                        </p>
+                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.subscription_cancelled.intro') }}
+                        </p>
+                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.subscription_cancelled.return') }}
+                        </p>
+                        <p style="margin: 0; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.subscription_cancelled.thanks') }}
+                        </p>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('Thank you for using our services. We hope to see you again soon!') }}
-            </p>
+                        <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('Sincerely,') }}<br>
-                {{ config('app.name') }} {{ __('Team') }}
-            </p>
+                        <p style="margin: 0 0 8px; font-size: 14px; line-height: 22px; color: #64748b">
+                            {!! __('mail.support', [
+                                'email' => '<a href="mailto:'.e(config('app.support_email')).'" style="color: '.$tint.'; text-decoration: none">'.e(config('app.support_email')).'</a>',
+                            ]) !!}
+                        </p>
+
+                        <p style="margin: 0; font-size: 14px; line-height: 22px; color: #64748b">
+                            {{ __('mail.closing', ['app' => config('app.wordmark')]) }}
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
         </td>
     </tr>
-
 </x-layouts.email>

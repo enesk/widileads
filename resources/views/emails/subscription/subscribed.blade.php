@@ -1,33 +1,52 @@
+{{-- Willkommensmail nach dem Abschluss eines Abonnements. --}}
+@php
+    $tint = config('app.email_color_tint');
+@endphp
+
 <x-layouts.email>
     <x-slot name="preview">
-        {{ __('Welcome to :app!', ['app' => config('app.name')]) }}
+        {{ __('mail.subscribed.heading', ['app' => config('app.wordmark')]) }}
     </x-slot>
 
     <tr>
-        <td class="sm-px-6" style="border-radius: 4px; padding: 48px; font-size: 16px; color: #334155; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" bgcolor="#ffffff">
-            <h1 class="sm-leading-8" style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #000">
-                {{ __('Welcome to :app!', ['app' => config('app.name')]) }}
-            </h1>
-            <p style="margin: 0; line-height: 24px">
-                {{ __('Welcome aboard! We are thrilled to have you as a valued member of :app. Your subscription to our ":plan_name" plan has been successfully processed, and we\'re excited to help you unlock the full potential of our platform.', ['app' => config('app.name'), 'plan_name' => $subscription->plan->name]) }}
-            </p>
+        <td>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" cellpadding="0" cellspacing="0" role="none" bgcolor="#ffffff">
 
-            <p style="margin-top: 16px; padding-top: 12px; padding-bottom: 12px">
-                {{ __('Our support team is here to assist you with any questions or concerns. Feel free to reach out to us at ') }}
-                <a href="mailto:{{ config('app.support_email') }}">
-                    {{ config('app.support_email') }}
-                </a>.
-            </p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; background-color: {{ $tint }}" bgcolor="{{ $tint }}">
+                        <p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75)">
+                            {{ __('mail.subscribed.label') }}
+                        </p>
+                        <h1 class="sm-leading-8" style="margin: 0; font-size: 24px; font-weight: 700; line-height: 32px; color: #ffffff">
+                            {{ __('mail.subscribed.heading', ['app' => config('app.wordmark')]) }}
+                        </h1>
+                    </td>
+                </tr>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('Your feedback is essential to us. If you have any suggestions, feature requests, or thoughts on how we can enhance your experience, please don\'t hesitate to let us know. We value your input.') }}
-            </p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; font-size: 16px; color: #334155">
+                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.subscribed.intro', ['plan' => $subscription->plan->name]) }}
+                        </p>
+                        <p style="margin: 0; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.subscribed.feedback') }}
+                        </p>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('Sincerely,') }}<br>
-                {{ config('app.name') }} {{ __('Team') }}
-            </p>
+                        <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>
+
+                        <p style="margin: 0 0 8px; font-size: 14px; line-height: 22px; color: #64748b">
+                            {!! __('mail.support', [
+                                'email' => '<a href="mailto:'.e(config('app.support_email')).'" style="color: '.$tint.'; text-decoration: none">'.e(config('app.support_email')).'</a>',
+                            ]) !!}
+                        </p>
+
+                        <p style="margin: 0; font-size: 14px; line-height: 22px; color: #64748b">
+                            {{ __('mail.closing', ['app' => config('app.wordmark')]) }}
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
         </td>
     </tr>
-
 </x-layouts.email>

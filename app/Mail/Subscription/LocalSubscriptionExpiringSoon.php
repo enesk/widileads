@@ -30,7 +30,7 @@ class LocalSubscriptionExpiringSoon extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __('Dont\'t lose your subscription!'),
+            subject: __('mail.expiring_soon.subject'),
         );
     }
 

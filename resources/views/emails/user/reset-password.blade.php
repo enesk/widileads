@@ -1,40 +1,60 @@
+{{-- Passwort zuruecksetzen. Aufbau wie die uebrigen Portalmails. --}}
+@php
+    $tint = config('app.email_color_tint');
+@endphp
+
 <x-layouts.email>
     <x-slot name="preview">
-        {{ __('Reset your password') }}
+        {{ __('mail.reset_password.heading') }}
     </x-slot>
 
     <tr>
-        <td class="sm-px-6" style="border-radius: 4px; padding: 48px; font-size: 16px; color: #334155; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" bgcolor="#ffffff">
-            <h1 class="sm-leading-8" style="margin: 0 0 24px; font-size: 24px; font-weight: 600; color: #000">
-                {{ __('Reset your password') }}
-            </h1>
-            <p style="margin: 0; line-height: 24px">
-                {{ __('You are receiving this email because we received a password reset request for your account.') }}
-            </p>
+        <td>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" cellpadding="0" cellspacing="0" role="none" bgcolor="#ffffff">
 
-            <div style="text-align: center;">
-                <a href="{{ $url }}" style="margin-top: 24px; margin-bottom: 24px; display: inline-block; border-radius: 16px; background-color: {{config('app.email_color_tint')}}; padding: 8px 24px; font-size: 20px; color: #fff; text-decoration-line: none">
-                    {{ __('Reset Password') }}
-                </a>
-            </div>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; background-color: {{ $tint }}" bgcolor="{{ $tint }}">
+                        <p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75)">
+                            {{ __('mail.reset_password.label') }}
+                        </p>
+                        <h1 class="sm-leading-8" style="margin: 0; font-size: 24px; font-weight: 700; line-height: 32px; color: #ffffff">
+                            {{ __('mail.reset_password.heading') }}
+                        </h1>
+                    </td>
+                </tr>
 
-            <p style="padding-top: 12px; padding-bottom: 12px;">
-                {{ __('This password reset link will expire in 60 minutes.') }}
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; font-size: 16px; color: #334155">
+                        <p style="margin: 0; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.reset_password.intro') }}
+                        </p>
+                        <table style="width: 100%; margin: 28px 0" cellpadding="0" cellspacing="0" role="none">
+                            <tr>
+                                <td align="center">
+                                    <a href="{{ $url }}" style="display: inline-block; border-radius: 10px; background-color: {{ $tint }}; padding: 14px 32px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none">
+                                        {{ __('mail.reset_password.cta') }}
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin: 0 0 16px; font-size: 14px; line-height: 24px; color: #64748b">
+                            {{ __('mail.reset_password.expiry') }}<br>
+                            {{ __('mail.reset_password.ignore') }}
+                        </p>
+                        <p style="margin: 0; font-size: 13px; line-height: 20px; color: #94a3b8">
+                            {{ __('mail.fallback') }}<br>
+                            <a href="{{ $url }}" style="color: {{ $tint }}; word-break: break-all">{{ $url }}</a>
+                        </p>
 
-                <br/>
+                        <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>
 
-                {{ __('If you did not request a password reset, no further action is required.') }}
-            </p>
+                        <p style="margin: 0; font-size: 14px; line-height: 22px; color: #64748b">
+                            {{ __('mail.closing', ['app' => config('app.wordmark')]) }}
+                        </p>
 
-            <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0;">&zwj;</div>
-
-            <p style="">
-                {{ __('If you\'re having trouble clicking the "Reset Password" button, copy and paste the URL below into your web browser:') }} <a href="{{ $url }}">
-                    {{ $url }}
-                </a>
-            </p>
-
+                    </td>
+                </tr>
+            </table>
         </td>
     </tr>
-
 </x-layouts.email>

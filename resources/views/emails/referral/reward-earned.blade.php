@@ -1,30 +1,67 @@
+{{-- Praemie fuer eine angenommene Empfehlung. --}}
+@php
+    $tint = config('app.email_color_tint');
+@endphp
+
 <x-layouts.email>
     <x-slot name="preview">
-        {{ __('Great news! Your referral was successful.') }}
+        {{ __('mail.referral_reward.heading') }}
     </x-slot>
 
-    <div style="color: #000">
-        <h1>{{ __('Congratulations! You Earned a Referral Reward!') }}</h1>
+    <tr>
+        <td>
+            <table style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)" cellpadding="0" cellspacing="0" role="none" bgcolor="#ffffff">
 
-        <p>{{ __('Great news! Your referral was successful.') }}</p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; background-color: {{ $tint }}" bgcolor="{{ $tint }}">
+                        <p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: rgba(255, 255, 255, 0.75)">
+                            {{ __('mail.referral_reward.label') }}
+                        </p>
+                        <h1 class="sm-leading-8" style="margin: 0; font-size: 24px; font-weight: 700; line-height: 32px; color: #ffffff">
+                            {{ __('mail.referral_reward.heading') }}
+                        </h1>
+                    </td>
+                </tr>
 
-        <p>{{ __('Your friend :name has joined us, and you\'ve earned a reward!', [
-            'name' => $referral->referredUser->name,
-        ]) }}</p>
+                <tr>
+                    <td class="sm-px-6" style="padding: 32px 40px; font-size: 16px; color: #334155">
+                        <p style="margin: 0 0 16px; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.referral_reward.intro', ['name' => $referral->referredUser->name]) }}
+                        </p>
+                        <table style="width: 100%%; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 10px" cellpadding="0" cellspacing="0" role="none" bgcolor="#f8fafc">
+                            <tr>
+                                <td style="padding: 20px; text-align: center" align="center">
+                                    <p style="margin: 0 0 6px; font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase; color: #64748b">
+                                        {{ __('mail.referral_reward.code_heading') }}
+                                    </p>
+                                    <p style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: 1px; color: #0f172a">
+                                        {{ $discountCode->code }}
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin: 20px 0 0; font-size: 16px; line-height: 24px; color: #334155">
+                            {{ __('mail.referral_reward.more') }}
+                        </p>
+                        <table style="width: 100%; margin: 28px 0" cellpadding="0" cellspacing="0" role="none">
+                            <tr>
+                                <td align="center">
+                                    <a href="{{ route('dashboard') }}" style="display: inline-block; border-radius: 10px; background-color: {{ $tint }}; padding: 14px 32px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none">
+                                        {{ __('mail.referral_reward.cta') }}
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
 
-        <div style="padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h2 style="margin-top: 0;">{{ __('Your Reward Coupon Code:') }}</h2>
-            <p style="font-size: 24px; font-weight: bold; color: #10b981; margin: 10px 0;">
-                {{ $discountCode->code }}
-            </p>
-        </div>
+                        <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>
 
-        <p>{{ __('Keep referring friends to earn more rewards!') }}</p>
+                        <p style="margin: 0; font-size: 14px; line-height: 22px; color: #64748b">
+                            {{ __('mail.closing', ['app' => config('app.wordmark')]) }}
+                        </p>
 
-        <p>
-            <a href="{{ route('dashboard') }}" style="margin-top: 24px; margin-bottom: 24px; display: inline-block; border-radius: 16px; background-color: {{config('app.email_color_tint')}}; padding: 8px 24px; font-size: 20px; color: #fff; text-decoration-line: none">
-                {{ __('View Dashboard') }}
-            </a>
-        </p>
-    </div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
 </x-layouts.email>
