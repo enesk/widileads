@@ -53,6 +53,13 @@ return [
     // fuer den Regelfall.
     'topup_presets_cents' => [5000, 10000, 25000, 50000],
 
+    // Umsatzsteuersatz (Prozent), der auf der Aufladeseite als enthaltener
+    // Anteil ausgewiesen wird. Die Angabe ist eine Pflichtangabe des Checkouts;
+    // welcher Satz gilt, haengt am Betreiber. 0 laesst die Zeile weg -- so
+    // bleibt die Seite fuer Kleinunternehmer richtig, statt einen Satz zu
+    // behaupten, der nicht abgerechnet wird.
+    'topup_vat_percent' => (int) env('WALLET_TOPUP_VAT_PERCENT', 19),
+
     // Slug des Einmalkauf-Produkts, ueber das der vorhandene SaaSykit-Checkout
     // eine Aufladung abrechnet (LP-WALLET-009). Das Produkt kostet genau einen
     // Euro; die Menge im Warenkorb ist der Aufladebetrag in Euro. So braucht
@@ -60,6 +67,19 @@ return [
     // Gutgeschrieben wird nicht die Menge, sondern der tatsaechlich bezahlte
     // Betrag der Bestellung -- Rabatte bleiben damit automatisch richtig.
     'topup_product_slug' => env('WALLET_TOPUP_PRODUCT_SLUG', 'guthaben-aufladung'),
+
+    // Zahlungsanbieter, an den eine Aufladung unmittelbar weitergeleitet wird
+    // (Slug wie in der Tabelle payment_providers: stripe, lemon-squeezy, ...).
+    //
+    // Ohne diese Angabe muesste der Kaeufer zwischen Aufladeseite und Zahlung
+    // noch einen Anbieter auswaehlen -- ein Klick, der ihn nichts entscheiden
+    // laesst, was er entscheiden will. Der genannte Anbieter muss aktiv sein
+    // und seine Zahlung als Weiterleitung anbieten (isRedirectProvider).
+    // Trifft eines davon nicht zu, faellt die Aufladung auf die
+    // Checkout-Seite zurueck, statt in einer Fehlermeldung zu enden: Ein
+    // Overlay-Anbieter wie Paddle braucht zwingend eine Seite, auf der sein
+    // Skript laeuft.
+    'topup_payment_provider' => env('WALLET_TOPUP_PAYMENT_PROVIDER', 'stripe'),
 
     // Mindestbetrag (Cent), ab dem ein Verkaeufer eine Auszahlung anfordern
     // kann.

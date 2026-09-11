@@ -29,6 +29,66 @@ return [
         'invalid_number' => 'That is not a dialable phone number.',
         'provider_failed' => 'The verification could not be requested. Please try again later.',
 
+        'portal' => [
+            'back' => 'Phone numbers',
+            'heading' => 'Confirm your phone number',
+            'description' => 'We connect you to the enquirer over this number. We call you once to confirm it.',
+
+            'steps' => [
+                'enter' => 'Enter number',
+                'calling' => 'Take the call',
+                'code' => 'Enter code',
+            ],
+
+            'label' => 'Name',
+            'label_placeholder' => 'e.g. office, mobile',
+            'label_hint' => 'For your overview only.',
+            'number' => 'Phone number',
+            'number_placeholder' => '172 1234567',
+            'number_hint' => 'Without the leading zero. Mobile or landline, both work.',
+            'country' => 'Country code',
+            'explainer' => 'Your phone rings in a moment. A recording reads out a 6-digit code that you enter here. The call is free and takes less than a minute.',
+            'cancel' => 'Cancel',
+            'start' => 'Call me now',
+
+            'calling_heading' => 'Your phone is about to ring',
+            'calling_text' => 'We are calling :number. Pick up and listen to the code.',
+            'calling_spinner' => 'Connecting the call …',
+            'calling_code' => 'Expected code: :code',
+            'have_code' => 'I have the code',
+            'other_number' => 'Different number',
+            'no_call' => 'No call after 60 seconds? Then you can try again.',
+
+            'code_heading' => 'Enter code',
+            'code_text' => 'The 6-digit code from the recording. Press 1 to hear it again.',
+            'code_field' => 'Confirmation code',
+            'code_digit' => 'Digit :position',
+            'code_wrong' => 'That code is wrong. :count attempts left.',
+            'code_exhausted' => 'That code is wrong. Request the call again.',
+            'code_ttl' => 'The code is valid for :minutes minutes.',
+            'call_again' => 'Call me again',
+            'confirm' => 'Confirm number',
+
+            'done_heading' => 'Number confirmed',
+            'done_text' => ':number is now enabled for calls through :app.',
+            'make_default' => 'Use as default number',
+            'to_marketplace' => 'To the marketplace',
+            'to_numbers' => 'To my phone numbers',
+
+            'why_heading' => 'Why we call',
+            'why_one' => 'With "Call now" your phone rings first, then we connect you to the enquirer.',
+            'why_two' => 'The enquirer sees our portal number, not yours.',
+            'why_three' => 'Only confirmed numbers can start calls, so nobody can call at your expense.',
+
+            'verified_heading' => 'Already confirmed',
+            'default_label' => 'Default',
+            'trouble_heading' => 'Problems?',
+            'trouble_text' => 'No call arriving: check whether the number blocks withheld callers. Our number is :number.',
+            'support' => 'Contact support',
+
+            'failed' => 'The confirmation failed. Check the number and try again.',
+        ],
+
         'status' => [
             'pending' => 'Verification in progress',
             'verified' => 'Verified',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\BuyerLeadFeedback;
+use App\Constants\BuyerLeadStatus;
 use App\Constants\PurchaseStatus;
 use App\Models\Scopes\TenantScopes;
 use Database\Factories\LeadPurchaseFactory;
@@ -45,6 +46,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $refunded_at
  * @property BuyerLeadFeedback|null $buyer_feedback
  * @property Carbon|null $buyer_feedback_at
+ * @property string|null $buyer_notes
+ * @property BuyerLeadStatus|null $buyer_status
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -70,6 +73,8 @@ class LeadPurchase extends Model
         'refunded_at',
         'buyer_feedback',
         'buyer_feedback_at',
+        'buyer_notes',
+        'buyer_status',
     ];
 
     /**
@@ -167,6 +172,7 @@ class LeadPurchase extends Model
             'refunded_at' => 'datetime',
             'buyer_feedback' => BuyerLeadFeedback::class,
             'buyer_feedback_at' => 'datetime',
+            'buyer_status' => BuyerLeadStatus::class,
         ];
     }
 }

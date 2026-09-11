@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Constants\BuyerNotifyInterval;
 use Database\Factories\BuyerProfileFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,6 +27,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property list<string>|null $postal_prefixes
  * @property array<string, list<string>>|null $answer_filters
  * @property int|null $min_score
+ * @property int|null $max_price_cents
+ * @property int|null $weekly_budget_cents
+ * @property BuyerNotifyInterval|null $notify_interval
  * @property int|null $daily_limit
  * @property bool $auto_buy
  * @property string|null $notify_email
@@ -41,9 +45,12 @@ class BuyerProfile extends Model
         'postal_prefixes',
         'answer_filters',
         'min_score',
+        'max_price_cents',
         'daily_limit',
+        'weekly_budget_cents',
         'auto_buy',
         'notify_email',
+        'notify_interval',
     ];
 
     /**
@@ -120,8 +127,11 @@ class BuyerProfile extends Model
             'postal_prefixes' => 'array',
             'answer_filters' => 'array',
             'min_score' => 'integer',
+            'max_price_cents' => 'integer',
             'daily_limit' => 'integer',
+            'weekly_budget_cents' => 'integer',
             'auto_buy' => 'boolean',
+            'notify_interval' => BuyerNotifyInterval::class,
         ];
     }
 }

@@ -34,6 +34,68 @@ return [
         'invalid_number' => 'Das ist keine wählbare Rufnummer.',
         'provider_failed' => 'Die Bestätigung konnte nicht angefordert werden. Bitte später erneut versuchen.',
 
+        // Portal-Fassung (Portal Phase 1). Eigene Bausteine, weil der Ablauf
+        // dort in vier Schritten laeuft und die Oberflaeche duzt.
+        'portal' => [
+            'back' => 'Rufnummern',
+            'heading' => 'Rufnummer bestätigen',
+            'description' => 'Über diese Nummer verbinden wir dich mit den Anfragenden. Wir rufen dich einmal an, um sie zu bestätigen.',
+
+            'steps' => [
+                'enter' => 'Nummer eingeben',
+                'calling' => 'Anruf annehmen',
+                'code' => 'Code eingeben',
+            ],
+
+            'label' => 'Bezeichnung',
+            'label_placeholder' => 'z. B. Büro, Handy Enes',
+            'label_hint' => 'Nur für deine Übersicht.',
+            'number' => 'Rufnummer',
+            'number_placeholder' => '172 1234567',
+            'number_hint' => 'Ohne führende 0. Mobil oder Festnetz, beides geht.',
+            'country' => 'Ländervorwahl',
+            'explainer' => 'Gleich klingelt dein Telefon. Eine Ansage nennt dir einen 6-stelligen Code, den du hier eingibst. Der Anruf ist kostenlos und dauert unter einer Minute.',
+            'cancel' => 'Abbrechen',
+            'start' => 'Jetzt anrufen lassen',
+
+            'calling_heading' => 'Dein Telefon klingelt gleich',
+            'calling_text' => 'Wir rufen :number an. Nimm ab und hör dir den Code an.',
+            'calling_spinner' => 'Anruf wird aufgebaut …',
+            'calling_code' => 'Erwarteter Code: :code',
+            'have_code' => 'Ich habe den Code',
+            'other_number' => 'Andere Nummer',
+            'no_call' => 'Kein Anruf nach 60 Sekunden? Dann kannst du es erneut versuchen.',
+
+            'code_heading' => 'Code eingeben',
+            'code_text' => 'Den 6-stelligen Code aus der Ansage. Du kannst ihn dir per Taste 1 wiederholen lassen.',
+            'code_field' => 'Bestätigungscode',
+            'code_digit' => 'Ziffer :position',
+            'code_wrong' => 'Der Code stimmt nicht. Noch :count Versuche.',
+            'code_exhausted' => 'Der Code stimmt nicht. Fordere den Anruf erneut an.',
+            'code_ttl' => 'Der Code gilt :minutes Minuten.',
+            'call_again' => 'Erneut anrufen lassen',
+            'confirm' => 'Nummer bestätigen',
+
+            'done_heading' => 'Nummer bestätigt',
+            'done_text' => ':number ist jetzt für Anrufe über :app freigeschaltet.',
+            'make_default' => 'Als Standardnummer verwenden',
+            'to_marketplace' => 'Zum Marktplatz',
+            'to_numbers' => 'Zu meinen Rufnummern',
+
+            'why_heading' => 'Warum wir anrufen',
+            'why_one' => 'Bei „Jetzt anrufen" klingelt zuerst dein Telefon, dann verbinden wir dich mit dem Anfragenden.',
+            'why_two' => 'Der Anfragende sieht unsere Portalnummer, nicht deine.',
+            'why_three' => 'Nur bestätigte Nummern können Anrufe auslösen – so kann niemand auf deine Kosten telefonieren.',
+
+            'verified_heading' => 'Bereits bestätigt',
+            'default_label' => 'Standard',
+            'trouble_heading' => 'Probleme?',
+            'trouble_text' => 'Anruf kommt nicht an: Prüf, ob die Nummer unterdrückte Anrufe blockiert. Unsere Nummer ist :number.',
+            'support' => 'Support schreiben',
+
+            'failed' => 'Die Bestätigung ist fehlgeschlagen. Prüfe die Nummer und versuche es erneut.',
+        ],
+
         'status' => [
             'pending' => 'Bestätigung läuft',
             'verified' => 'Bestätigt',

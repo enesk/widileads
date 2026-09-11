@@ -101,6 +101,104 @@ return [
     'profile' => [
 
         'heading' => 'Purchase criteria',
+        'portal' => [
+            'heading' => 'Buying criteria',
+            'description' => 'Decide which leads you want to see. An empty field does not restrict anything.',
+
+            'source' => [
+                'title' => 'Where from',
+                'subtitle' => 'Which questionnaires should the leads come from?',
+                'label' => 'Questionnaires',
+                'placeholder' => 'Pick more …',
+                'hint' => 'Without a selection you see leads from all questionnaires.',
+                'remove' => 'Remove :name',
+            ],
+
+            'region' => [
+                'title' => 'Where',
+                'subtitle' => 'Which regions are you looking for customers in?',
+                'label' => 'Postcode ranges',
+                'placeholder' => 'Postcode start, Enter',
+                'hint' => '"76" covers 76001 to 76999. Empty: all of Germany.',
+                'radius' => 'Radius around your location instead of postcodes',
+                'radius_action' => 'Set location',
+                'too_many' => 'More than :max ranges are not possible.',
+                'bad_format' => 'A range is up to :max digits.',
+            ],
+
+            'answers' => [
+                'title' => 'What',
+                'subtitle' => 'Which answers does a lead have to carry?',
+                'label' => 'Answer filters',
+                'active' => ':count active',
+                'field' => 'Attribute',
+                'accepted' => 'Accepted answers',
+                'one_is_enough' => '· one is enough',
+                'add_value' => 'Answer',
+                'add_filter' => 'Add filter',
+                'remove_filter' => 'Remove filter',
+                'remove_value' => 'Remove :value',
+                'rule' => 'All filters have to match. Within one filter, a single answer is enough.',
+                'no_fields' => 'No attributes are available for the selected questionnaires.',
+                'pick_value' => 'Pick an answer',
+            ],
+
+            'min_score' => 'Minimum score',
+            'min_score_placeholder' => 'none',
+            'min_score_hint' => 'Leads without a score drop out as soon as a value is set here.',
+            'max_price' => 'Price up to',
+            'max_price_placeholder' => 'any',
+            'max_price_hint' => 'You do not see leads above this price.',
+
+            'auto' => [
+                'title' => 'Buy automatically',
+                'subtitle' => 'Should we buy matching leads for you?',
+                'label' => 'Buy matching leads automatically',
+                'explainer' => 'Off: you see matching leads on the marketplace and decide yourself. On: we buy as soon as a lead matches every criterion.',
+                'daily_limit' => 'Daily limit',
+                'daily_limit_hint' => 'Maximum automatic purchases per day. 0: unlimited.',
+                'budget' => 'Weekly budget',
+                'budget_placeholder' => 'no limit',
+                'budget_hint' => 'Reservations count towards it.',
+                'warning' => 'Automatic purchases stop as soon as the balance falls below the lead price. You get an email then.',
+            ],
+
+            'notify' => [
+                'title' => 'Notification',
+                'subtitle' => 'How do you hear about new matching leads?',
+                'label' => 'Notify',
+                'hint' => 'Without an address we use the one from your registration.',
+                'when' => 'When',
+                'immediate' => 'Immediately',
+                'daily' => 'Daily at 8am',
+                'none' => 'No email',
+            ],
+
+            'dirty' => 'Unsaved changes',
+            'clean' => 'Everything saved',
+            'discard' => 'Discard',
+            'save' => 'Save',
+
+            'match' => [
+                'heading' => 'Currently matches',
+                'count' => '{0} No lead|{1} 1 lead|[2,*] :count leads',
+                'context' => 'on the marketplace · :count in the last 7 days',
+                'funnels' => 'Questionnaire :names',
+                'all_funnels' => 'All questionnaires',
+                'prefixes' => 'Postcodes :list',
+                'postcodes' => 'Postcodes',
+                'all_regions' => 'All of Germany',
+                'filter' => ':field :values',
+                'or' => ' or ',
+                'auto_on' => 'Auto-buy on',
+                'auto_off' => 'Auto-buy off',
+                'view' => 'View these leads',
+            ],
+
+            'tip_heading' => 'Tip',
+            'tip' => 'Criteria that are too narrow are the most common reason for an empty marketplace. Start broad and refine once you see which leads pay off.',
+        ],
+
         'nav_label' => 'Purchase criteria',
         'description' => 'Define which leads you want to see. An empty field does not restrict anything -- without a setting you see everything.',
         'saved' => 'Purchase criteria saved.',
@@ -150,6 +248,13 @@ return [
     */
 
     'listing' => [
+        'fits_count' => '{0} No lead matches|{1} 1 lead matches|[2,*] :count leads match',
+        'contact_after_purchase' => 'Contact after purchase',
+        'purchase_short' => 'Buy',
+        'purchase_now' => 'Buy now',
+        'load_more' => '{1} Load 1 more|[2,*] Load :count more',
+        'auto_top' => 'New leads appear at the top automatically.',
+        'sheet_hint' => 'You see name, phone and email after the purchase. It is only billed once a call is answered.',
 
         'result_count' => '{0} No lead matches your criteria|{1} 1 lead matches your criteria|[2,*] :count leads match your criteria',
         'empty_hint' => 'New enquiries appear here automatically. Widen your criteria to see more leads.',
@@ -168,6 +273,17 @@ return [
             'newest' => 'Newest first',
             'oldest' => 'Oldest first',
             'score' => 'Highest score first',
+        ],
+
+        'filters' => [
+            'remove_chip' => 'Remove filter :filter',
+            'industry' => 'Industry',
+            'region' => 'Region',
+            'max_price' => 'Price up to',
+            'all' => 'All',
+            'reset' => 'Reset filters',
+            'region_option' => ':group…',
+            'price_option' => 'up to :amount',
         ],
 
         'heading' => 'Marketplace',
@@ -252,8 +368,97 @@ return [
         'result_count' => '{0} No purchased leads|{1} 1 purchased lead|[2,*] :count purchased leads',
 
         'sort' => [
+            'deadline' => 'Deadline first',
             'newest' => 'Most recently purchased first',
             'oldest' => 'Earliest purchase first',
+        ],
+        'to_marketplace' => 'To the marketplace',
+        'search' => 'Search leads',
+        'search_placeholder' => 'Search name or place',
+        'bought_today' => 'bought today, :time',
+        'bought_yesterday' => 'bought yesterday, :time',
+        'bought_on' => 'bought :date',
+        'subtitle' => 'Sorted by what is up next.',
+        'masking_hint' => 'Phone numbers become visible after the first conversation. Until then you call via "Call".',
+        'count_line' => '{1} 1 of :total leads|[2,*] :count of :total leads',
+        'show_older' => 'Show older',
+        'open_row' => 'Open :name',
+        'attempts_label' => ':done of :total attempts',
+        'call' => 'Call',
+        'number' => 'Number',
+        'details' => 'Details',
+        'groups' => [
+            'today' => [
+                'title' => 'Due today',
+                'hint' => '{1} 1 lead · otherwise it is billed|[2,*] :count leads · otherwise they are billed',
+            ],
+            'week' => [
+                'title' => 'This week',
+                'hint' => '{1} 1 lead · deadline running|[2,*] :count leads · deadline running',
+            ],
+            'done' => [
+                'title' => 'Closed',
+                'hint' => '{1} 1 lead|[2,*] :count leads',
+            ],
+        ],
+        'settlement' => [
+            'billed' => ':amount billed',
+            'released' => 'not billed',
+        ],
+        'tabs' => [
+            'label' => 'Status',
+            'all' => 'All',
+            'open' => 'Open',
+            'reached' => 'Reached',
+            'unreached' => 'Not reached',
+        ],
+        'badge' => [
+            'today_at' => 'today :time',
+            'days_left' => '{1} 1 day left|[2,*] :days days left',
+            'reached_on' => 'Reached :date',
+            'unreached_on' => 'Not reached · :date',
+            'deadline_running' => 'Deadline running',
+            'deadline_today' => 'Deadline ends today',
+            'reached' => 'Reached',
+            'unreached' => 'Not reached',
+        ],
+        'deadline_notice' => [
+            'count' => '{1} 1 deadline ends today.|[2,*] :count deadlines end today.',
+            'text' => ':name still needs one call attempt, otherwise the lead is billed.',
+        ],
+        'line' => [
+            'open' => ':count of :required attempts · :next · :deadline',
+            'billable' => 'Conversation :duration min on :date · :amount billed',
+            'billable_no_talk' => 'Deadline passed · :amount billed',
+            'unreachable' => ':count of :required attempts · not billed · :amount released',
+            'next_now' => 'next attempt possible now',
+            'next_at' => 'next attempt from :time',
+            'deadline_today' => 'deadline ends today, :time',
+            'deadline_days' => 'deadline ends in :days days',
+            'deadline_over' => 'deadline passed',
+            'deadline_none' => 'no deadline set',
+        ],
+        'empty_state' => [
+            'all' => [
+                'title' => 'Nothing here yet',
+                'text' => 'As soon as you buy a lead it shows up here.',
+            ],
+            'open' => [
+                'title' => 'No open deadlines',
+                'text' => 'All purchased leads are settled.',
+            ],
+            'reached' => [
+                'title' => 'Nobody reached yet',
+                'text' => 'Once a conversation lasts long enough, the lead lands here.',
+            ],
+            'unreached' => [
+                'title' => 'All reached',
+                'text' => 'No lead had to be released so far.',
+            ],
+            'search' => [
+                'title' => 'Nothing found',
+                'text' => 'No purchased lead matches this search. Try another name or postal code.',
+            ],
         ],
         'detail' => [
             'subheading' => 'From :funnel, purchased on :date',
@@ -280,6 +485,77 @@ return [
         'export' => 'Download as CSV',
         'bought_at' => 'Bought on :date',
         'feedback_given' => 'Your feedback: :feedback',
+
+        'status' => [
+            'label' => 'Status',
+            'hint' => 'For your overview only. It does not affect billing.',
+            'open' => 'Open',
+            'appointment' => 'Appointment booked',
+            'offer_sent' => 'Offer sent',
+            'no_demand' => 'No demand',
+        ],
+
+        'notes' => [
+            'heading' => 'Your notes',
+            'placeholder' => 'What happened on the last contact? What is next?',
+            'hint' => 'Only you and your workspace see these notes.',
+            'saving' => 'Saving …',
+            'saved' => 'Saved',
+        ],
+
+        'portal' => [
+            'back' => 'My leads',
+            'contact' => 'Contact',
+            'request' => 'Request',
+            'request_received' => 'Received on :date via :funnel',
+            'no_request_text' => 'No free text was submitted with this request.',
+            'attributes' => 'Attributes',
+            'no_attributes' => 'No further details were submitted for this lead.',
+            'email_action' => 'Write an email',
+            'email_hint' => 'Emails do not count as reachability. Only a phone conversation counts for billing.',
+            'phone_hint_masked' => 'Hidden until billing. Use "Call now", the lead sees our portal number.',
+            'meta' => 'From :funnel · purchased on :date',
+
+            'deadline' => [
+                'heading' => 'Deadline and billing',
+                'ends' => 'Ends on :date, :time',
+                'ended' => 'Deadline passed',
+                'none' => 'No deadline set',
+                'today' => 'Deadline ends today',
+                'today_word' => 'today',
+                'attempts' => 'Attempts',
+                'attempts_value' => ':done of :total',
+                'next' => 'Next attempt',
+                'next_now' => 'possible now',
+                'next_at' => 'from :time',
+                'price' => 'Price',
+                'price_reserved' => ':amount reserved',
+                'consequence' => ':count more attempt without a conversation and the lead counts as unreachable, then :amount are released. If the deadline passes without that attempt, the lead is billed.|:count more attempts without a conversation and the lead counts as unreachable, then :amount are released. If the deadline passes without those attempts, the lead is billed.',
+                'settled' => 'It has already been decided what happens to the money for this lead.',
+                'call' => 'Call now',
+            ],
+
+            'calls' => [
+                'heading' => 'Calls',
+                'when_today' => 'today, :time',
+                'when_yesterday' => 'yesterday, :time',
+                'when_on' => ':date, :time',
+                'duration' => ':duration min',
+                'how_billing_works' => 'How billing works',
+
+                'empty' => 'No attempt yet.',
+                'not_counted' => 'does not count: :reason',
+            ],
+
+            'facts' => [
+                'heading' => 'Purchase details',
+                'purchased_at' => 'Purchased',
+                'lead_number' => 'Lead no.',
+                'source' => 'Source',
+                'workspace' => 'Workspace',
+                'complaint' => 'Report a problem with this lead',
+            ],
+        ],
 
         'feedback' => [
             'interested' => 'Useful',

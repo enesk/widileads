@@ -4,6 +4,7 @@ use App\Exceptions\ApiProblem;
 use App\Http\Middleware\BlockedUser;
 use App\Http\Middleware\EnsureMarketplaceAccess;
 use App\Http\Middleware\EnsureTenantType;
+use App\Http\Middleware\ResolvePortalTenant;
 use App\Http\Middleware\ResolveTenantFromToken;
 use App\Http\Middleware\Sitemapped;
 use App\Http\Middleware\TrackCouponCode;
@@ -56,6 +57,14 @@ return Application::configure(basePath: dirname(__DIR__))
             VerifyTwilioSignature::class,
         );
 
+        // Portal Phase 1: Aus demselben Grund wie oben -- der Mandant aus dem
+        // Pfad muss stehen, bevor SubstituteBindings mandantengebundene
+        // Route-Modelle aufloest.
+        $middleware->prependToPriorityList(
+            SubstituteBindings::class,
+            ResolvePortalTenant::class,
+        );
+
         // Die Twilio-Rueckrufe kommen von aussen und tragen kein CSRF-Token.
         // Sie sind allein durch die Signatur geschuetzt.
         $middleware->validateCsrfTokens(except: [
@@ -74,6 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.type' => EnsureTenantType::class,
             'marketplace.access' => EnsureMarketplaceAccess::class,
             'tenant.from-token' => ResolveTenantFromToken::class,
+            'portal.tenant' => ResolvePortalTenant::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
             'role' => RoleMiddleware::class,

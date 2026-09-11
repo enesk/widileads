@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Actions\CreateLeadFromSession;
 use App\Funnel\Runtime\SubmissionReceiver;
+use App\Http\Middleware\ResolvePortalTenant;
 use App\Services\LeadPurchaseAction;
 use App\Services\LeadPurchaseLookup;
 use App\Services\LeadPurchaseThroughAction;
@@ -26,6 +27,7 @@ use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 use libphonenumber\PhoneNumberUtil;
+use Livewire\Livewire;
 use Twilio\Exceptions\ConfigurationException as TwilioConfigurationException;
 use Twilio\Rest\Client as TwilioClient;
 
@@ -111,9 +113,41 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->trustConfiguredProxies();
 
+        $this->keepPortalTenantOnLivewireUpdates();
+
         FilamentAsset::register([
             Js::make('components-script', __DIR__.'/../../resources/js/components.js'),
         ]);
+    }
+
+    /**
+     * ResolvePortalTenant auch bei /livewire/update laufen lassen (Portal Phase 1).
+     *
+     * Folgeanfragen von Livewire gehen an die globale Route /livewire/update und
+     * laufen deshalb nicht durch die Middleware der Portalroute. Ohne Mandant
+     * steigt der Global Scope aus BelongsToTenant still aus -- eine Komponente
+     * wuerde dann die Daten *aller* Mandanten zeigen statt keiner.
+     *
+     * Livewire baut fuer persistente Middlewares aus dem gemerkten Pfad der
+     * Ursprungsseite eine Ersatzanfrage, matcht die Route neu und schickt sie
+     * durch die dort freigeschalteten Middlewares. Die Workspace-UUID aus dem
+     * Pfad steht dort also zur Verfuegung, und die Reihenfolge aus der
+     * Prioritaetsliste (vor SubstituteBindings) bleibt erhalten, weil Laravel
+     * die eingesammelten Middlewares nach Prioritaet sortiert.
+     *
+     * Komponenten ausserhalb des Portals bleiben unberuehrt: Gefiltert wird
+     * gegen die Middlewares der Ursprungsroute, und nur die Portalrouten fuehren
+     * ResolvePortalTenant.
+     *
+     * Das ersetzt InteractsWithPortalTenant nicht, sondern sichert es ab: Der
+     * Trait traegt nur, solange ihn wirklich jede Portal-Komponente einbindet --
+     * eine vergessene Einbindung faellt nicht auf, weil die Seite weiter Daten
+     * zeigt. Doppelte Arbeit kostet das nicht: Der Trait uebernimmt einen
+     * bereits gesetzten Mandanten mit passender UUID, ohne ihn erneut zu laden.
+     */
+    private function keepPortalTenantOnLivewireUpdates(): void
+    {
+        Livewire::addPersistentMiddleware(ResolvePortalTenant::class);
     }
 
     /**

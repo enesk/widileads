@@ -2,14 +2,15 @@
  | Portal-Bausteine
  |--------------------------------------------------------------------------
  |
- | Die Klassen der oeffentlichen Seiten (Startseite, spaeter weitere): Karte,
- | Knopf, Eingabefeld, Container. Sie stehen hier als gewoehnliches CSS und
- | nicht als Utility-Wolke im Markup, damit ein Knopf auf jeder Seite gleich
- | aussieht und an einer Stelle geaendert wird.
+ | Die Klassen der oeffentlichen Seiten und des angemeldeten Arbeitsbereichs:
+ | Karte, Knopf, Pille, Eingabefeld, Container. Sie stehen hier als
+ | gewoehnliches CSS und nicht als Utility-Wolke im Markup, damit ein Knopf auf
+ | jeder Seite gleich aussieht und an einer Stelle geaendert wird.
  |
- | Die Markenfarbe kommt als eine einzige Angabe herein (--brand). Alle
- | Abstufungen leiten sich daraus ab -- so laesst sich ein Portal umfaerben,
- | ohne eine zweite Palette zu pflegen.
+ | Farben, Radien und Groessen stehen als Tokens in :root. Die Markenfarbe
+ | kommt als eine einzige Angabe herein (--brand), alle Abstufungen leiten sich
+ | daraus ab -- so laesst sich ein Portal umfaerben, ohne eine zweite Palette
+ | zu pflegen.
  */
 
 :root {
@@ -20,6 +21,28 @@
     --brand-100: color-mix(in oklab, var(--brand) 16%, #fff);
     --brand-600: var(--brand);
     --brand-700: color-mix(in oklab, var(--brand) 85%, #000);
+
+    /* Neutrale Flaechen, Linien und Schrift. Dieselben Stufen, die das Markup
+       als zinc-Utilities benutzt -- hier benannt, damit eine Karte und ein
+       Eingabefeld denselben Rahmen tragen und nicht zweimal derselbe Hexwert
+       gepflegt wird. */
+    --surface: #fff;
+    --surface-muted: #fafafa;
+    --surface-subtle: #f4f4f5;
+    --line: #e4e4e7;
+    --line-strong: #d4d4d8;
+    --ink: #18181b;
+    --ink-muted: #3f3f46;
+    --ink-faint: #a1a1aa;
+    --on-brand: #fff;
+
+    /* Form und Groesse der Bausteine. Der Entwurf kennt genau zwei Radien und
+       eine Mindesthoehe fuer alles, was sich anfassen laesst. */
+    --radius-card: 1rem;
+    --radius-control: 0.75rem;
+    --control-height: 2.75rem;
+    --control-font-size: 1rem;
+    --control-line-height: 1.5rem;
 }
 
 /* Portalschrift und Basisgroesse, wie im Entwurf. */
@@ -31,6 +54,36 @@ html.portal {
     font-family: 'Figtree', system-ui, sans-serif;
 }
 
+/*
+ | Schriftskala des Entwurfs
+ |--------------------------------------------------------------------------
+ |
+ | SaaSykit bringt in styles.css eine eigene Skala mit (text-sm 0.9rem,
+ | text-3xl 1.75rem, text-4xl 2.5rem, text-6xl 3.43rem). Die Entwuerfe des
+ | Portals sind dagegen auf den Vorgabewerten von Tailwind gezeichnet -- eine
+ | Ueberschrift stand damit 5 Pixel zu gross und jede Kleinschrift einen halben
+ | Schritt zu klein.
+ |
+ | Geaendert wird nicht die Skala der Anwendung (daran haengen Startseite, Blog
+ | und Preise), sondern nur die vier abweichenden Stufen, und nur innerhalb des
+ | Portals. Gesetzt werden die Variablen, nicht die Klassen: Die Utilities von
+ | Tailwind lesen font-size aus var(--text-4xl), damit greift die Korrektur
+ | auch bei md:text-4xl und jeder anderen Variante. Ein eigener Selektor
+ | .font-portal .text-4xl haette dagegen genau das kaputt gemacht -- er haette
+ | auch die Variante ueberstimmt, und die Ueberschrift waere auf breiten
+ | Bildschirmen klein geblieben.
+ */
+.font-portal {
+    --text-sm: 0.875rem;
+    --text-sm--line-height: 1.25rem;
+    --text-3xl: 1.875rem;
+    --text-3xl--line-height: 2.25rem;
+    --text-4xl: 2.25rem;
+    --text-4xl--line-height: 2.5rem;
+    --text-6xl: 3.75rem;
+    --text-6xl--line-height: 1;
+}
+
 @layer components {
 
     .font-portal .container-portal {
@@ -40,7 +93,8 @@ html.portal {
         padding-inline: 1rem;
     }
 
-    @media (min-width: 768px) {
+    /* Der Entwurf schaltet die breitere Polsterung bei 640px, nicht bei 768px. */
+    @media (min-width: 640px) {
         .font-portal .container-portal {
             padding-inline: 1.5rem;
         }
@@ -60,9 +114,21 @@ html.portal {
 
     .font-portal .card,
     .font-portal .card-interactive {
-        border: 1px solid #e4e4e7;
-        border-radius: 1rem;
-        background-color: #fff;
+        border: 1px solid var(--line);
+        /* Auch daisyUI kennt ein .card und setzt border-radius:
+           var(--radius-box) = 0.5rem aus einer spaeteren Kaskadenschicht --
+           Schichten schlagen Spezifitaet. Jede Karte im Portal war damit 10
+           statt 20 Pixel rund. Derselbe Zusammenstoss wie beim Eingabefeld.
+
+           daisyUI setzt dort ausserdem display: flex und flex-direction:
+           column. Das ist hier bewusst NICHT zurueckgenommen: Ein
+           flex-direction: row !important wuerde ein sm:flex-col aus dem Markup
+           mit erschlagen. Die saubere Loesung waere ein eigener Klassenname
+           statt .card, das ist aber ein Schnitt durch das ganze Portal
+           einschliesslich der oeffentlichen Seiten -- gemeldet, nicht
+           nebenbei gemacht. */
+        border-radius: var(--radius-card) !important;
+        background-color: var(--surface);
     }
 
     .font-portal .card-interactive {
@@ -70,7 +136,7 @@ html.portal {
     }
 
     .font-portal .card-interactive:hover {
-        border-color: #d4d4d8;
+        border-color: var(--line-strong);
     }
 
     /* Knoepfe. Alle teilen Form und Groesse, nur die Farbe unterscheidet sie. */
@@ -81,14 +147,14 @@ html.portal {
     .font-portal .btn-inverse,
     .font-portal .btn-outline-white {
         display: inline-flex;
-        min-height: 2.75rem;
+        min-height: var(--control-height);
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
-        border-radius: 0.75rem;
+        border-radius: var(--radius-control);
         padding-inline: 1.25rem;
-        font-size: 1rem;
-        line-height: 1.5rem;
+        font-size: var(--control-font-size);
+        line-height: var(--control-line-height);
         font-weight: 600;
         transition:
             color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
@@ -108,7 +174,7 @@ html.portal {
 
     .font-portal .btn-primary {
         background-color: var(--brand-600);
-        color: #fff;
+        color: var(--on-brand);
     }
 
     .font-portal .btn-primary:hover {
@@ -116,13 +182,13 @@ html.portal {
     }
 
     .font-portal .btn-secondary {
-        border: 1px solid #d4d4d8;
-        background-color: #fff;
-        color: #18181b;
+        border: 1px solid var(--line-strong);
+        background-color: var(--surface);
+        color: var(--ink);
     }
 
     .font-portal .btn-secondary:hover {
-        background-color: #fafafa;
+        background-color: var(--surface-muted);
     }
 
     .font-portal .btn-ghost {
@@ -135,7 +201,7 @@ html.portal {
 
     /* Auf farbigem Grund: heller Knopf, farbige Schrift. */
     .font-portal .btn-inverse {
-        background-color: #fff;
+        background-color: var(--surface);
         color: var(--brand-600);
     }
 
@@ -145,7 +211,7 @@ html.portal {
 
     .font-portal .btn-outline-white {
         border: 1px solid rgb(255 255 255 / 0.4);
-        color: #fff;
+        color: var(--on-brand);
     }
 
     .font-portal .btn-outline-white:hover {
@@ -167,30 +233,140 @@ html.portal {
         position: static !important;
         width: 100% !important;
         padding-inline: 1rem !important;
-        --font-size: 1rem;
-        --font-size-min: 1rem;
-        font-size: 1rem;
-        min-height: 2.75rem;
-        border: 1px solid #d4d4d8;
-        border-radius: 0.75rem;
-        background-color: #fff;
-        line-height: 1.5rem;
-        color: #18181b;
+        --font-size: var(--control-font-size);
+        --font-size-min: var(--control-font-size);
+        font-size: var(--control-font-size);
+        min-height: var(--control-height);
+        border: 1px solid var(--line-strong);
+        /* Auch der Radius muss ausdruecklich sein: daisyUI setzt .25rem
+           (--radius-field) und stand damit als Kaestchen neben runden
+           Knoepfen. */
+        border-radius: var(--radius-control) !important;
+        background-color: var(--surface);
+        line-height: var(--control-line-height);
+        color: var(--ink);
     }
 
-    /* Felder mit einem Knopf darin brauchen rechts Platz fuer ihn. */
+    /* Felder mit einem Symbol oder Knopf darin brauchen dort Platz.
+       Das padding-inline oben ist als !important gesetzt, um daisyUI
+       zurueckzunehmen -- damit schlaegt es aber auch ein pl-10 aus dem Markup.
+       Jede benutzte Abstandsklasse braucht deshalb ihre Entsprechung hier. */
+    .font-portal .input.pl-10 {
+        padding-left: 2.5rem !important;
+    }
+
+    .font-portal .input.pr-10 {
+        padding-right: 2.5rem !important;
+    }
+
     .font-portal .input.pr-12 {
         padding-right: 3rem !important;
     }
 
     .font-portal .input::placeholder {
-        color: #a1a1aa;
+        color: var(--ink-faint);
     }
 
     .font-portal .input:focus {
         border-color: var(--brand-600);
         outline: 2px solid var(--brand-100);
         outline-offset: 0;
+    }
+
+    /* Die sechs Kaestchen des Bestaetigungscodes. Ein eigenes Feld je Ziffer
+       statt eines langen Eingabefelds: Auf dem Telefon zeigt jede Zelle sofort,
+       wie viele Ziffern noch fehlen, und die Eingabe springt von selbst weiter.
+       Nicht auf .input aufgebaut, weil dort die Breite auf 100 % festgenagelt
+       ist, um daisyUI zurueckzunehmen. */
+
+    .font-portal .code-box {
+        height: 4rem;
+        width: 100%;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-control);
+        background-color: var(--surface);
+        text-align: center;
+        font-size: 1.5rem;
+        line-height: 2rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+    }
+
+    .font-portal .code-box:focus {
+        border-color: var(--brand-600);
+        outline: 2px solid var(--brand-100);
+        outline-offset: 0;
+    }
+
+    /* Waagerecht scrollbare Leisten (Filterchips, Reiter) zeigen auf dem
+       Telefon keinen Balken: Er liegt dort ueber dem Inhalt und sagt nichts,
+       was der angeschnittene letzte Chip nicht schon sagt. */
+    .font-portal .no-scrollbar {
+        scrollbar-width: none;
+    }
+
+    .font-portal .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Reiter. Eine Reihe flacher Knoepfe in einer grauen Mulde; der aktive
+       Reiter wird zur weissen Karte darin. Die Hoehe ist dieselbe wie beim
+       Knopf, damit eine Werkzeugleiste mit beidem nicht springt. */
+
+    .font-portal .tab {
+        display: inline-flex;
+        min-height: var(--control-height);
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+        border-radius: 0.5rem;
+        padding-inline: 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        color: #52525b;
+        transition:
+            color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+            background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .font-portal .tab:hover {
+        color: var(--ink);
+    }
+
+    .font-portal .tab:focus-visible {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    .font-portal .tab-active {
+        border: 1px solid var(--line);
+        background-color: var(--surface);
+        color: var(--ink);
+    }
+
+    /* Der Zaehler im Reiter. Im aktiven Reiter traegt er die Markenfarbe --
+       so ist auf einen Blick klar, welche Zahl gerade gilt. */
+    .font-portal .tab-count {
+        display: inline-flex;
+        height: 1.5rem;
+        min-width: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        padding-inline: 0.375rem;
+        background-color: var(--line);
+        font-size: 0.75rem;
+        line-height: 1rem;
+        font-weight: 600;
+        color: var(--ink-muted);
+    }
+
+    .font-portal .tab-active .tab-count {
+        background-color: var(--brand-600);
+        color: var(--on-brand);
     }
 
     /* Pillen */
@@ -206,8 +382,8 @@ html.portal {
         font-size: 0.875rem;
         line-height: 1.25rem;
         font-weight: 500;
-        background-color: #f4f4f5;
-        color: #3f3f46;
+        background-color: var(--surface-subtle);
+        color: var(--ink-muted);
     }
 
     .font-portal .pill-brand {
@@ -217,7 +393,7 @@ html.portal {
 
     .font-portal .pill-solid {
         background-color: var(--brand-600);
-        color: #fff;
+        color: var(--on-brand);
     }
 
     /* Markenfarbe als Utility, damit sie im Markup benennbar bleibt. */
@@ -236,6 +412,201 @@ html.portal {
 
     .font-portal .border-brand {
         border-color: var(--brand-600);
+    }
+
+    .font-portal .border-brand-100 {
+        border-color: var(--brand-100);
+    }
+
+    .font-portal .text-brand-700 {
+        color: var(--brand-700);
+    }
+
+    /* Aufladepakete (Entwurf guthaben-aufladen.html)
+
+       Ein Paket ist ein Label um einen versteckten Radioknopf: Der Zustand
+       kommt aus :has(:checked), nicht aus einer Klasse, die ein Skript setzen
+       muesste. Auf schmalen Bildschirmen ist das Paket eine Zeile mit Punkt
+       rechts, ab sm eine Kachel -- die Richtung setzt das Markup, hier steht
+       nur das Aussehen. */
+
+    .font-portal .pkg {
+        position: relative;
+        display: flex;
+        cursor: pointer;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        border-radius: var(--radius-card);
+        border: 1px solid var(--line);
+        background-color: var(--surface);
+        padding: 1rem;
+        text-align: center;
+        transition-property: color, background-color, border-color;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+    }
+
+    .font-portal .pkg:hover {
+        border-color: var(--line-strong);
+    }
+
+    .font-portal .pkg:has(:checked) {
+        border-color: var(--brand-600);
+        background-color: var(--brand-50);
+        box-shadow: 0 0 0 2px var(--brand-100);
+    }
+
+    .font-portal .pkg:has(:focus-visible) {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    .font-portal .pkg:has(:checked) .pkg-dot {
+        border-color: var(--brand-600);
+        background-color: var(--brand-600);
+        box-shadow: inset 0 0 0 3px #fff;
+    }
+
+    /* Kurzmeldungen ("Toaster")
+       ------------------------------------------------------------------
+       Unten rechts, ueber allem, ohne Platz im Aufbau zu nehmen. Auf dem
+       Telefon volle Breite am unteren Rand -- dort ist der Daumen, und ein
+       schmaler Kasten in der Ecke waere auf 390 Pixeln kaum lesbar.
+
+       Die Flaeche bleibt fuer Klicks durchlaessig (pointer-events), sonst
+       liegt ein unsichtbarer Streifen ueber dem Seiteninhalt und schluckt
+       jeden Klick am unteren Rand. Nur die Toasts selbst nehmen wieder an.
+
+       Die Meldung heisst .toast-item und nicht .toast: daisyUI bringt ein
+       eigenes .toast mit (position: fixed, width: max-content) und steht in
+       einer spaeteren Kaskadenschicht -- Schichten schlagen Spezifitaet. Der
+       Kasten war damit auf dem Telefon 142 statt 366 Pixel breit. Derselbe
+       Zusammenstoss wie beim Eingabefeld weiter oben, hier aber durch einen
+       eigenen Namen geloest statt durch !important. */
+
+    .font-portal .toast-region {
+        position: fixed;
+        z-index: 60;
+        inset-inline: 0.75rem;
+        bottom: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+
+    @media (min-width: 640px) {
+        .font-portal .toast-region {
+            inset-inline: auto 1.5rem;
+            bottom: 1.5rem;
+            width: 24rem;
+        }
+    }
+
+    .font-portal .toast-item {
+        pointer-events: auto;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-control);
+        background-color: var(--surface);
+        padding: 0.875rem 1rem;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        transition:
+            opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+            transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Der Zustand beim Gehen. Beim Kommen gibt es keinen: Ein Toast, der erst
+       eingeblendet wird, ist genau in dem Moment unlesbar, in dem der Benutzer
+       hinschaut. */
+    .font-portal .toast-leaving {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+
+    .font-portal .toast-icon {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 9999px;
+    }
+
+    .font-portal .toast-icon svg {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .font-portal .toast-body {
+        flex: 1 1 0%;
+        min-width: 0;
+    }
+
+    .font-portal .toast-title {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 600;
+        color: var(--ink);
+    }
+
+    .font-portal .toast-text {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        color: var(--ink-muted);
+    }
+
+    .font-portal .toast-dismiss {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 0.375rem;
+        color: var(--ink-faint);
+    }
+
+    .font-portal .toast-dismiss svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .font-portal .toast-dismiss:hover {
+        color: var(--ink);
+        background-color: var(--surface-subtle);
+    }
+
+    .font-portal .toast-dismiss:focus-visible {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    /* Die Farbe traegt nur das Symbol. Ein durchgefaerbter Kasten in Rot oder
+       Gruen schreit, und die meisten Toasts sind ein schlichtes
+       "gespeichert". */
+    .font-portal .toast-success .toast-icon {
+        background-color: #d1fae5;
+        color: #047857;
+    }
+
+    .font-portal .toast-warning .toast-icon {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
+    .font-portal .toast-danger .toast-icon {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .font-portal .toast-info .toast-icon {
+        background-color: var(--brand-50);
+        color: var(--brand-700);
     }
 
 }

@@ -106,6 +106,106 @@ return [
         'saved' => 'Kaufkriterien wurden gespeichert.',
         'submit' => 'Speichern',
 
+        // Portalfassung (Portal Phase 1): dieselben Kriterien, in fuenf Fragen
+        // sortiert. Die Texte der Filament-Fassung bleiben daneben stehen.
+        'portal' => [
+            'heading' => 'Kaufkriterien',
+            'description' => 'Lege fest, welche Leads du sehen willst. Ein leeres Feld schränkt nicht ein – ohne Angabe siehst du alles.',
+
+            'source' => [
+                'title' => 'Woher',
+                'subtitle' => 'Aus welchen Fragebogen sollen die Leads kommen?',
+                'label' => 'Fragebogen',
+                'placeholder' => 'Weitere wählen …',
+                'hint' => 'Ohne Auswahl siehst du Leads aus allen Fragebogen.',
+                'remove' => ':name entfernen',
+            ],
+
+            'region' => [
+                'title' => 'Wo',
+                'subtitle' => 'In welchen Regionen suchst du Kunden?',
+                'label' => 'Postleitzahl-Bereiche',
+                'placeholder' => 'PLZ-Anfang, Enter',
+                'hint' => '„76" deckt 76001 bis 76999 ab. Leer: ganz Deutschland.',
+                'radius' => 'Umkreis um deinen Standort statt PLZ',
+                'radius_action' => 'Standort setzen',
+                'too_many' => 'Mehr als :max Bereiche sind nicht möglich.',
+                'bad_format' => 'Ein Bereich besteht aus bis zu :max Ziffern.',
+            ],
+
+            'answers' => [
+                'title' => 'Was',
+                'subtitle' => 'Welche Antworten muss ein Lead haben?',
+                'label' => 'Antwortfilter',
+                'active' => ':count aktiv',
+                'field' => 'Merkmal',
+                'accepted' => 'Akzeptierte Antworten',
+                'one_is_enough' => '· eine reicht',
+                'add_value' => 'Antwort',
+                'add_filter' => 'Filter hinzufügen',
+                'remove_filter' => 'Filter entfernen',
+                'remove_value' => ':value entfernen',
+                'rule' => 'Alle Filter müssen zutreffen. Innerhalb eines Filters reicht eine Antwort.',
+                'no_fields' => 'Für die gewählten Fragebogen sind keine Merkmale hinterlegt.',
+                'pick_value' => 'Antwort wählen',
+            ],
+
+            'min_score' => 'Mindestpunktzahl',
+            'min_score_placeholder' => 'keine',
+            'min_score_hint' => 'Leads ohne Punktzahl fallen raus, sobald hier ein Wert steht.',
+            'max_price' => 'Preis bis',
+            'max_price_placeholder' => 'egal',
+            'max_price_hint' => 'Leads über diesem Preis siehst du nicht.',
+
+            'auto' => [
+                'title' => 'Automatisch kaufen',
+                'subtitle' => 'Sollen wir passende Leads für dich kaufen?',
+                'label' => 'Passende Leads automatisch kaufen',
+                'explainer' => 'Aus: Du siehst passende Leads im Marktplatz und entscheidest selbst. An: Wir kaufen sofort, sobald ein Lead allen Kriterien entspricht.',
+                'daily_limit' => 'Tageslimit',
+                'daily_limit_hint' => 'Höchstzahl automatischer Käufe je Tag. 0: unbegrenzt.',
+                'budget' => 'Wochenbudget',
+                'budget_placeholder' => 'kein Limit',
+                'budget_hint' => 'Reservierungen zählen mit.',
+                'warning' => 'Automatische Käufe stoppen, sobald das Guthaben unter den Leadpreis fällt. Du bekommst dann eine E-Mail.',
+            ],
+
+            'notify' => [
+                'title' => 'Benachrichtigung',
+                'subtitle' => 'Wie erfährst du von neuen passenden Leads?',
+                'label' => 'Benachrichtigung an',
+                'hint' => 'Ohne Angabe verwenden wir die Adresse aus deiner Registrierung.',
+                'when' => 'Wann',
+                'immediate' => 'Sofort',
+                'daily' => 'Täglich um 8 Uhr',
+                'none' => 'Keine E-Mail',
+            ],
+
+            'dirty' => 'Ungespeicherte Änderungen',
+            'clean' => 'Alles gespeichert',
+            'discard' => 'Verwerfen',
+            'save' => 'Speichern',
+
+            'match' => [
+                'heading' => 'Passt gerade auf',
+                'count' => '{0} Kein Lead|{1} 1 Lead|[2,*] :count Leads',
+                'context' => 'im Marktplatz · :count in den letzten 7 Tagen',
+                'funnels' => 'Fragebogen :names',
+                'all_funnels' => 'Alle Fragebogen',
+                'prefixes' => 'PLZ :list',
+                'postcodes' => 'PLZ',
+                'all_regions' => 'Ganz Deutschland',
+                'filter' => ':field :values',
+                'or' => ' oder ',
+                'auto_on' => 'Autokauf an',
+                'auto_off' => 'Autokauf aus',
+                'view' => 'Diese Leads ansehen',
+            ],
+
+            'tip_heading' => 'Tipp',
+            'tip' => 'Zu enge Kriterien sind der häufigste Grund für einen leeren Marktplatz. Fang breit an und verfeinere, sobald du siehst, welche Leads sich lohnen.',
+        ],
+
         'funnels' => 'Fragebogen',
         'funnels_helper' => 'Ohne Auswahl siehst du Leads aus allen Fragebogen.',
         'no_funnels' => 'Zurzeit ist kein Fragebogen veröffentlicht.',
@@ -150,6 +250,13 @@ return [
     */
 
     'listing' => [
+        'fits_count' => '{0} Kein Lead passt|{1} 1 Lead passt|[2,*] :count Leads passen',
+        'contact_after_purchase' => 'Kontakt nach dem Kauf',
+        'purchase_short' => 'Kaufen',
+        'purchase_now' => 'Jetzt kaufen',
+        'load_more' => '{1} 1 weiteren laden|[2,*] :count weitere laden',
+        'auto_top' => 'Neue Leads erscheinen automatisch oben.',
+        'sheet_hint' => 'Name, Telefon und E-Mail siehst du nach dem Kauf. Berechnet wird erst bei erreichtem Anruf.',
 
         'result_count' => '{0} Kein Lead passt zu deinen Kriterien|{1} 1 Lead passt zu deinen Kriterien|[2,*] :count Leads passen zu deinen Kriterien',
         'empty_hint' => 'Neue Anfragen erscheinen hier automatisch. Erweitere deine Kaufkriterien, um mehr Leads zu sehen.',
@@ -168,6 +275,20 @@ return [
             'newest' => 'Neueste zuerst',
             'oldest' => 'Älteste zuerst',
             'score' => 'Höchste Punktzahl zuerst',
+        ],
+
+        // Portal Phase 1: Die Filterleiste des Marktplatzes. Die Auswahl
+        // stammt aus den eigenen Treffern, deshalb heisst die Region nur
+        // "76…" und nicht die vollstaendige Postleitzahl.
+        'filters' => [
+            'remove_chip' => 'Filter :filter entfernen',
+            'industry' => 'Branche',
+            'region' => 'Region',
+            'max_price' => 'Preis bis',
+            'all' => 'Alle',
+            'reset' => 'Filter zurücksetzen',
+            'region_option' => ':group…',
+            'price_option' => 'bis :amount',
         ],
 
         'heading' => 'Marktplatz',
@@ -252,8 +373,97 @@ return [
         'result_count' => '{0} Keine gekauften Leads|{1} 1 gekaufter Lead|[2,*] :count gekaufte Leads',
 
         'sort' => [
+            'deadline' => 'Frist zuerst',
             'newest' => 'Zuletzt gekauft zuerst',
             'oldest' => 'Zuerst gekauft zuerst',
+        ],
+        'to_marketplace' => 'Zum Marktplatz',
+        'search' => 'Lead suchen',
+        'search_placeholder' => 'Name oder Ort suchen',
+        'bought_today' => 'gekauft heute, :time',
+        'bought_yesterday' => 'gekauft gestern, :time',
+        'bought_on' => 'gekauft :date',
+        'subtitle' => 'Sortiert nach dem, was als Nächstes ansteht.',
+        'masking_hint' => 'Rufnummern werden nach dem ersten Gespräch sichtbar. Bis dahin rufst du über „Anrufen“ an.',
+        'count_line' => '{1} 1 von :total Leads|[2,*] :count von :total Leads',
+        'show_older' => 'Ältere anzeigen',
+        'open_row' => ':name öffnen',
+        'attempts_label' => ':done von :total Versuchen',
+        'call' => 'Anrufen',
+        'number' => 'Nummer',
+        'details' => 'Details',
+        'groups' => [
+            'today' => [
+                'title' => 'Heute fällig',
+                'hint' => '{1} 1 Lead · sonst wird er berechnet|[2,*] :count Leads · sonst werden sie berechnet',
+            ],
+            'week' => [
+                'title' => 'Diese Woche',
+                'hint' => '{1} 1 Lead · Frist läuft|[2,*] :count Leads · Frist läuft',
+            ],
+            'done' => [
+                'title' => 'Abgeschlossen',
+                'hint' => '{1} 1 Lead|[2,*] :count Leads',
+            ],
+        ],
+        'settlement' => [
+            'billed' => ':amount berechnet',
+            'released' => 'nicht berechnet',
+        ],
+        'tabs' => [
+            'label' => 'Status',
+            'all' => 'Alle',
+            'open' => 'Offen',
+            'reached' => 'Erreicht',
+            'unreached' => 'Nicht erreicht',
+        ],
+        'badge' => [
+            'today_at' => 'heute :time',
+            'days_left' => '{1} noch 1 Tag|[2,*] noch :days Tage',
+            'reached_on' => 'Erreicht :date',
+            'unreached_on' => 'Nicht erreicht · :date',
+            'deadline_running' => 'Frist läuft',
+            'deadline_today' => 'Frist endet heute',
+            'reached' => 'Erreicht',
+            'unreached' => 'Nicht erreicht',
+        ],
+        'deadline_notice' => [
+            'count' => '{1} 1 Frist endet heute.|[2,*] :count Fristen enden heute.',
+            'text' => 'Bei :name fehlt noch ein Anrufversuch – sonst wird der Lead berechnet.',
+        ],
+        'line' => [
+            'open' => ':count von :required Versuchen · :next · :deadline',
+            'billable' => 'Gespräch :duration min am :date · :amount abgerechnet',
+            'billable_no_talk' => 'Frist abgelaufen · :amount abgerechnet',
+            'unreachable' => ':count von :required Versuchen · nicht berechnet · :amount freigegeben',
+            'next_now' => 'nächster Versuch jetzt möglich',
+            'next_at' => 'nächster Versuch ab :time',
+            'deadline_today' => 'Frist endet heute, :time',
+            'deadline_days' => 'Frist endet in :days Tagen',
+            'deadline_over' => 'Frist abgelaufen',
+            'deadline_none' => 'keine Frist gesetzt',
+        ],
+        'empty_state' => [
+            'all' => [
+                'title' => 'Hier ist noch nichts',
+                'text' => 'Sobald du einen Lead kaufst, taucht er hier auf.',
+            ],
+            'open' => [
+                'title' => 'Keine offenen Fristen',
+                'text' => 'Alle gekauften Leads sind abgeschlossen.',
+            ],
+            'reached' => [
+                'title' => 'Noch niemand erreicht',
+                'text' => 'Sobald ein Gespräch lange genug dauert, landet der Lead hier.',
+            ],
+            'unreached' => [
+                'title' => 'Alle erreicht',
+                'text' => 'Kein Lead musste bisher freigegeben werden.',
+            ],
+            'search' => [
+                'title' => 'Nichts gefunden',
+                'text' => 'Zu dieser Suche passt kein gekaufter Lead. Versuche einen anderen Namen oder eine andere Postleitzahl.',
+            ],
         ],
         'detail' => [
             'subheading' => 'Aus :funnel, gekauft am :date',
@@ -282,6 +492,79 @@ return [
         'export' => 'Als CSV herunterladen',
         'bought_at' => 'Gekauft am :date',
         'feedback_given' => 'Deine Rückmeldung: :feedback',
+
+        // Portal-Detailseite (Portal Phase 1). Die Texte der Filament-Fassung
+        // bleiben daneben stehen, bis das Portal abgenommen ist.
+        'status' => [
+            'label' => 'Status',
+            'hint' => 'Nur für deine Übersicht. Hat keinen Einfluss auf die Abrechnung.',
+            'open' => 'Offen',
+            'appointment' => 'Termin vereinbart',
+            'offer_sent' => 'Angebot geschickt',
+            'no_demand' => 'Kein Bedarf',
+        ],
+
+        'notes' => [
+            'heading' => 'Deine Notizen',
+            'placeholder' => 'Was war beim letzten Kontakt? Was ist als Nächstes zu tun?',
+            'hint' => 'Nur du und dein Workspace sehen diese Notizen.',
+            'saving' => 'Wird gespeichert …',
+            'saved' => 'Gespeichert',
+        ],
+
+        'portal' => [
+            'back' => 'Meine Leads',
+            'contact' => 'Kontakt',
+            'request' => 'Anfrage',
+            'request_received' => 'Eingegangen am :date über :funnel',
+            'no_request_text' => 'Zu dieser Anfrage wurde kein Freitext übermittelt.',
+            'attributes' => 'Merkmale',
+            'no_attributes' => 'Zu diesem Lead wurden keine weiteren Angaben übermittelt.',
+            'email_action' => 'E-Mail schreiben',
+            'email_hint' => 'E-Mails zählen nicht als Erreichbarkeit. Für die Abrechnung zählt nur das Telefongespräch.',
+            'phone_hint_masked' => 'Bis zur Abrechnung verdeckt. Du rufst über „Jetzt anrufen“ an, der Lead sieht dabei unsere Portalnummer.',
+            'meta' => 'Aus :funnel · gekauft am :date',
+
+            'deadline' => [
+                'heading' => 'Frist und Abrechnung',
+                'ends' => 'Endet am :date, :time',
+                'ended' => 'Frist abgelaufen',
+                'none' => 'Keine Frist hinterlegt',
+                'today' => 'Frist endet heute',
+                'today_word' => 'heute',
+                'attempts' => 'Versuche',
+                'attempts_value' => ':done von :total',
+                'next' => 'Nächster Versuch',
+                'next_now' => 'jetzt möglich',
+                'next_at' => 'ab :time',
+                'price' => 'Preis',
+                'price_reserved' => ':amount reserviert',
+                'consequence' => 'Noch :count Versuch ohne Gespräch, dann gilt der Lead als nicht erreichbar und :amount werden freigegeben. Läuft die Frist ohne den letzten Versuch ab, wird der Lead berechnet.|Noch :count Versuche ohne Gespräch, dann gilt der Lead als nicht erreichbar und :amount werden freigegeben. Läuft die Frist ohne den letzten Versuch ab, wird der Lead berechnet.',
+                'settled' => 'Für diesen Lead ist bereits entschieden, was mit dem Geld passiert.',
+                'call' => 'Jetzt anrufen',
+            ],
+
+            'calls' => [
+                'heading' => 'Anrufe',
+                'when_today' => 'heute, :time',
+                'when_yesterday' => 'gestern, :time',
+                'when_on' => ':date, :time',
+                'duration' => ':duration min',
+                'how_billing_works' => 'Wie die Abrechnung funktioniert',
+
+                'empty' => 'Noch kein Versuch.',
+                'not_counted' => 'zählt nicht: :reason',
+            ],
+
+            'facts' => [
+                'heading' => 'Kaufdetails',
+                'purchased_at' => 'Gekauft',
+                'lead_number' => 'Lead-Nr.',
+                'source' => 'Quelle',
+                'workspace' => 'Workspace',
+                'complaint' => 'Problem mit diesem Lead melden',
+            ],
+        ],
 
         'feedback' => [
             'interested' => 'Brauchbar',

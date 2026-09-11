@@ -17,6 +17,13 @@ use App\Http\Controllers\SubscriptionCheckoutController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Middleware\AddFunnelSecurityHeaders;
 use App\Livewire\Funnel\FunnelRunner;
+use App\Livewire\Portal\BuyingCriteria as PortalBuyingCriteria;
+use App\Livewire\Portal\CallerIdVerification as PortalCallerIdVerification;
+use App\Livewire\Portal\Dashboard as PortalDashboard;
+use App\Livewire\Portal\LeadDetail as PortalLeadDetail;
+use App\Livewire\Portal\Marketplace as PortalMarketplace;
+use App\Livewire\Portal\PurchasedLeads as PortalPurchasedLeads;
+use App\Livewire\Portal\WalletTopUp as PortalWalletTopUp;
 use App\Models\Funnel;
 use App\Services\CompanyProfile;
 use App\Services\PlanService;
@@ -352,3 +359,103 @@ Route::post('/leads/{lead}/call', LeadCallController::class)
 Route::post('/guthaben/aufladen', [WalletTopupController::class, 'store'])
     ->middleware('auth')
     ->name('buyer.wallet.topup');
+
+/*
+|--------------------------------------------------------------------------
+| Portal fuer Kaeufer und Verkaeufer (Portal Phase 1)
+|--------------------------------------------------------------------------
+|
+| Eigener Bereich ausserhalb der Filament-Panels. Der Pfad /portal beisst sich
+| weder mit /admin noch mit /dashboard, die beide unveraendert weiterlaufen,
+| bis die jeweilige Portalseite steht.
+|
+| Mandantenkontext: Die Workspace-UUID steht im Pfad, genau wie im
+| Dashboard-Panel ({tenant:uuid}). Damit sind Portaladressen teilbar und
+| lesezeichenfaehig, zwei Workspaces koennen in zwei Tabs offen sein, und die
+| bestehenden Dashboard-Links lassen sich spaeter eins zu eins uebersetzen.
+| Eine Ablage in der Session waere das Gegenteil: ein unsichtbarer Zustand,
+| den ein zweiter Tab dem ersten unter den Fuessen wegzieht. Aufgeloest und
+| gegen die Mitgliedschaft geprueft wird in ResolvePortalTenant, die den
+| Mandanten anschliessend als Filament-Tenant ablegt -- so sehen Global Scope,
+| Policies und Services denselben Kontext wie bisher.
+|
+| Die Platzhalter uebergeben Sprachschluessel statt fertiger Texte, weil
+| Route::view-Daten beim Zwischenspeichern der Routen mit eingefroren wuerden.
+| Sie tragen ausserdem bewusst einfache Route-Parameter ohne Modellbindung:
+| Sie zeigen nur, dass die Adresse steht. Die Bindung entsteht mit der
+| jeweiligen Seite.
+|
+*/
+
+Route::get('/portal', function (UserDashboardService $dashboardService) {
+    return redirect($dashboardService->getUserPortalUrl(Auth::user()));
+})->name('portal.home')->middleware(['auth', 'verified']);
+
+Route::middleware(['auth', 'verified', 'portal.tenant'])
+    ->prefix('portal/{tenant:uuid}')
+    ->name('portal.')
+    ->group(function () {
+        // Das Dashboard nach dem Entwurf dashboard.html: oben der
+        // Handlungsbedarf, unten die Statistik.
+        Route::get('/', PortalDashboard::class)
+            ->name('overview');
+
+        // Kaeufer
+        // Die erste fertig gebaute Portalseite (Portal Phase 1). Der
+        // Mandantenkontext haengt bei Livewire-Folgeanfragen nicht mehr an
+        // dieser Route -- die Komponente stellt ihn selbst wieder her.
+        Route::get('/marktplatz', PortalMarketplace::class)
+            ->name('marketplace');
+        // Zweite fertige Portalseite: "Meine Leads" nach dem Entwurf
+        // meine-leads.html. Wie beim Marktplatz stellt die Komponente den
+        // Mandantenkontext bei Folgeanfragen selbst wieder her.
+        Route::get('/leads', PortalPurchasedLeads::class)
+            ->name('leads');
+        // Dritte fertige Portalseite: der gekaufte Lead nach dem Entwurf
+        // lead-detail.html. Der Parameter bleibt der Schluessel des
+        // Kaufbelegs; geladen und gegen den Kaeufer geprueft wird in der
+        // Komponente.
+        Route::get('/leads/{purchase}', PortalLeadDetail::class)
+            ->name('leads.show');
+        // Vierte fertige Portalseite: "Guthaben aufladen" nach dem Entwurf
+        // guthaben-aufladen.html. Das Formular der Seite geht weiterhin an
+        // WalletTopupController und von dort in den vorhandenen Checkout --
+        // die Komponente zeigt nur an.
+        Route::get('/guthaben', PortalWalletTopUp::class)
+            ->name('wallet');
+        Route::view('/transaktionen', 'portal.placeholder', ['title' => 'portal.pages.transactions'])
+            ->name('transactions');
+        Route::view('/kaeufer-profil', 'portal.placeholder', ['title' => 'portal.pages.buyer_profile'])
+            ->name('buyer-profile');
+
+        // Drei Adressen ueber die Ticketliste hinaus: Die parallel entstehende
+        // Portalnavigation (Ticket #3) verweist bereits auf sie, und ein
+        // Navigationseintrag auf einen unbekannten Routennamen wirft beim
+        // Rendern. Sie entsprechen den vorhandenen Dashboard-Seiten
+        // Kaufkriterien, Eigene Rufnummer und Bestellungen.
+        // Kaufkriterien nach dem Entwurf kaufkriterien.html. Ausgewertet
+        // werden sie weiterhin ausschliesslich vom LeadMatcher.
+        Route::get('/kaufkriterien', PortalBuyingCriteria::class)
+            ->name('buying-criteria');
+        // Die eigene Rufnummer bestaetigen, nach dem Entwurf
+        // rufnummer-bestaetigen.html. Bestaetigt wird weiterhin nur, was Twilio
+        // an den Rueckruf meldet.
+        Route::get('/rufnummer', PortalCallerIdVerification::class)
+            ->name('caller-id');
+        Route::view('/bestellungen', 'portal.placeholder', ['title' => 'portal.pages.orders'])
+            ->name('orders');
+
+        // Verkaeufer
+        Route::view('/funnels', 'portal.placeholder', ['title' => 'portal.pages.funnels'])
+            ->name('funnels');
+        Route::view('/einnahmen', 'portal.placeholder', ['title' => 'portal.pages.earnings'])
+            ->name('earnings');
+        Route::view('/auszahlung', 'portal.placeholder', ['title' => 'portal.pages.payout'])
+            ->name('payout');
+        Route::view('/berichte', 'portal.placeholder', ['title' => 'portal.pages.reports'])
+            ->name('reports');
+
+        // Gemeinsam
+        Route::view('/einstellungen', 'portal.placeholder', ['title' => 'portal.pages.settings'])
+            ->name('settings');
+    });

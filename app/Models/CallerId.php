@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int $user_id
  * @property string $phone_number
+ * @property string|null $label
  * @property CallerIdStatus $status
  * @property string|null $validation_sid
  * @property string|null $validation_code
