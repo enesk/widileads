@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Funnel;
 
 use App\Constants\FunnelStatus;
+use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
 use App\Filament\Dashboard\Pages\PurchasedLeads;
@@ -15,7 +16,6 @@ use App\Models\LeadAnswer;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
-use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
@@ -44,12 +44,15 @@ class PurchasedLeadsTest extends FeatureTest
             'status' => FunnelStatus::PUBLISHED,
         ]);
 
+        // Abgerechnet, also ist die Rufnummer fuer den Kaeufer frei (FB-085):
+        // Ohne `billable` zeigte die Liste nur die verdeckte Fassung.
         $lead = Lead::factory()->inState(LeadState::VERKAUFT)->create([
             'tenant_id' => $operator->getKey(),
             'funnel_id' => $funnel->getKey(),
             'score' => 12,
             'email_normalized' => self::EMAIL,
             'phone_e164' => self::PHONE,
+            'contact_status' => LeadContactStatus::BILLABLE,
         ]);
 
         foreach (['tierart' => 'hund', 'vorname' => 'Mara', 'nachname' => 'Lindqvist',
@@ -97,18 +100,26 @@ class PurchasedLeadsTest extends FeatureTest
         // Genau ein Eintrag: der fremde Kauf taucht nicht auf.
         $this->assertSame(1, substr_count($html, 'Pfotencheck'));
 
-        // Die Tabelle fuehrt nur den eigenen Kauf -- und weil eine
-        // Tabellenaktion ihren Datensatz aus genau dieser Abfrage holt, ist der
-        // fremde Kauf auch fuer die Rueckmeldung nicht erreichbar.
+        // Die Liste fuehrt nur den eigenen Kauf -- und weil die Aktion ihren
+        // Beleg aus genau dieser Abfrage holt, ist der fremde Kauf auch fuer
+        // die Rueckmeldung nicht erreichbar.
+        $listed = array_column(
+            Livewire::actingAs($myUser)->test(PurchasedLeads::class)->instance()->purchases(),
+            'id',
+        );
+
+        $this->assertSame([$ownPurchase->getKey()], $listed);
+
         Livewire::actingAs($myUser)->test(PurchasedLeads::class)
-            ->assertCanSeeTableRecords([$ownPurchase])
-            ->assertCanNotSeeTableRecords([$foreignPurchase]);
+            ->callAction('feedback', ['buyer_feedback' => 'interested'], [
+                'purchase' => $foreignPurchase->getKey(),
+            ]);
 
         $this->assertNull($foreignPurchase->fresh()->buyer_feedback);
 
         Livewire::actingAs($myUser)->test(PurchasedLeads::class)
-            ->callAction(TestAction::make('feedback')->table($ownPurchase), [
-                'buyer_feedback' => 'interested',
+            ->callAction('feedback', ['buyer_feedback' => 'interested'], [
+                'purchase' => $ownPurchase->getKey(),
             ]);
 
         $this->assertNotNull($ownPurchase->fresh()->buyer_feedback);

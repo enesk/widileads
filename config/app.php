@@ -155,7 +155,14 @@ return [
     // Euro abrechnet -- damit trugen alle Kaufbelege die falsche Waehrung.
     'default_currency' => env('APP_DEFAULT_CURRENCY', 'EUR'),
 
-    'support_email' => 'support@saasykit.com',
+    // Betreiberadresse fuer interne Meldungen (Auszahlungsanforderung,
+    // Saldenabweichung, fehlgeschlagene Abrechnung). Stand fest auf
+    // support@saasykit.com -- in einer Umgebung ohne gepflegten Eintrag in
+    // `configs` gingen diese Mails damit an eine fremde Domain (Ticket #25).
+    // Uebersteuert wird der Wert weiterhin ueber die Admin-Seite
+    // "Allgemeine Einstellungen"; wer den Wert liest, nimmt
+    // App\Services\SupportMailbox.
+    'support_email' => env('SUPPORT_EMAIL', env('MAIL_FROM_ADDRESS')),
 
     // Checkout: Die Steuerangabe ist eine Pflichtangabe. Welcher Satz gilt,
     // haengt am Betreiber -- Kleinunternehmer setzen hier den § 19-Hinweis.

@@ -6,16 +6,21 @@ namespace Tests\Feature\Funnel;
 
 use App\Constants\ComplaintStatus;
 use App\Constants\LeadState;
+use App\Constants\PurchaseStatus;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Exceptions\ComplaintNotAllowedException;
 use App\Models\BuyerRegistration;
-use App\Models\CreditLedgerEntry;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\CreditLedgerService;
+use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\LeadComplaintService;
+use App\Services\Wallet\PurchaseService;
+use App\Services\Wallet\WalletService;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\FeatureTest;
 
 /**
@@ -43,29 +48,34 @@ class LeadComplaintTest extends FeatureTest
             'score' => 10,
         ]);
 
-        // Der Kauf hat ein Guthaben gekostet -- die Gutschrift muss es
-        // zurueckbringen.
-        app(CreditLedgerService::class)->purchase($buyer, 5, 7500);
+        app(WalletService::class)->post(
+            wallet: Wallet::forBuyer($buyer),
+            type: WalletTransactionType::TOPUP,
+            amountCents: 7500,
+            description: 'Aufladung im Test',
+        );
 
-        $purchase = LeadPurchase::factory()->create([
-            'lead_id' => $lead->getKey(),
-            'buyer_tenant_id' => $buyer->getKey(),
-            'purchased_at' => now()->subDays($boughtDaysAgo),
-        ]);
+        // Der Kauf ist abgerechnet: Der Kaeufer hat 15,00 EUR bezahlt, der
+        // Verkaeufer seinen Anteil bekommen. Genau diesen Weg muss die
+        // anerkannte Reklamation zurueckdrehen (LP-WALLET-006).
+        $purchases = app(PurchaseService::class);
 
-        app(CreditLedgerService::class)->debit($buyer, 1, $purchase);
+        $purchase = $purchases->capture($purchases->reserve($lead, $buyer));
 
-        return [$purchase, $buyer];
+        DB::table('lead_purchases')->where('id', $purchase->getKey())
+            ->update(['purchased_at' => now()->subDays($boughtDaysAgo)]);
+
+        return [$purchase->fresh(), $buyer];
     }
 
-    public function test_an_accepted_complaint_moves_the_lead_and_refunds_the_credit(): void
+    public function test_an_accepted_complaint_moves_the_lead_and_refunds_the_money(): void
     {
         [$purchase, $buyer] = $this->purchase();
         $admin = $this->createAdminUser();
         $service = app(LeadComplaintService::class);
 
-        // Fuenf gekauft, eines fuer den Lead abgebucht.
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        // 75,00 EUR aufgeladen, 15,00 EUR fuer den Lead abgebucht.
+        $this->assertSame(6000, $this->balanceCentsOf($buyer));
 
         $complaint = $service->file(
             $purchase,
@@ -79,7 +89,7 @@ class LeadComplaintTest extends FeatureTest
         // Solange der Antrag laeuft, aendert sich nichts: Weder Zustand noch
         // Guthaben duerfen sich selbst bewilligen.
         $this->assertSame(LeadState::VERKAUFT, $purchase->lead->fresh()->lead_state);
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(6000, $this->balanceCentsOf($buyer));
 
         $service->approve($complaint, $admin, 'Anrufprotokoll plausibel.');
 
@@ -91,13 +101,15 @@ class LeadComplaintTest extends FeatureTest
         // Zustand und Gutschrift zusammen -- ein Wechsel ohne Gutschrift waere
         // eine stille Enteignung.
         $this->assertSame(LeadState::UNERREICHBAR, $purchase->lead->fresh()->lead_state);
-        $this->assertSame(5, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(7500, $this->balanceCentsOf($buyer));
 
-        $refund = CreditLedgerEntry::query()->withoutGlobalScope('tenant')
-            ->where('type', 'refund')->sole();
+        // Die Erstattung haengt am Kaufbeleg und dreht ihn auf `refunded`.
+        $refund = WalletTransaction::query()
+            ->where('type', WalletTransactionType::REFUND)->sole();
 
-        $this->assertSame(1, $refund->credits);
-        $this->assertSame($complaint->getKey(), $refund->reference_id);
+        $this->assertSame(1500, (int) $refund->amount_cents);
+        $this->assertSame($purchase->getKey(), $refund->reference_id);
+        $this->assertSame(PurchaseStatus::REFUNDED, $purchase->fresh()->status);
 
         // Und ein zweites Anerkennen bucht nicht noch einmal.
         try {
@@ -107,7 +119,16 @@ class LeadComplaintTest extends FeatureTest
             // erwartet
         }
 
-        $this->assertSame(5, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(7500, $this->balanceCentsOf($buyer));
+    }
+
+    /**
+     * Der Saldo eines Kaeufers in Cent -- ohne die geblockten Betraege, die
+     * hier keine Rolle spielen: Der Kauf ist abgerechnet.
+     */
+    private function balanceCentsOf(Tenant $buyer): int
+    {
+        return (int) Wallet::forBuyer($buyer)->refresh()->balance_cents;
     }
 
     public function test_the_complaint_period_elapses_into_reached_but_never_over_an_open_request(): void

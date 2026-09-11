@@ -9,13 +9,15 @@ use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\SaleMode;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Models\BuyerRegistration;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\CreditLedgerService;
+use App\Models\Wallet;
+use App\Services\Wallet\WalletService;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Mail;
 use Tests\Feature\FeatureTest;
@@ -78,14 +80,22 @@ class SharedSaleInBuyerContextTest extends FeatureTest
 
         $this->assertSame(1500, $purchase->price_cents);
         $this->assertSame(LeadState::VERKAUFT, $lead->fresh()->lead_state);
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+
+        // Der Kaufpreis ist auf dem Kaeufer-Wallet geblockt.
+        $this->assertSame(6000, (int) Wallet::forBuyer($buyer)->refresh()->available_cents);
     }
 
     public function test_a_shared_lead_is_sold_more_than_once_while_a_buyer_is_in_context(): void
     {
         Mail::fake();
 
-        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        // Der Preis des Verkaeufers gilt jedem Kaeufer gegenueber, auch im
+        // Mehrfachverkauf: Einen eigenen Anteilspreis kennt die Geldseite seit
+        // LP-WALLET-003 nicht mehr.
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => 600,
+        ]);
 
         $funnel = Funnel::factory()->create([
             'tenant_id' => $operator->getKey(),
@@ -93,7 +103,6 @@ class SharedSaleInBuyerContextTest extends FeatureTest
             'lead_price' => 15.00,
             'sale_mode' => SaleMode::SHARED,
             'max_buyers' => 2,
-            'shared_price' => 6.00,
         ]);
 
         $lead = Lead::factory()->inState(LeadState::VERFUEGBAR)->create([
@@ -101,7 +110,6 @@ class SharedSaleInBuyerContextTest extends FeatureTest
             'funnel_id' => $funnel->getKey(),
             'score' => 12,
             'price_at_creation' => 15.00,
-            'shared_price_at_creation' => 6.00,
         ]);
 
         [$first, $firstUser] = $this->approvedBuyer();
@@ -114,8 +122,6 @@ class SharedSaleInBuyerContextTest extends FeatureTest
 
         $purchase = app(PurchaseLead::class)->handle($first, $lead->fresh(), $firstUser);
 
-        // Der Anteilspreis gilt -- nicht der Exklusivpreis. Wuerde die
-        // Verkaufsart als `exclusive` gelesen, staenden hier 1500.
         $this->assertSame(600, $purchase->price_cents);
 
         // Und ein Platz ist noch frei, der Lead bleibt im Angebot. Waere der
@@ -132,31 +138,36 @@ class SharedSaleInBuyerContextTest extends FeatureTest
         $this->assertSame(2, LeadPurchase::query()->where('lead_id', $lead->getKey())->count());
     }
 
-    public function test_a_later_price_change_does_not_reach_an_existing_lead(): void
+    /**
+     * Der Preis wird im Kaufbeleg festgeschrieben (Architekturleitsatz 4).
+     *
+     * Massgeblich ist seit LP-WALLET-003 der Preis, den der Verkaeufer im
+     * Moment des Kaufs verlangt -- nicht mehr der beim Anlegen des Leads
+     * festgehaltene. Was danach am Verkaeufer geaendert wird, erreicht einen
+     * bereits geschriebenen Beleg nicht mehr.
+     */
+    public function test_a_later_price_change_does_not_reach_an_existing_receipt(): void
     {
         Mail::fake();
 
-        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => 600,
+        ]);
 
         $funnel = Funnel::factory()->create([
             'tenant_id' => $operator->getKey(),
             'status' => FunnelStatus::PUBLISHED,
             'sale_mode' => SaleMode::SHARED,
             'max_buyers' => 3,
-            'shared_price' => 6.00,
         ]);
 
-        // Der Lead entsteht zum damaligen Anteilspreis.
         $lead = Lead::factory()->inState(LeadState::VERFUEGBAR)->create([
             'tenant_id' => $operator->getKey(),
             'funnel_id' => $funnel->getKey(),
             'score' => 12,
             'price_at_creation' => 15.00,
-            'shared_price_at_creation' => 6.00,
         ]);
-
-        // Danach hebt der Betreiber den Preis an.
-        $funnel->update(['shared_price' => 9.00]);
 
         [$buyer, $user] = $this->approvedBuyer();
 
@@ -165,8 +176,14 @@ class SharedSaleInBuyerContextTest extends FeatureTest
 
         $purchase = app(PurchaseLead::class)->handle($buyer, $lead->fresh(), $user);
 
-        // Der Kaeufer zahlt, was beim Anlegen galt -- nicht den neuen Preis.
         $this->assertSame(600, $purchase->price_cents);
+
+        // Danach hebt der Verkaeufer seinen Preis an.
+        $operator->update(['lead_price_cents' => 900]);
+
+        // Der Beleg bleibt, wie er war -- und die Reservierung auch.
+        $this->assertSame(600, $purchase->fresh()->price_cents);
+        $this->assertSame(600, (int) Wallet::forBuyer($buyer)->refresh()->reserved_cents);
     }
 
     /**
@@ -178,7 +195,12 @@ class SharedSaleInBuyerContextTest extends FeatureTest
         $user = User::factory()->create();
         $tenant->users()->attach($user);
 
-        app(CreditLedgerService::class)->purchase($tenant, 5, 7500);
+        app(WalletService::class)->post(
+            wallet: Wallet::forBuyer($tenant),
+            type: WalletTransactionType::TOPUP,
+            amountCents: 7500,
+            description: 'Aufladung im Test',
+        );
 
         return [$tenant, $user];
     }

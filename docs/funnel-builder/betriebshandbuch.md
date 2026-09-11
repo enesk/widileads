@@ -293,8 +293,8 @@ stripe events resend <event_id>
 
 **Das erneute Zustellen ist sicher.** Zwei Schutzmaßnahmen greifen:
 
-- Die Buchung im Guthabenkonto ist über ihren Beleg idempotent — dieselbe Bestellung
-  erzeugt auch bei mehrfacher Zustellung genau eine Buchung.
+- Die Aufladung im Wallet ist über ihren Idempotenzschlüssel abgesichert — dieselbe
+  Bestellung erzeugt auch bei mehrfacher Zustellung genau eine Buchung.
 - Abo-Ereignisse laufen unter `lockForUpdate`, und `isSuperfluousEvent` verwirft
   Ereignisse, die einen bereits erreichten Zustand nochmals setzen wollen.
 
@@ -304,20 +304,23 @@ zeitliche Reihenfolge ausgelegt.
 ### Nachher prüfen
 
 ```sql
--- Bestellungen ohne zugehoerige Guthabenbuchung
+-- Bestellungen ohne zugehoerige Aufladung im Wallet
 SELECT o.id, o.uuid, o.tenant_id, o.created_at
 FROM orders o
-LEFT JOIN credit_ledger c
-  ON c.reference_type = 'App\\Models\\Order' AND c.reference_id = o.id
+LEFT JOIN wallet_transactions t
+  ON t.reference_type = 'App\\Models\\Order' AND t.reference_id = o.id
+  AND t.type = 'topup'
 WHERE o.tenant_id IS NOT NULL
-  AND c.id IS NULL
+  AND t.id IS NULL
   AND o.created_at > NOW() - INTERVAL 7 DAY;
 ```
 
 Bleibt eine Lücke, wird sie **nicht** von Hand in die Datenbank geschrieben. Der Weg ist
-eine Korrekturbuchung über den Guthabendienst (`CreditLedgerService::adjust()`), damit
-sie einen Beleg und einen Grund hat. Das Journal ist unveränderlich — eine stille
-Direktbuchung wäre genau die Sorte Eintrag, die später niemand mehr erklären kann.
+eine Korrekturbuchung im Adminbereich unter *Wallets*, die über
+`App\Services\Wallet\WalletService::post()` läuft und einen Beleg und einen Grund
+trägt. Das Journal ist unveränderlich — eine stille Direktbuchung wäre genau die Sorte
+Eintrag, die später niemand mehr erklären kann, und der nächtliche Lauf
+`wallet:verify` meldet sie ohnehin als Abweichung.
 
 ---
 

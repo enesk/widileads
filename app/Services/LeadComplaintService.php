@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Actions\PurchaseLead;
 use App\Constants\ComplaintStatus;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
+use App\Constants\PurchaseStatus;
 use App\Exceptions\ComplaintNotAllowedException;
 use App\Mail\Lead\LeadComplaintFiled;
 use App\Models\LeadComplaint;
@@ -15,9 +15,9 @@ use App\Models\LeadPurchase;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Wallet\PurchaseService;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -36,7 +36,8 @@ class LeadComplaintService
 {
     public function __construct(
         private readonly LeadStateService $states,
-        private readonly CreditLedgerService $credits,
+        private readonly PurchaseService $purchases,
+        private readonly SupportMailbox $support,
     ) {}
 
     /**
@@ -76,13 +77,12 @@ class LeadComplaintService
      */
     private function notifySupport(LeadComplaint $complaint): void
     {
-        $recipient = (string) config('app.support_email');
+        $recipient = $this->support->addressOrLog(
+            'Reklamation ohne Support-Meldung: app.support_email ist nicht brauchbar gesetzt.',
+            ['lead_complaint_id' => $complaint->getKey()],
+        );
 
-        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
-            Log::warning('Reklamation ohne Support-Meldung: app.support_email ist nicht gesetzt.', [
-                'lead_complaint_id' => $complaint->getKey(),
-            ]);
-
+        if ($recipient === null) {
             return;
         }
 
@@ -119,12 +119,13 @@ class LeadComplaintService
                 ['lead_complaint_id' => $complaint->getKey(), 'buyer_tenant_id' => $complaint->buyer_tenant_id],
             );
 
-            // Zurueck kommt, was der Kauf gekostet hat: ein Guthaben.
-            $this->credits->refund(
-                $complaint->buyer,
-                PurchaseLead::CREDITS_PER_LEAD,
-                $complaint,
-            );
+            // Zurueck kommt, was der Kauf gekostet hat -- Geld, nicht Guthaben
+            // (LP-WALLET-007). Welcher Weg das ist, haengt am Stand des Kaufs:
+            // Ist der Kaufpreis nur reserviert, wird die Reservierung
+            // aufgeloest und es hat nie eine Abbuchung gegeben. Ist er bereits
+            // abgerechnet, muessen auch Verkaeufer und Plattform ihren Anteil
+            // wieder hergeben -- das kann nur die Erstattung.
+            $this->reimburse($complaint, $reviewer, $note);
 
             $complaint->status = ComplaintStatus::APPROVED;
             $complaint->reviewed_by = $reviewer->getKey();
@@ -134,6 +135,33 @@ class LeadComplaintService
 
             return $complaint;
         });
+    }
+
+    /**
+     * Gibt dem Kaeufer sein Geld zurueck -- je nach Stand des Kaufs durch
+     * Aufloesen der Reservierung oder durch Erstattung.
+     *
+     * Steht der Kauf schon auf `released` oder `refunded`, ist nichts zu tun:
+     * Der Kaeufer hat sein Geld bereits. Die Vorgaenge im PurchaseService
+     * vertragen die Wiederholung ohnehin.
+     */
+    private function reimburse(LeadComplaint $complaint, User $reviewer, ?string $note): void
+    {
+        $purchase = $complaint->purchase;
+
+        if (! $purchase instanceof LeadPurchase) {
+            return;
+        }
+
+        match ($purchase->status) {
+            PurchaseStatus::RESERVED => $this->purchases->release($purchase),
+            PurchaseStatus::CAPTURED => $this->purchases->refund(
+                $purchase,
+                $note ?? __('marketplace.complaint.refund_reason'),
+                $reviewer,
+            ),
+            default => null,
+        };
     }
 
     /**

@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
             RolesAndPermissionsSeeder::class,
             EmailProvidersSeeder::class,
             VerificationProvidersSeeder::class,
+            PlatformWalletSeeder::class,
+            WalletTopupProductSeeder::class,
         ]);
     }
 }

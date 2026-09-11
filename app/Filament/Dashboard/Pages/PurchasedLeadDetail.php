@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Presenters\LeadPresenter;
 use App\Services\LeadComplaintService;
 use App\Services\TenantTypeService;
+use App\Support\Money;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -206,6 +207,14 @@ class PurchasedLeadDetail extends Page
                         TextEntry::make('purchased_at')
                             ->label(__('marketplace.purchased.csv.purchased_at'))
                             ->state(fn (): string => $purchase->purchased_at?->format('d.m.Y H:i') ?? '-'),
+                        // Was der Lead gekostet hat, und was mit dem Geld
+                        // gerade ist: reserviert, abgebucht, freigegeben oder
+                        // erstattet. Der Preis steht am Beleg und aendert sich
+                        // nicht, auch wenn der Verkaeufer ihn spaeter anhebt.
+                        TextEntry::make('price')
+                            ->label(__('marketplace.purchased.detail.price'))
+                            ->state(fn (): string => Money::format($purchase->price_cents, $purchase->currency))
+                            ->helperText(fn (): string => __('marketplace.purchased.detail.price_status.'.$purchase->status->value)),
                         TextEntry::make('received_at')
                             ->label(__('leads.list.received_at'))
                             ->state(fn (): string => $lead->created_at?->format('d.m.Y H:i') ?? '-'),

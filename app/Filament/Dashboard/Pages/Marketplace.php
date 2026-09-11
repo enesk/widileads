@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Dashboard\Pages;
 
 use App\Constants\FunnelFieldKey;
-use App\Exceptions\InsufficientCreditsException;
+use App\Exceptions\InsufficientFundsException;
 use App\Exceptions\LeadNotPurchasableException;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Marketplace\MarketplaceListing;
@@ -14,10 +14,12 @@ use App\Models\Lead;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Presenters\LeadPresenter;
-use App\Services\CreditLedgerService;
 use App\Services\LeadPurchaseAction;
+use App\Support\Money;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -118,9 +120,16 @@ class Marketplace extends Page
         ];
     }
 
+    /**
+     * Das frei verfuegbare Guthaben in Cent.
+     *
+     * Massgeblich ist `available_cents`, nicht der Saldo: Was fuer andere Leads
+     * schon reserviert ist, steht fuer den naechsten Kauf nicht mehr zur
+     * Verfuegung (LP-WALLET-005).
+     */
     public function balance(): int
     {
-        return app(CreditLedgerService::class)->balanceFor($this->tenant());
+        return Wallet::forBuyer($this->tenant())->available_cents;
     }
 
     public function hasBuyerProfile(): bool
@@ -140,27 +149,46 @@ class Marketplace extends Page
      *     postal_code: string,
      *     attributes: array<int, array{label: string, value: string}>,
      *     price: string,
+     *     price_cents: int,
      *     purchasable: bool,
+     *     affordable: bool,
      * }>
      */
     public function leads(): array
     {
         $purchase = app(LeadPurchaseAction::class);
         $tenant = $this->tenant();
+        // Einmal gelesen und fuer alle Karten verwendet: Der Stand aendert sich
+        // waehrend des Aufbaus einer Seite nicht, und je Karte eine Abfrage
+        // waere die teuerste Art, dieselbe Zahl zu erfahren.
+        $available = $this->balance();
 
         return $this->visibleLeads()
-            ->map(fn (Lead $lead): array => [
-                'id' => (int) $lead->getKey(),
-                // Kontaktdaten ausschliesslich ueber den Presenter.
-                'name' => $this->presenter($lead)->name(),
-                'created_at' => $this->relativeTime($lead),
-                'created_at_exact' => $lead->created_at?->format('d.m.Y H:i') ?? '',
-                'is_new' => $lead->created_at?->greaterThan(now()->subDay()) ?? false,
-                'postal_code' => $this->presenter($lead)->postalCode(),
-                'attributes' => $this->qualificationAnswers($lead),
-                'price' => __('marketplace.listing.price', ['credits' => 1]),
-                'purchasable' => $purchase->isAvailable() && $purchase->canPurchase($tenant, $lead),
-            ])
+            ->map(function (Lead $lead) use ($purchase, $tenant, $available): array {
+                $priceCents = $purchase->priceCentsOf($lead);
+
+                return [
+                    'id' => (int) $lead->getKey(),
+                    // Kontaktdaten ausschliesslich ueber den Presenter.
+                    'name' => $this->presenter($lead)->name(),
+                    'created_at' => $this->relativeTime($lead),
+                    'created_at_exact' => $lead->created_at?->format('d.m.Y H:i') ?? '',
+                    'is_new' => $lead->created_at?->greaterThan(now()->subDay()) ?? false,
+                    'postal_code' => $this->presenter($lead)->postalCode(),
+                    'attributes' => $this->qualificationAnswers($lead),
+                    'price' => __('marketplace.listing.price', ['amount' => self::formatCents($priceCents)]),
+                    // Der angezeigte Preis geht beim Kauf zurueck an den Server:
+                    // Hat der Verkaeufer ihn inzwischen geaendert, wird der Kauf
+                    // abgelehnt statt teurer abgerechnet (LP-WALLET-007).
+                    'price_cents' => $priceCents,
+                    'purchasable' => $purchase->isAvailable() && $purchase->canPurchase($tenant, $lead),
+                    // Nur eine Anzeige-Entscheidung: Ob das Guthaben wirklich
+                    // reicht, prueft die Kauf-Action unter Sperre. Ein Knopf,
+                    // der sicher in eine Fehlermeldung fuehrt, gehoert aber
+                    // nicht anklickbar auf die Seite.
+                    'affordable' => $available >= $priceCents,
+                ];
+            })
             ->values()
             ->all();
     }
@@ -169,12 +197,18 @@ class Marketplace extends Page
      * Kauft einen Lead.
      *
      * Die Seite entscheidet nichts: Sie reicht an die PurchaseLead-Action
-     * weiter, die Reservierung, Guthaben und Zustand unter Sperre prueft. Was
-     * hier abgefangen wird, sind die beiden alltaeglichen Ausgaenge -- ein
-     * anderer war schneller, oder das Guthaben reicht nicht. Beides ist ein
-     * Hinweis an den Kaeufer, kein Fehler.
+     * weiter, die Reservierung, Guthaben, Preis und Zustand unter Sperre
+     * prueft. Was hier abgefangen wird, sind die alltaeglichen Ausgaenge -- ein
+     * anderer war schneller, der Preis hat sich geaendert, oder das Guthaben
+     * reicht nicht. Alles drei ist ein Hinweis an den Kaeufer, kein Fehler.
+     *
+     * Beim fehlenden Guthaben bekommt der Hinweis den Weg zur Aufladung mit:
+     * Eine Meldung, die dem Kaeufer sagt, dass Geld fehlt, ohne ihm zu sagen,
+     * wo er es nachlegt, laesst ihn suchen.
+     *
+     * @param  int|null  $priceShownCents  Preis, den diese Seite dem Kaeufer genannt hat
      */
-    public function purchase(int $leadId): void
+    public function purchase(int $leadId, ?int $priceShownCents = null): void
     {
         $actor = $this->viewer();
 
@@ -194,8 +228,22 @@ class Marketplace extends Page
         }
 
         try {
-            $purchase = app(LeadPurchaseAction::class)->purchase($this->tenant(), $lead, $actor);
-        } catch (LeadNotPurchasableException|InsufficientCreditsException $exception) {
+            $purchase = app(LeadPurchaseAction::class)->purchase($this->tenant(), $lead, $actor, $priceShownCents);
+        } catch (InsufficientFundsException $exception) {
+            Notification::make()
+                ->warning()
+                ->title($exception->getMessage())
+                ->actions([
+                    Action::make('topUp')
+                        ->label(__('marketplace.wallet.top_up.title'))
+                        ->url(WalletTopUp::getUrl())
+                        ->button(),
+                ])
+                ->persistent()
+                ->send();
+
+            return;
+        } catch (LeadNotPurchasableException $exception) {
             Notification::make()
                 ->warning()
                 ->title($exception->getMessage())
@@ -242,6 +290,9 @@ class Marketplace extends Page
             ->withoutGlobalScopes(TenantScopes::names())
             ->with([
                 'answers',
+                // Der Verkaeufer haengt am Preis (LP-WALLET-003); ohne ihn
+                // fragte die Liste ihn je Lead einzeln nach.
+                'tenant',
                 // Fragebogen und Fassung gehoeren dem Betreiber, gelesen wird
                 // im Kontext des Kaeufers (FB-055a).
                 'funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
@@ -277,6 +328,14 @@ class Marketplace extends Page
         }
 
         return $created->format('d.m.Y');
+    }
+
+    /**
+     * Cent als Betrag in der Schreibweise, die der Kaeufer im Portal sieht.
+     */
+    private static function formatCents(int $cents): string
+    {
+        return Money::format($cents);
     }
 
     private function presenter(Lead $lead): LeadPresenter

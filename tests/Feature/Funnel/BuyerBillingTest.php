@@ -5,36 +5,41 @@ declare(strict_types=1);
 namespace Tests\Feature\Funnel;
 
 use App\Constants\LeadState;
+use App\Constants\PurchaseStatus;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Models\BuyerRegistration;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
+use App\Models\Wallet;
 use App\Services\BuyerBillingService;
-use App\Services\CreditLedgerService;
+use App\Services\Wallet\WalletService;
 use Tests\Feature\FeatureTest;
 
 /**
- * FB-059: Die Monatsabrechnung muss mit dem Guthabenkonto uebereinstimmen.
+ * FB-059, seit LP-WALLET-022 gegen das Wallet: Die Monatsabrechnung muss mit
+ * dem Wallet-Ledger uebereinstimmen.
  *
  * Das ist der eigentliche Zweck der Uebersicht: Sie stellt zwei unabhaengig
- * gefuehrte Rechnungen nebeneinander -- die Kaufbelege und das Journal. Weichen
+ * gefuehrte Rechnungen nebeneinander -- die Kaufbelege und das Ledger. Weichen
  * sie voneinander ab, ist etwas kaputt, und zwar an einer Stelle, die Geld
  * betrifft.
  */
 class BuyerBillingTest extends FeatureTest
 {
-    public function test_the_statement_matches_the_credit_ledger(): void
+    public function test_the_statement_matches_the_wallet_ledger(): void
     {
         $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
         $buyer = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
 
-        $credits = app(CreditLedgerService::class);
+        $wallets = app(WalletService::class);
+        $wallet = Wallet::forBuyer($buyer);
 
-        // Zehn Guthaben gekauft.
-        $credits->purchase($buyer, 10, 15000);
+        // 150,00 EUR aufgeladen.
+        $wallets->post($wallet, WalletTransactionType::TOPUP, 15000, 'Aufladung');
 
-        // Drei Leads gekauft, in drei verschiedenen Zustaenden.
+        // Drei Leads gekauft und abgerechnet, in drei verschiedenen Zustaenden.
         $states = [LeadState::VERKAUFT, LeadState::ERREICHT, LeadState::UNERREICHBAR];
         $purchases = [];
 
@@ -51,12 +56,26 @@ class BuyerBillingTest extends FeatureTest
                 'purchased_at' => now(),
             ]);
 
-            $credits->debit($buyer, 1, $purchase);
+            $wallets->post(
+                wallet: $wallet,
+                type: WalletTransactionType::CAPTURE,
+                amountCents: -1500,
+                description: 'Abbuchung',
+                reference: $purchase,
+            );
+
             $purchases[] = $purchase;
         }
 
-        // Einer davon wurde gutgeschrieben.
-        $credits->refund($buyer, 1, $purchases[2]);
+        // Einer davon wurde erstattet.
+        $purchases[2]->forceFill(['status' => PurchaseStatus::REFUNDED, 'refunded_at' => now()])->save();
+        $wallets->post(
+            wallet: $wallet,
+            type: WalletTransactionType::REFUND,
+            amountCents: 1500,
+            description: 'Erstattung',
+            reference: $purchases[2],
+        );
 
         $statement = app(BuyerBillingService::class)->statementFor($buyer, now());
 
@@ -67,16 +86,17 @@ class BuyerBillingTest extends FeatureTest
         $this->assertSame(1, $statement['states'][LeadState::UNERREICHBAR->value]);
         $this->assertSame(4500, $statement['revenue_cents']);
 
-        // Die Guthabenseite -- und der Abgleich, um den es geht: Jeder Kauf hat
-        // genau ein Guthaben gekostet.
-        $this->assertSame(10, $statement['credits_purchased']);
-        $this->assertSame($statement['purchases'], $statement['credits_debited']);
-        $this->assertSame(1, $statement['credits_refunded']);
+        // Die Geldseite -- und die Probe, um die es geht: Was abgebucht wurde,
+        // muss der Summe der abgerechneten Kaufpreise entsprechen.
+        $this->assertSame(15000, $statement['topped_up_cents']);
+        $this->assertSame(4500, $statement['captured_cents']);
+        $this->assertSame(1500, $statement['refunded_cents']);
+        $this->assertSame($statement['captured_cents'], $statement['captured_expected_cents']);
 
         // Und der Saldo ergibt sich aus denselben Zahlen.
         $this->assertSame(
-            $statement['credits_purchased'] - $statement['credits_debited'] + $statement['credits_refunded'],
-            $credits->balanceFor($buyer->fresh()),
+            $statement['topped_up_cents'] - $statement['captured_cents'] + $statement['refunded_cents'],
+            (int) $wallet->fresh()->balance_cents,
         );
     }
 

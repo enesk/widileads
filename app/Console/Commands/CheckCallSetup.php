@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\CallerId;
 use App\Models\User;
+use App\Services\SupportMailbox;
 use Illuminate\Console\Command;
 use Throwable;
 use Twilio\Rest\Client as TwilioClient;
@@ -188,6 +189,24 @@ class CheckCallSetup extends Command
             $from !== '',
             'mail.from.address ist leer.',
             $from,
+        );
+
+        // Ticket #25: An dieser Adresse haengen alle Betreibermeldungen des
+        // Wallets (Auszahlungsanforderung, Saldenabweichung, fehlgeschlagene
+        // Abrechnung). Eine Adresse auf einer Starterkit-Domain ist so gut
+        // wie keine -- SupportMailbox verwirft sie, die Meldung faellt aus.
+        $support = trim((string) config('app.support_email'));
+
+        $this->assert(
+            'Support-Adresse',
+            $support !== '' && filter_var($support, FILTER_VALIDATE_EMAIL) !== false
+                && ! SupportMailbox::isStarterKitAddress($support),
+            $support === ''
+                ? 'app.support_email ist leer -- Betreibermeldungen des Wallets gehen an niemanden. SUPPORT_EMAIL setzen oder Admin-Seite "Allgemeine Einstellungen".'
+                : (filter_var($support, FILTER_VALIDATE_EMAIL) === false
+                    ? 'app.support_email ist keine Adresse: "'.$support.'".'
+                    : 'app.support_email steht auf der Starterkit-Vorgabe "'.$support.'" -- Betreibermeldungen gingen an eine fremde Domain.'),
+            $support,
         );
 
         $queue = (string) config('queue.default');

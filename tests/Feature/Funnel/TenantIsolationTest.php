@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
-use App\Constants\CreditLedgerType;
 use App\Models\Concerns\BelongsToTenant;
-use App\Models\CreditLedgerEntry;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadWatchlistEntry;
@@ -108,12 +106,6 @@ class TenantIsolationTest extends FeatureTest
         return [
             Funnel::class => $funnel,
             Lead::class => $lead,
-            CreditLedgerEntry::class => CreditLedgerEntry::query()->create([
-                'tenant_id' => $tenant->getKey(),
-                'type' => CreditLedgerType::ADJUSTMENT,
-                'credits' => 1,
-                'currency' => 'EUR',
-            ]),
             LeadWatchlistEntry::class => LeadWatchlistEntry::query()->create([
                 'tenant_id' => $tenant->getKey(),
                 'lead_id' => $lead->getKey(),

@@ -27,20 +27,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\Layout\Panel;
-use Filament\Tables\Columns\Layout\Split;
-use Filament\Tables\Columns\Layout\Stack;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Livewire\Attributes\Url;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -58,19 +49,31 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Spalte zielte. Aus demselben Grund bleibt das eine Page mit Tabelle und wird
  * keine Resource: Deren automatische Mandantenbindung liefe ueber `tenant_id`.
  */
-class PurchasedLeads extends Page implements HasTable
+class PurchasedLeads extends Page
 {
-    use InteractsWithTable;
-
     protected string $view = 'filament.dashboard.pages.purchased-leads';
 
     protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedInboxArrowDown;
 
     protected static ?int $navigationSort = -9;
 
+    public const SORT_NEWEST = 'newest';
+
+    public const SORT_OLDEST = 'oldest';
+
+    #[Url(as: 'sortierung', except: self::SORT_NEWEST)]
+    public string $sort = self::SORT_NEWEST;
+
+    #[Url(as: 'ohne-rueckmeldung', except: false)]
+    public bool $onlyWithoutFeedback = false;
+
+    /**
+     * Die Ueberschrift steht in der Ansicht selbst, damit sie neben dem
+     * Export-Knopf sitzen kann -- wie im Marktplatz.
+     */
     public function getHeading(): string|Htmlable
     {
-        return __('marketplace.purchased.heading');
+        return '';
     }
 
     public function getTitle(): string|Htmlable
@@ -94,169 +97,143 @@ class PurchasedLeads extends Page implements HasTable
         return app(TenantTypeService::class)->canAccessMarketplace($tenant);
     }
 
-    public function table(Table $table): Table
+    /**
+     * Sortierungen als vollstaendige Saetze -- wie im Marktplatz.
+     *
+     * @return array<string, string>
+     */
+    public function sortOptions(): array
     {
-        return $table
-            ->query(fn (): Builder => $this->purchasesQuery())
-            ->defaultSort('purchased_at', 'desc')
-            ->paginated([(int) config('funnel.marketplace.listing.per_page')])
-            ->description(__('marketplace.purchased.description'))
-            ->emptyStateHeading(__('marketplace.purchased.empty'))
-            // Karten statt einer elfspaltigen Tabelle: Auf dem Telefon
-            // schiebt eine solche Tabelle den halben Inhalt aus dem Bild.
-            // Mobil eine Karte je Kauf, ab mittleren Bildschirmen zwei, auf
-            // grossen drei.
-            ->contentGrid(['md' => 2, 'xl' => 3])
-            ->columns([
-                Panel::make([
-                    Stack::make([
-                        // Kopf der Karte: Wer, und seit wann gehoert er dir.
-                        TextColumn::make('contact_name')
-                            ->label(__('leads.contact.name'))
-                            ->weight(FontWeight::Bold)
-                            ->size(TextSize::Large)
-                            // Kontaktdaten ausschliesslich ueber den Presenter.
-                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->name()),
-                        TextColumn::make('purchased_at')
-                            ->label(__('marketplace.purchased.csv.purchased_at'))
-                            ->icon(Heroicon::OutlinedClock)
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->dateTime('d.m.Y H:i')
-                            ->sortable(),
+        return [
+            self::SORT_NEWEST => __('marketplace.purchased.sort.newest'),
+            self::SORT_OLDEST => __('marketplace.purchased.sort.oldest'),
+        ];
+    }
 
-                        // Zustaende als Abzeichen nebeneinander.
-                        Split::make([
-                            TextColumn::make('contact_status')
-                                ->label(__('call.panel.list.contact_status'))
-                                ->badge()
-                                // Der Stand der Erreichbarkeit, nicht der
-                                // Verkaufsstand: beide Achsen bewegen sich
-                                // unabhaengig voneinander.
-                                ->state(fn (LeadPurchase $record): string => $this->contactStatusLabel($record))
-                                ->color(fn (LeadPurchase $record): string => $this->contactStatusColor($record)),
-                            TextColumn::make('buyer_feedback')
-                                ->label(__('marketplace.purchased.csv.feedback'))
-                                ->badge()
-                                ->formatStateUsing(fn (BuyerLeadFeedback $state): string => $state->label())
-                                ->placeholder(''),
-                        ])->from('sm'),
+    /**
+     * Die Kaeufe dieser Seite, fertig fuer die Ansicht aufbereitet.
+     *
+     * Kontaktdaten kommen ausschliesslich ueber den LeadPresenter; dass sie
+     * hier im Klartext stehen, entscheidet der LeadContactResolver anhand des
+     * Kaufbelegs, nicht diese Seite.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function purchases(): array
+    {
+        $query = $this->purchasesQuery()
+            ->orderBy('purchased_at', $this->sort === self::SORT_OLDEST ? 'asc' : 'desc');
 
-                        TextColumn::make('failed_attempts_count')
-                            ->label(__('call.panel.list.attempts'))
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->state(fn (LeadPurchase $record): string => __('call.panel.counter', [
-                                'count' => (int) ($record->failed_attempts_count ?? 0),
-                                'required' => (int) config('lead_calls.unreachable_attempts'),
-                            ])),
+        if ($this->onlyWithoutFeedback) {
+            $query->whereNull('buyer_feedback');
+        }
 
-                        // Kontaktdaten: der Grund, warum man diese Seite oeffnet.
-                        TextColumn::make('contact_phone')
-                            ->label(__('marketplace.listing.phone'))
-                            ->icon(Heroicon::OutlinedPhone)
-                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->phone()),
-                        TextColumn::make('contact_email')
-                            ->label(__('marketplace.listing.email'))
-                            ->icon(Heroicon::OutlinedEnvelope)
-                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->email()),
-                        TextColumn::make('contact_postal_code')
-                            ->label(__('marketplace.listing.region'))
-                            ->icon(Heroicon::OutlinedMapPin)
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->state(fn (LeadPurchase $record): string => $this->presenter($record)->postalCode()),
+        return $query->get()
+            ->map(function (LeadPurchase $purchase): array {
+                $presenter = $this->presenter($purchase);
 
-                        TextColumn::make('lead.funnel.name')
-                            ->label(__('leads.list.funnel'))
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->placeholder(__('marketplace.listing.unknown_funnel')),
+                return [
+                    'id' => (int) $purchase->getKey(),
+                    'url' => PurchasedLeadDetail::getUrl(['purchase' => $purchase->getKey()]),
+                    'name' => $presenter->name(),
+                    'purchased_at' => $purchase->purchased_at?->format('d.m.Y H:i') ?? '-',
+                    'funnel' => $purchase->lead->funnel?->name ?? __('marketplace.listing.unknown_funnel'),
+                    'phone' => $presenter->phone(),
+                    'email' => $presenter->email(),
+                    'postal_code' => $presenter->postalCode(),
+                    // Der Stand der Erreichbarkeit, nicht der Verkaufsstand:
+                    // beide Achsen bewegen sich unabhaengig voneinander.
+                    'contact_status' => $this->contactStatusLabel($purchase),
+                    'contact_status_color' => $this->contactStatusColor($purchase),
+                    'attempts' => __('call.panel.counter', [
+                        'count' => (int) ($purchase->failed_attempts_count ?? 0),
+                        'required' => (int) config('lead_calls.unreachable_attempts'),
+                    ]),
+                    'feedback' => $purchase->buyer_feedback?->label(),
+                    'complaint' => $purchase->complaint === null ? null : __('marketplace.complaint.filed', [
+                        'state' => $purchase->complaint->requested_state->label(),
+                        'status' => $purchase->complaint->status->label(),
+                    ]),
+                    'can_complain' => $this->canComplain($purchase),
+                    'attributes' => $this->qualificationAnswers($purchase),
+                ];
+            })
+            ->all();
+    }
 
-                        TextColumn::make('complaint.status')
-                            ->label(__('marketplace.complaint.fields.status'))
-                            ->badge()
-                            ->color('warning')
-                            ->state(fn (LeadPurchase $record): ?string => $record->complaint === null
-                                ? null
-                                : __('marketplace.complaint.filed', [
-                                    'state' => $record->complaint->requested_state->label(),
-                                    'status' => $record->complaint->status->label(),
-                                ]))
-                            ->placeholder(''),
-
-                        TextColumn::make('qualification')
-                            ->label(__('leads.detail.answers'))
-                            ->badge()
-                            ->color('gray')
-                            ->state(fn (LeadPurchase $record): array => $this->qualificationAnswers($record))
-                            ->listWithLineBreaks()
-                            ->limitList(3)
-                            ->expandableLimitedList(),
-                    ])->space(2),
-                ]),
-            ])
-            ->filters([
-                Filter::make('without_feedback')
-                    ->label(__('marketplace.purchased.only_without_feedback'))
-                    ->toggle()
-                    ->query(fn (Builder $query): Builder => $query->whereNull('buyer_feedback')),
-            ])
-            ->headerActions([
-                Action::make('exportCsv')
-                    ->label(__('marketplace.purchased.export'))
-                    ->icon(Heroicon::OutlinedArrowDownTray)
-                    ->action(fn (): StreamedResponse => $this->exportCsv()),
-            ])
-            ->recordUrl(fn (LeadPurchase $record): string => PurchasedLeadDetail::getUrl(['purchase' => $record->getKey()]))
-            ->recordActions([
-                Action::make('open')
-                    ->label(__('marketplace.purchased.detail.open'))
-                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
-                    ->link()
-                    ->url(fn (LeadPurchase $record): string => PurchasedLeadDetail::getUrl(['purchase' => $record->getKey()])),
-                Action::make('feedback')
+    /**
+     * Rueckmeldung geben. Die Aktion traegt die Kennung des Kaufbelegs als
+     * Argument -- das Modell selbst reist nie durch den Livewire-Zustand.
+     */
+    public function feedbackAction(): Action
+    {
+        return Action::make('feedback')
+            ->label(__('marketplace.purchased.csv.feedback'))
+            ->icon(Heroicon::OutlinedHandThumbUp)
+            ->schema([
+                Select::make('buyer_feedback')
                     ->label(__('marketplace.purchased.csv.feedback'))
-                    ->icon(Heroicon::OutlinedHandThumbUp)
-                    ->link()
-                    ->schema([
-                        Select::make('buyer_feedback')
-                            ->label(__('marketplace.purchased.csv.feedback'))
-                            ->options(BuyerLeadFeedback::options())
-                            ->required(),
+                    ->options(BuyerLeadFeedback::options())
+                    ->required(),
+            ])
+            ->fillForm(fn (array $arguments): array => [
+                'buyer_feedback' => $this->findPurchase($arguments)?->buyer_feedback?->value,
+            ])
+            ->action(function (array $arguments, array $data): void {
+                $purchase = $this->findPurchase($arguments);
+
+                if ($purchase instanceof LeadPurchase) {
+                    $this->setFeedback($purchase, (string) $data['buyer_feedback']);
+                }
+            });
+    }
+
+    public function complaintAction(): Action
+    {
+        return Action::make('complaint')
+            ->label(__('marketplace.complaint.open'))
+            ->icon(Heroicon::OutlinedExclamationTriangle)
+            ->color('warning')
+            ->modalDescription(__('marketplace.complaint.help'))
+            ->schema([
+                Select::make('requested_state')
+                    ->label(__('marketplace.complaint.fields.requested_state'))
+                    ->options([
+                        LeadState::UNERREICHBAR->value => LeadState::UNERREICHBAR->label(),
+                        LeadState::UNGUELTIG->value => LeadState::UNGUELTIG->label(),
                     ])
-                    ->fillForm(fn (LeadPurchase $record): array => [
-                        'buyer_feedback' => $record->buyer_feedback?->value,
-                    ])
-                    ->action(fn (LeadPurchase $record, array $data) => $this->setFeedback($record, (string) $data['buyer_feedback'])),
-                Action::make('complaint')
-                    ->label(__('marketplace.complaint.open'))
-                    ->icon(Heroicon::OutlinedExclamationTriangle)
-                    ->link()
-                    ->color('warning')
-                    ->modalDescription(__('marketplace.complaint.help'))
-                    ->visible(fn (LeadPurchase $record): bool => $this->canComplain($record))
-                    ->schema([
-                        Select::make('requested_state')
-                            ->label(__('marketplace.complaint.fields.requested_state'))
-                            ->options([
-                                LeadState::UNERREICHBAR->value => LeadState::UNERREICHBAR->label(),
-                                LeadState::UNGUELTIG->value => LeadState::UNGUELTIG->label(),
-                            ])
-                            ->default(LeadState::UNERREICHBAR->value)
-                            ->required(),
-                        Textarea::make('reason')
-                            ->label(__('marketplace.complaint.fields.reason'))
-                            ->placeholder(__('marketplace.complaint.reason_placeholder'))
-                            ->required(),
-                    ])
-                    ->modalSubmitActionLabel(__('marketplace.complaint.submit'))
-                    ->action(fn (LeadPurchase $record, array $data) => $this->fileComplaint(
-                        $record,
-                        (string) $data['requested_state'],
-                        (string) $data['reason'],
-                    )),
-            ]);
+                    ->default(LeadState::UNERREICHBAR->value)
+                    ->required(),
+                Textarea::make('reason')
+                    ->label(__('marketplace.complaint.fields.reason'))
+                    ->placeholder(__('marketplace.complaint.reason_placeholder'))
+                    ->required(),
+            ])
+            ->modalSubmitActionLabel(__('marketplace.complaint.submit'))
+            ->action(function (array $arguments, array $data): void {
+                $purchase = $this->findPurchase($arguments);
+
+                if ($purchase instanceof LeadPurchase) {
+                    $this->fileComplaint($purchase, (string) $data['requested_state'], (string) $data['reason']);
+                }
+            });
+    }
+
+    /**
+     * Laedt einen Kaufbeleg aus dem Argument einer Aktion -- immer ueber
+     * `ofBuyer`, damit ein fremder Schluessel schlicht nichts findet.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function findPurchase(array $arguments): ?LeadPurchase
+    {
+        $key = $arguments['purchase'] ?? null;
+
+        if ($key === null) {
+            return null;
+        }
+
+        return $this->purchasesQuery()->whereKey($key)->first();
     }
 
     /**
@@ -454,7 +431,7 @@ class PurchasedLeads extends Page implements HasTable
      * Rohantworten zu holen, waere ein Weg an der einen Stelle vorbei, an der
      * ueber ihre Sichtbarkeit entschieden wird.
      *
-     * @return array<int, string>
+     * @return array<int, array{label: string, value: string}>
      */
     private function qualificationAnswers(LeadPurchase $purchase): array
     {
@@ -477,9 +454,12 @@ class PurchasedLeads extends Page implements HasTable
 
             $value = $answer->value;
 
-            $answers[] = ($labels[$answer->field_key] ?? $answer->field_key).': '.(is_array($value)
-                ? implode(', ', array_map($readable, $value))
-                : $readable($value));
+            $answers[] = [
+                'label' => $labels[$answer->field_key] ?? $answer->field_key,
+                'value' => is_array($value)
+                    ? implode(', ', array_map($readable, $value))
+                    : $readable($value),
+            ];
         }
 
         return $answers;

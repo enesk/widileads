@@ -8,7 +8,7 @@ use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
 use App\Events\Lead\LeadPurchased;
 use App\Exceptions\IllegalLeadTransition;
-use App\Exceptions\InsufficientCreditsException;
+use App\Exceptions\InsufficientFundsException;
 use App\Exceptions\LeadNotPurchasableException;
 use App\Models\Funnel;
 use App\Models\Lead;
@@ -16,13 +16,14 @@ use App\Models\LeadPurchase;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\CreditLedgerService;
 use App\Services\LeadStateService;
 use App\Services\TenantTypeService;
+use App\Services\Wallet\PurchaseService;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Der Kauf eines Leads durch einen Kaeufer-Mandanten (FB-054).
+ * Der Kauf eines Leads durch einen Kaeufer-Mandanten (FB-054, Geldseite seit
+ * LP-WALLET-007).
  *
  * Der Vorgang laeuft in zwei Schritten, und das ist Absicht.
  *
@@ -35,29 +36,28 @@ use Illuminate\Support\Facades\DB;
  * Lead und weist einen Wechsel ab, dessen Ausgangszustand sich inzwischen
  * geaendert hat. Genau einer gewinnt.
  *
- * **Kauf, Abbuchung und Zustandswechsel in einer Transaktion.** Ein Kaufbeleg
- * ohne Abbuchung waere ein verschenkter Lead, eine Abbuchung ohne Kaufbeleg
- * ein bezahlter, der niemandem gehoert. Beides zusammen mit dem Wechsel nach
- * `verkauft` -- oder gar nichts.
+ * **Kauf, Geldreservierung und Zustandswechsel in einer Transaktion.** Die
+ * Geldseite gehoert seit LP-WALLET-006 vollstaendig dem PurchaseService: Er
+ * legt den Kaufbeleg an, schreibt Preis und Provision fest und blockt den
+ * Kaufpreis auf dem Kaeufer-Wallet. Diese Action ruehrt weder Wallet noch
+ * Ledger an -- sie klammert den Geldvorgang mit dem Lead zusammen. Ein
+ * reservierter Betrag ohne zugeordneten Lead waere Geld, das der Kaeufer nicht
+ * mehr ausgeben kann, ohne etwas dafuer bekommen zu haben.
  *
  * **Scheitert der Kauf, wird die Reservierung zurueckgegeben.** Reicht das
  * Guthaben nicht, bliebe der Lead sonst bis zum Ablauf der Frist blockiert,
  * obwohl niemand ihn kaufen wird.
+ *
+ * **Der angezeigte Preis wird geprueft.** Der Kaeufer kauft zu dem Preis, den
+ * die Seite ihm genannt hat. Erhoeht der Verkaeufer seinen Preis, waehrend die
+ * Seite noch offen steht, wird der Kauf abgewiesen statt stillschweigend teurer
+ * abgerechnet.
  */
 class PurchaseLead
 {
-    /**
-     * Guthaben, das ein Lead kostet.
-     *
-     * Ein Guthaben ist ein Lead -- so werden die Pakete verkauft ("10 Leads").
-     * Das ist keine Stellschraube, sondern die Definition der Einheit, deshalb
-     * steht sie hier und nicht in der Konfiguration.
-     */
-    public const CREDITS_PER_LEAD = 1;
-
     public function __construct(
         private readonly LeadStateService $states,
-        private readonly CreditLedgerService $credits,
+        private readonly PurchaseService $purchases,
         private readonly TenantTypeService $tenantTypes,
     ) {}
 
@@ -66,18 +66,21 @@ class PurchaseLead
      * entscheidet das Kaufprofil, nicht ein Mensch. Das Zustandsprotokoll
      * traegt dann keinen Akteur, was genau richtig ist: Es war keiner.
      *
+     * @param  int|null  $priceShownCents  Preis, den die Oberflaeche dem Kaeufer genannt hat; null beim Autokauf
+     *
      * @throws LeadNotPurchasableException wenn der Kaeufer oder der Lead nicht in Frage kommt
-     * @throws InsufficientCreditsException wenn das Guthaben nicht reicht
+     * @throws InsufficientFundsException wenn das verfuegbare Guthaben nicht reicht
      */
-    public function handle(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase
+    public function handle(Tenant $buyer, Lead $lead, ?User $actor = null, ?int $priceShownCents = null): LeadPurchase
     {
         $this->guardBuyer($buyer);
         $this->guardLead($buyer, $lead);
+        $this->guardPrice($lead, $priceShownCents);
 
         $this->reserve($buyer, $lead, $actor);
 
         try {
-            $purchase = $this->settle($buyer, $lead, $actor);
+            $purchase = $this->settle($buyer, $lead, $actor, $priceShownCents);
         } catch (\Throwable $exception) {
             // Ein Lead, den niemand kaufen kann, soll nicht bis zum Ablauf der
             // Frist blockiert bleiben.
@@ -123,11 +126,11 @@ class PurchaseLead
     }
 
     /**
-     * Kaufbeleg, Abbuchung und Zustandswechsel -- alles oder nichts.
+     * Kaufbeleg samt Geldreservierung und Zustandswechsel -- alles oder nichts.
      */
-    private function settle(Tenant $buyer, Lead $lead, ?User $actor): LeadPurchase
+    private function settle(Tenant $buyer, Lead $lead, ?User $actor, ?int $priceShownCents): LeadPurchase
     {
-        return DB::transaction(function () use ($buyer, $lead, $actor): LeadPurchase {
+        return DB::transaction(function () use ($buyer, $lead, $actor, $priceShownCents): LeadPurchase {
             // Der Lead ist reserviert; die Sperre haelt ihn bis zum Ende der
             // Transaktion fest.
             // Ohne Mandanten-Scope: Der Kauf laeuft im Kontext des Kaeufers,
@@ -145,13 +148,16 @@ class PurchaseLead
                 throw LeadNotPurchasableException::alreadyTaken();
             }
 
-            $purchase = LeadPurchase::query()->create([
-                'lead_id' => $lead->getKey(),
-                'buyer_tenant_id' => $buyer->getKey(),
-                'price_cents' => $this->priceCentsOf($lead),
-                'currency' => strtoupper((string) config('app.default_currency')),
-                'purchased_at' => now(),
-            ]);
+            // Zwischen Anzeige und Sperre kann der Verkaeufer seinen Preis
+            // geaendert haben; unter der Sperre ist die Pruefung verbindlich.
+            $this->guardPrice($locked, $priceShownCents);
+
+            // Legt den Beleg an, schreibt Preis, Provisionssatz und
+            // Verkaeuferanteil fest und blockt den Kaufpreis auf dem
+            // Kaeufer-Wallet. Reicht das verfuegbare Guthaben nicht, wirft der
+            // Dienst eine InsufficientFundsException -- dann faellt die
+            // gesamte Transaktion zurueck, samt Kaufbeleg.
+            $purchase = $this->purchases->reserve($locked, $buyer);
 
             // Mit dem ersten Kauf ist der Lead ausgeliefert -- ab hier laeuft
             // die Frist der Erreichbarkeitspruefung (FB-084, Ticket #11). Bei
@@ -172,11 +178,6 @@ class PurchaseLead
                 $lead->forceFill($locked->only(['delivered_at', 'deadline_at']))
                     ->syncOriginalAttributes(['delivered_at', 'deadline_at']);
             }
-
-            // Wirft InsufficientCreditsException, wenn das Guthaben nicht
-            // reicht -- dann faellt die gesamte Transaktion zurueck, samt
-            // Kaufbeleg.
-            $this->credits->debit($buyer, self::CREDITS_PER_LEAD, $purchase);
 
             $maxBuyers = $this->funnelOf($lead)?->effectiveMaxBuyers() ?? 1;
             $sold = LeadPurchase::query()->where('lead_id', $lead->getKey())->count();
@@ -236,38 +237,41 @@ class PurchaseLead
     }
 
     /**
-     * Preis in der kleinsten Waehrungseinheit.
+     * Der Preis, den der Kaeufer gesehen hat, muss der Preis sein, den der
+     * Verkaeufer heute verlangt.
      *
-     * Massgeblich ist der beim Anlegen des Leads festgehaltene Preis, nicht der
-     * heutige Funnelpreis: Der Kaeufer kauft den Lead zu dem Preis, zu dem er
-     * ihm angeboten wurde (Architekturleitsatz 4).
+     * Ohne diese Klammer koennte ein Verkaeufer den Preis erhoehen, waehrend
+     * der Kaeufer die Marktplatzseite noch offen hat -- der Klick buchte dann
+     * mehr ab als angezeigt. Beim Autokauf (FB-056) gibt es keine angezeigte
+     * Seite; dort entscheidet das Kaufprofil und die Pruefung entfaellt.
+     *
+     * @throws LeadNotPurchasableException wenn sich der Preis geaendert hat
      */
-    private function priceCentsOf(Lead $lead): int
+    private function guardPrice(Lead $lead, ?int $priceShownCents): void
     {
-        $funnel = $this->funnelOf($lead);
-
-        // Im Mehrfachverkauf zahlt jeder Kaeufer den Anteilspreis -- er bekommt
-        // den Lead nicht allein. Massgeblich ist der beim Anlegen des Leads
-        // festgeschriebene Anteilspreis (FB-055a), nicht der heutige Wert am
-        // Funnel: Der Kaeufer kauft zu dem Preis, zu dem der Lead ihm angeboten
-        // wurde (Architekturleitsatz 4).
-        if ($funnel !== null && $funnel->sale_mode->isShared()) {
-            $shared = $lead->getAttribute('shared_price_at_creation');
-
-            if (! is_numeric($shared)) {
-                $shared = $funnel->effectiveSharedPrice();
-            }
-
-            return (int) round(((float) $shared) * 100);
+        if ($priceShownCents === null) {
+            return;
         }
 
-        $price = $lead->getAttribute('price_at_creation');
-
-        if (! is_numeric($price)) {
-            $price = (float) config('funnel.lead.default_price');
+        if ($priceShownCents !== $this->currentPriceCentsOf($lead)) {
+            throw LeadNotPurchasableException::priceChanged();
         }
+    }
 
-        return (int) round(((float) $price) * 100);
+    /**
+     * Der heute gueltige Verkaufspreis dieses Leads.
+     *
+     * Massgeblich ist die Preisvorgabe des Verkaeufers (LP-WALLET-003) -- also
+     * des Mandanten, dem der Lead gehoert. Festgeschrieben wird der Preis erst
+     * im Kaufbeleg durch den PurchaseService.
+     */
+    public function currentPriceCentsOf(Lead $lead): int
+    {
+        $seller = $lead->tenant;
+
+        return $seller instanceof Tenant
+            ? (int) $seller->lead_price_cents
+            : (int) config('wallet.default_lead_price_cents');
     }
 
     /**

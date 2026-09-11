@@ -2,9 +2,10 @@
     Allgemeine Geschaeftsbedingungen (Ticket #33).
 
     Loest den englischen Starterkit-Text ab, der ein allgemeines Abo-SaaS
-    beschrieb. Der Inhalt bildet den tatsaechlichen Betrieb ab: Guthaben als
-    Zahlmittel, Kauf einer Anfrage, Erreichbarkeitspruefung, Reklamation mit
-    Gutschrift und Abrechnung nach Fristablauf.
+    beschrieb. Der Inhalt bildet den tatsaechlichen Betrieb ab: ein Guthaben in
+    Euro als Zahlmittel, Kauf einer Anfrage mit Reservierung des Kaufpreises,
+    Erreichbarkeitspruefung, Reklamation mit Gutschrift und Einzug nach
+    Fristablauf (Ticket #27, Wallet-Cutover).
 
     Der Anbieter kommt aus App\Services\CompanyProfile, also aus den
     Rechnungseinstellungen im Admin -- dieselbe Quelle wie Impressum,
@@ -12,8 +13,9 @@
     Block leer statt erfunden.
 
     Fristen, Versuchszahlen und Preise stehen nicht als Zahl im Text, sondern
-    kommen aus config('funnel.*'); sonst laufen Bedingungen und Programm
-    auseinander.
+    kommen aus config('funnel.*') und config('wallet.*'); sonst laufen
+    Bedingungen und Programm auseinander. Geldbetraege werden wie im gesamten
+    Marktplatz ueber App\Support\Money formatiert.
 
     Die Formulierungen sind fachlich, aber nicht anwaltlich geprueft.
 --}}
@@ -65,15 +67,17 @@
 
                 <div>
                     <h2 class="font-semibold text-zinc-900 mb-2">4. Guthaben und Preise</h2>
-                    <p>Anfragen werden nicht einzeln in Euro bezahlt, sondern mit Guthaben. Guthaben wird im Voraus in Paketen erworben. Ein Guthaben kostet {{ number_format((float) config('funnel.marketplace.credit.unit_price'), 2, ',', '.') }} Euro zuzüglich Umsatzsteuer.</p>
-                    <p class="mt-3">Der Kauf einer Anfrage kostet ein Guthaben. Reicht das Guthaben nicht, kommt kein Kauf zustande.</p>
-                    <p class="mt-3">Die Zahlung der Pakete läuft über unsere Zahlungsdienstleister. Guthaben verfällt nicht. Eine Auszahlung nicht verbrauchten Guthabens in Geld ist nicht vorgesehen; bei Beendigung des Vertragsverhältnisses aus einem Grund, den wir zu vertreten haben, erstatten wir den auf nicht verbrauchtes Guthaben entfallenden Betrag.</p>
-                    <p class="mt-3">Über jede Aufladung erhält der Käufer eine Rechnung in seinem Konto.</p>
+                    <p>Anfragen werden in Euro aus einem Guthabenkonto bezahlt, das der Käufer im Voraus auflädt. Der Aufladebetrag ist frei wählbar; eine einzelne Aufladung beträgt mindestens {{ \App\Support\Money::format((int) config('wallet.topup_min_cents')) }} und höchstens {{ \App\Support\Money::format((int) config('wallet.topup_max_cents')) }}. Alle Beträge verstehen sich zuzüglich Umsatzsteuer.</p>
+                    <p class="mt-3">Was eine Anfrage kostet, legt der Betreiber des jeweiligen Portals fest. Der Preis wird bei jeder Anfrage im Marktplatz ausgewiesen und gilt für diesen Kauf in der Höhe, die zum Zeitpunkt des Kaufs angezeigt wird. Ohne eigene Festlegung gilt ein Preis von {{ \App\Support\Money::format((int) config('wallet.default_lead_price_cents')) }} je Anfrage.</p>
+                    <p class="mt-3">Die Zahlung der Aufladungen läuft über unsere Zahlungsdienstleister. Guthaben verfällt nicht. Eine Auszahlung nicht verbrauchten Kaufguthabens im laufenden Betrieb ist nicht vorgesehen; bei Beendigung des Vertragsverhältnisses aus einem Grund, den wir zu vertreten haben, erstatten wir das nicht verbrauchte Guthaben.</p>
+                    <p class="mt-3">Bietet ein Nutzer selbst Anfragen über das Portal an, schreiben wir ihm den Kaufpreis abzüglich unserer Provision von {{ (int) config('wallet.commission_percent') }} Prozent gut, sobald der Kauf abgerechnet ist. Ein Guthaben ab {{ \App\Support\Money::format((int) config('wallet.payout_min_cents')) }} kann er zur Auszahlung anfordern; wir überweisen es auf das von ihm angegebene Konto.</p>
+                    <p class="mt-3">Über jede Aufladung erhält der Käufer eine Rechnung in seinem Konto. Jede Bewegung des Guthabens ist im Konto einzeln nachvollziehbar.</p>
                 </div>
 
                 <div>
                     <h2 class="font-semibold text-zinc-900 mb-2">5. Kauf einer Anfrage</h2>
-                    <p>Der Käufer wählt eine Anfrage im Marktplatz aus oder lässt sie über ein Kaufprofil automatisch erwerben. Mit dem Kauf belasten wir ein Guthaben und geben die Kontaktdaten des Interessenten frei. Vor dem Kauf sieht der Käufer die fachlichen Angaben und einen unkenntlich gemachten Auszug der Kontaktdaten.</p>
+                    <p>Der Käufer wählt eine Anfrage im Marktplatz aus oder lässt sie über ein Kaufprofil automatisch erwerben. Mit dem Kauf halten wir den Kaufpreis auf seinem Guthabenkonto zurück und geben die Kontaktdaten des Interessenten frei. Reicht das freie Guthaben nicht, kommt kein Kauf zustande. Vor dem Kauf sieht der Käufer die fachlichen Angaben und einen unkenntlich gemachten Auszug der Kontaktdaten.</p>
+                    <p class="mt-3">Der zurückgehaltene Betrag wird erst eingezogen, wenn der Interessent nach Abschnitt 6 als erreicht gilt oder die Frist nach Abschnitt 7 ohne Reklamation abgelaufen ist. Gilt der Interessent als nicht erreichbar, geben wir den Betrag wieder frei; er steht dann für weitere Käufe zur Verfügung.</p>
                     <p class="mt-3">Eine für den Kauf vorgemerkte Anfrage bleibt {{ (int) config('funnel.lead.reservation_ttl') }} Minuten reserviert; danach ist sie wieder für andere Käufer verfügbar.</p>
                     <p class="mt-3">Eine Anfrage kann an mehr als einen Fachbetrieb verkauft werden, sofern nicht für das jeweilige Portal ausdrücklich Exklusivität ausgewiesen ist.</p>
                 </div>
@@ -92,7 +96,7 @@
                         <li><span class="font-medium text-zinc-900">Unerreichbar</span> – der Interessent war trotz ausgeschöpfter Kontaktversuche nach Abschnitt 6 nicht zu erreichen.</li>
                         <li><span class="font-medium text-zinc-900">Ungültig</span> – die Angaben sind unbrauchbar, etwa eine nicht existierende Rufnummer, ein offensichtlicher Scherzeintrag oder ein Anliegen, das nicht zum Portal gehört.</li>
                     </ul>
-                    <p class="mt-3">Über eine Reklamation entscheiden wir nach Prüfung; die Anrufprotokolle sind dabei die Grundlage. Erkennen wir die Reklamation an, schreiben wir das beim Kauf belastete Guthaben zurück. Lehnen wir sie ab, teilen wir den Grund mit, und die Anfrage bleibt abgerechnet.</p>
+                    <p class="mt-3">Über eine Reklamation entscheiden wir nach Prüfung; die Anrufprotokolle sind dabei die Grundlage. Erkennen wir die Reklamation an, geben wir den zurückgehaltenen Kaufpreis frei oder schreiben ihn gut, falls er bereits eingezogen war. Lehnen wir sie ab, teilen wir den Grund mit, und die Anfrage bleibt abgerechnet.</p>
                     <p class="mt-3">Ein unzureichendes Ergebnis ist kein Reklamationsgrund: Dass ein erreichter Interessent kein Angebot annimmt, seine Meinung ändert oder nicht zum Käufer passt, berührt den Kaufpreis nicht.</p>
                     <p class="mt-3">Reklamiert der Käufer nicht innerhalb der Frist, gilt die Anfrage als erreicht und endgültig abgerechnet. Eine verspätete Reklamation ist ausgeschlossen.</p>
                     <p class="mt-3">Reklamationen in erheblichem Umfang oder ohne erkennbare Grundlage können wir zum Anlass nehmen, das Konto zu prüfen und den automatischen Kauf auszusetzen.</p>

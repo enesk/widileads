@@ -40,8 +40,17 @@ class LeadPurchaseThroughAction implements LeadPurchaseAction
             && $this->tenantTypes->canAccessMarketplace($buyer);
     }
 
-    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null, ?int $priceShownCents = null): LeadPurchase
     {
-        return $this->purchaseLead->handle($buyer, $lead, $actor);
+        return $this->purchaseLead->handle($buyer, $lead, $actor, $priceShownCents);
+    }
+
+    /**
+     * Der heute gueltige Preis dieses Leads in Cent -- das, was der Marktplatz
+     * anzeigt und beim Kauf zurueckschickt.
+     */
+    public function priceCentsOf(Lead $lead): int
+    {
+        return $this->purchaseLead->currentPriceCentsOf($lead);
     }
 }

@@ -9,20 +9,22 @@ use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
 use App\Constants\TenantType;
-use App\Exceptions\InsufficientCreditsException;
+use App\Constants\WalletTransactionType;
+use App\Exceptions\InsufficientFundsException;
 use App\Exceptions\LeadNotPurchasableException;
 use App\Mail\Lead\LeadPurchased as LeadPurchasedMail;
 use App\Models\BuyerRegistration;
-use App\Models\CreditLedgerEntry;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadAnswer;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\CreditLedgerService;
+use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Services\LeadReservationService;
 use App\Services\LeadStateService;
+use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Tests\Feature\FeatureTest;
@@ -46,9 +48,15 @@ class PurchaseLeadTest extends FeatureTest
 
     private const PHONE = '+493012345678';
 
-    private function operatorLead(int $priceEuro = 15): Lead
+    private function operatorLead(int $priceCents = 1500): Lead
     {
-        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        // Der Verkaufspreis haengt seit LP-WALLET-003 am Verkaeufer-Mandanten,
+        // nicht mehr am Lead: Der PurchaseService liest tenants.lead_price_cents
+        // und schreibt ihn erst im Kaufbeleg fest.
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => $priceCents,
+        ]);
 
         $funnel = Funnel::factory()->create([
             'tenant_id' => $operator->getKey(),
@@ -60,7 +68,7 @@ class PurchaseLeadTest extends FeatureTest
             'tenant_id' => $operator->getKey(),
             'funnel_id' => $funnel->getKey(),
             'score' => 12,
-            'price_at_creation' => $priceEuro,
+            'price_at_creation' => $priceCents / 100,
             'email_normalized' => self::EMAIL,
             'phone_e164' => self::PHONE,
         ]);
@@ -76,26 +84,40 @@ class PurchaseLeadTest extends FeatureTest
     /**
      * @return array{Tenant, User}
      */
-    private function approvedBuyer(int $credits = 0): array
+    private function approvedBuyer(int $balanceCents = 0): array
     {
         $tenant = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
 
         $user = User::factory()->create();
         $tenant->users()->attach($user);
 
-        if ($credits > 0) {
-            app(CreditLedgerService::class)->purchase($tenant, $credits, $credits * 1500);
+        if ($balanceCents > 0) {
+            app(WalletService::class)->post(
+                wallet: Wallet::forBuyer($tenant),
+                type: WalletTransactionType::TOPUP,
+                amountCents: $balanceCents,
+                description: 'Aufladung im Test',
+            );
         }
 
         return [$tenant, $user];
+    }
+
+    /**
+     * Der frei verfuegbare Saldo eines Kaeufers in Cent -- also das, was er
+     * noch ausgeben kann, abzueglich der geblockten Reservierungen.
+     */
+    private function availableCentsOf(Tenant $buyer): int
+    {
+        return (int) Wallet::forBuyer($buyer)->refresh()->available_cents;
     }
 
     public function test_two_parallel_purchases_of_the_same_lead_leave_exactly_one_winner(): void
     {
         $lead = $this->operatorLead();
 
-        [$first, $firstUser] = $this->approvedBuyer(credits: 5);
-        [$second, $secondUser] = $this->approvedBuyer(credits: 5);
+        [$first, $firstUser] = $this->approvedBuyer(balanceCents: 7500);
+        [$second, $secondUser] = $this->approvedBuyer(balanceCents: 7500);
 
         $action = app(PurchaseLead::class);
 
@@ -127,9 +149,11 @@ class PurchaseLeadTest extends FeatureTest
         $this->assertSame($first->getKey(), LeadPurchase::query()->sole()->buyer_tenant_id);
         $this->assertSame(LeadState::VERKAUFT, $lead->fresh()->lead_state);
 
-        // Und nur der Gewinner hat bezahlt.
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($first->fresh()));
-        $this->assertSame(5, app(CreditLedgerService::class)->balanceFor($second->fresh()));
+        // Und nur beim Gewinner ist Geld geblockt: Der Kaufpreis steht als
+        // Reservierung auf seinem Wallet, der Verlierer hat den vollen Betrag
+        // weiterhin frei.
+        $this->assertSame(6000, $this->availableCentsOf($first));
+        $this->assertSame(7500, $this->availableCentsOf($second));
     }
 
     /**
@@ -150,8 +174,8 @@ class PurchaseLeadTest extends FeatureTest
     {
         $lead = $this->operatorLead();
 
-        [$winner, $winnerUser] = $this->approvedBuyer(credits: 5);
-        [$loser, $loserUser] = $this->approvedBuyer(credits: 5);
+        [$winner, $winnerUser] = $this->approvedBuyer(balanceCents: 7500);
+        [$loser, $loserUser] = $this->approvedBuyer(balanceCents: 7500);
 
         // Der Verlierer haelt den Lead in der Hand, so wie er ihn im Marktplatz
         // gesehen hat: verfuegbar.
@@ -211,7 +235,7 @@ class PurchaseLeadTest extends FeatureTest
         $this->assertSame($winner->getKey(), LeadPurchase::query()->sole()->buyer_tenant_id);
 
         // Der Verlierer hat nichts bezahlt.
-        $this->assertSame(5, app(CreditLedgerService::class)->balanceFor($loser->fresh()));
+        $this->assertSame(7500, $this->availableCentsOf($loser));
 
         // Und der Lead bleibt verkauft -- der gescheiterte Versuch hat ihn
         // nicht in die Reservierung zurueckgeworfen.
@@ -222,8 +246,8 @@ class PurchaseLeadTest extends FeatureTest
     {
         $lead = $this->operatorLead();
 
-        [$winner, $winnerUser] = $this->approvedBuyer(credits: 5);
-        [$loser, $loserUser] = $this->approvedBuyer(credits: 5);
+        [$winner, $winnerUser] = $this->approvedBuyer(balanceCents: 7500);
+        [$loser, $loserUser] = $this->approvedBuyer(balanceCents: 7500);
 
         // Der Gewinner haelt den Lead bereits reserviert -- so sieht der
         // Zwischenstand aus, wenn zwei Klicks Millisekunden auseinanderliegen.
@@ -239,19 +263,23 @@ class PurchaseLeadTest extends FeatureTest
         $lead = $this->operatorLead();
 
         // Kein Guthaben: Der Kauf muss vollstaendig zurueckfallen.
-        [$buyer, $user] = $this->approvedBuyer(credits: 0);
+        [$buyer, $user] = $this->approvedBuyer(balanceCents: 0);
 
         try {
             app(PurchaseLead::class)->handle($buyer, $lead, $user);
             $this->fail('Ein Kauf ohne Guthaben muss abgewiesen werden.');
-        } catch (InsufficientCreditsException) {
+        } catch (InsufficientFundsException) {
             // erwartet
         }
 
-        // Weder Beleg noch Buchung -- und der Saldo unveraendert bei null.
+        // Weder Beleg noch Buchung -- und beide Salden unveraendert bei null.
         $this->assertSame(0, LeadPurchase::query()->count());
-        $this->assertSame(0, CreditLedgerEntry::query()->withoutGlobalScope('tenant')->count());
-        $this->assertSame(0, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(0, WalletTransaction::query()->count());
+
+        $wallet = Wallet::forBuyer($buyer)->refresh();
+
+        $this->assertSame(0, (int) $wallet->balance_cents);
+        $this->assertSame(0, (int) $wallet->reserved_cents);
 
         // Und der Lead haengt nicht in der Reservierung fest: Ein Lead, den
         // niemand kaufen kann, muss wieder angeboten werden.
@@ -262,14 +290,66 @@ class PurchaseLeadTest extends FeatureTest
         $this->assertNull($lead->reserved_until);
     }
 
+    /**
+     * Der Verkaeufer hebt seinen Preis an, waehrend der Kaeufer die
+     * Marktplatzseite offen hat (LP-WALLET-007).
+     *
+     * Der Klick darf dann nicht stillschweigend teurer abgerechnet werden. Und
+     * weil der Kauf schon vor der Reservierung scheitert, bleibt der Lead im
+     * Angebot -- ohne Beleg, ohne geblocktes Geld.
+     */
+    public function test_a_price_changed_since_the_page_was_rendered_stops_the_purchase(): void
+    {
+        $lead = $this->operatorLead(priceCents: 1500);
+
+        [$buyer, $user] = $this->approvedBuyer(balanceCents: 7500);
+
+        try {
+            // Der Kaeufer hat noch 12,00 EUR auf dem Bildschirm stehen.
+            app(PurchaseLead::class)->handle($buyer, $lead, $user, priceShownCents: 1200);
+            $this->fail('Ein geaenderter Preis muss den Kauf abweisen.');
+        } catch (LeadNotPurchasableException $exception) {
+            $this->assertSame(__('marketplace.purchase.errors.price_changed'), $exception->getMessage());
+        }
+
+        $this->assertSame(0, LeadPurchase::query()->count());
+        $this->assertSame(0, WalletTransaction::query()->where('type', WalletTransactionType::RESERVE)->count());
+        $this->assertSame(7500, $this->availableCentsOf($buyer));
+
+        $lead->refresh();
+
+        $this->assertSame(LeadState::VERFUEGBAR, $lead->lead_state);
+        $this->assertNull($lead->reserved_by);
+        $this->assertNull($lead->reserved_until);
+    }
+
+    /**
+     * Derselbe Preis, wie die Seite ihn genannt hat -- der Regelfall, der
+     * durchgehen muss. Ohne ihn belegte der Test oben nur, dass die Pruefung
+     * ueberhaupt etwas abweist.
+     */
+    public function test_the_displayed_price_matching_the_sellers_price_goes_through(): void
+    {
+        Mail::fake();
+
+        $lead = $this->operatorLead(priceCents: 1500);
+
+        [$buyer, $user] = $this->approvedBuyer(balanceCents: 7500);
+
+        $purchase = app(PurchaseLead::class)->handle($buyer, $lead, $user, priceShownCents: 1500);
+
+        $this->assertSame(1500, $purchase->price_cents);
+        $this->assertSame(6000, $this->availableCentsOf($buyer));
+    }
+
     public function test_only_the_buying_tenant_sees_clear_text_after_the_purchase(): void
     {
         Mail::fake();
 
         $lead = $this->operatorLead();
 
-        [$buyer, $buyingUser] = $this->approvedBuyer(credits: 5);
-        [, $otherUser] = $this->approvedBuyer(credits: 5);
+        [$buyer, $buyingUser] = $this->approvedBuyer(balanceCents: 7500);
+        [, $otherUser] = $this->approvedBuyer(balanceCents: 7500);
 
         // Vor dem Kauf sieht auch der spaetere Kaeufer nichts.
         $this->assertTrue($lead->contactFor($buyingUser)->masked);
@@ -282,7 +362,12 @@ class PurchaseLeadTest extends FeatureTest
 
         $this->assertFalse($bought->masked);
         $this->assertSame(self::EMAIL, $bought->email);
-        $this->assertSame(self::PHONE, $bought->phone);
+
+        // Die Rufnummer bleibt trotz Kauf verdeckt, bis die
+        // Erreichbarkeitspruefung mit `billable` geendet hat (FB-085) --
+        // angerufen wird bis dahin ueber die Bridge.
+        $this->assertTrue($bought->phoneMasked);
+        $this->assertSame($lead->maskedPhone(), $bought->phone);
 
         // Ein anderer Kaeufer bleibt aussen vor -- der Kauf gilt fuer einen
         // Mandanten, nicht fuer alle.
@@ -294,36 +379,45 @@ class PurchaseLeadTest extends FeatureTest
 
     public function test_the_price_is_frozen_at_purchase_and_settled_on_the_final_state(): void
     {
-        $lead = $this->operatorLead(priceEuro: 22);
+        $lead = $this->operatorLead(priceCents: 2200);
 
-        [$buyer, $user] = $this->approvedBuyer(credits: 5);
+        [$buyer, $user] = $this->approvedBuyer(balanceCents: 7500);
 
         $purchase = app(PurchaseLead::class)->handle($buyer, $lead, $user);
 
-        // Der Preis, zu dem der Lead angeboten wurde -- nicht der heutige
-        // Funnelpreis (Architekturleitsatz 4).
+        // Der Preis, den der Verkaeufer beim Kauf verlangt hat -- danach im
+        // Beleg festgeschrieben und nie wieder nachgeschlagen
+        // (Architekturleitsatz 4).
         $this->assertSame(2200, $purchase->price_cents);
-        $this->assertSame(strtoupper((string) config('app.default_currency')), $purchase->currency);
+        $this->assertSame((string) config('wallet.currency'), $purchase->currency);
 
-        // Die Abbuchung traegt den Kaufbeleg als Referenz.
-        $debit = CreditLedgerEntry::query()->withoutGlobalScope('tenant')
-            ->where('type', 'debit')->sole();
+        // Geblockt, nicht abgebucht: Bezahlt wird erst, wenn der Lead
+        // abgerechnet ist (LP-WALLET-008).
+        $wallet = Wallet::forBuyer($buyer)->refresh();
 
-        $this->assertSame(-1, $debit->credits);
-        $this->assertSame($purchase->getKey(), $debit->reference_id);
+        $this->assertSame(7500, (int) $wallet->balance_cents);
+        $this->assertSame(2200, (int) $wallet->reserved_cents);
+
+        // Und die Buchung traegt den Kaufbeleg als Referenz.
+        $reservation = WalletTransaction::query()
+            ->where('type', WalletTransactionType::RESERVE)->sole();
+
+        $this->assertSame(2200, (int) $reservation->amount_cents);
+        $this->assertSame($purchase->getKey(), $reservation->reference_id);
+        $this->assertSame(LeadPurchase::class, $reservation->reference_type);
     }
 
     public function test_an_expired_reservation_returns_the_lead_to_the_marketplace(): void
     {
         $lead = $this->operatorLead();
 
-        [$buyer, $user] = $this->approvedBuyer(credits: 0);
+        [$buyer, $user] = $this->approvedBuyer(balanceCents: 0);
 
         // Ein abgebrochener Kauf, der die Reservierung stehen liesse -- hier
         // von Hand gestellt, weil der Abbruch sie sonst selbst zurueckgibt.
         try {
             app(PurchaseLead::class)->handle($buyer, $lead, $user);
-        } catch (InsufficientCreditsException) {
+        } catch (InsufficientFundsException) {
             // erwartet
         }
 

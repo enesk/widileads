@@ -1,7 +1,7 @@
 <x-layouts.focus-center :backButton="false">
 
     <x-slot name="title">
-        {{ __('Top up credits') }}
+        {{ __('marketplace.wallet.top_up.title') }}
     </x-slot>
 
     {{-- Checkout bleibt ablenkungsfrei: keine Navigation, kein Eyebrow, ein Weg
@@ -14,10 +14,10 @@
         </a>
 
         <h1 class="text-3xl font-bold tracking-tight text-primary-900 md:text-4xl">
-            {{ __('Top up credits') }}
+            {{ __('marketplace.wallet.top_up.title') }}
         </h1>
         <p class="mt-2 text-neutral-500">
-            {{ __('Credits let you buy leads in the marketplace. They do not expire.') }}
+            {{ __('marketplace.wallet.top_up.checkout_hint') }}
         </p>
 
         <div class="mt-8">

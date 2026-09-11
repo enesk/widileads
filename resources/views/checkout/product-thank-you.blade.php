@@ -2,9 +2,11 @@
 
     <x-slot name="title">
         @if ($order === null)
-            {{ __('Order not found') }}
+            {{ __('marketplace.wallet.top_up.success.unknown_heading') }}
         @else
-            {{ $isPending ? __('Almost there') : __('Credits topped up') }}
+            {{ $isPending
+                ? __('marketplace.wallet.top_up.success.pending_heading')
+                : __('marketplace.wallet.top_up.success.heading') }}
         @endif
     </x-slot>
 
@@ -12,6 +14,10 @@
         $marketplaceUrl = ($order !== null && ($tenant ?? null) !== null)
             ? route('filament.dashboard.pages.marketplace', ['tenant' => $tenant])
             : route('home');
+
+        // Angezeigt wird Geld, gerechnet wird in Cent: Die Betraege kommen als
+        // Cent herein und werden hier nur formatiert (LP-WALLET-009).
+        $money = static fn (int $cents): string => number_format($cents / 100, 2, ',', '.').' €';
     @endphp
 
     <div class="mx-auto max-w-lg px-4 py-16 md:py-24">
@@ -25,10 +31,10 @@
                 </span>
 
                 <h1 class="text-2xl font-bold tracking-tight text-primary-900 md:text-3xl">
-                    {{ __('We do not know this order') }}
+                    {{ __('marketplace.wallet.top_up.success.unknown_heading') }}
                 </h1>
                 <p class="max-w-sm text-neutral-700">
-                    {{ __('The link may have expired. You will find your credits in the marketplace.') }}
+                    {{ __('marketplace.wallet.top_up.success.unknown_text') }}
                 </p>
 
                 <a href="{{ $marketplaceUrl }}"
@@ -48,28 +54,30 @@
                 </span>
 
                 <h1 class="text-2xl font-bold tracking-tight text-primary-900 md:text-3xl">
-                    {{ $isPending ? __('Almost there') : __('Credits topped up') }}
+                    {{ $isPending
+                        ? __('marketplace.wallet.top_up.success.pending_heading')
+                        : __('marketplace.wallet.top_up.success.heading') }}
                 </h1>
 
                 <p class="max-w-sm text-neutral-700">
                     @if ($isPending)
-                        {{ __('As soon as the payment is confirmed we will add your credits. For bank transfers this usually takes one to two working days.') }}
+                        {{ __('marketplace.wallet.top_up.success.pending_text') }}
                     @else
-                        {{ trans_choice(':count lead credits have been added.|:count lead credits have been added.', $credits, ['count' => $credits]) }}
+                        {{ __('marketplace.wallet.top_up.success.text', ['amount' => $money($amountCents)]) }}
                     @endif
                 </p>
 
                 {{-- Der wichtigste Wert der Seite: was jetzt auf dem Konto steht. --}}
                 <div class="mt-2 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-6 py-4 sm:max-w-xs">
                     <div class="text-sm text-neutral-500">
-                        {{ $isPending ? __('Your credits') : __('Your credits now') }}
+                        {{ __('marketplace.wallet.top_up.success.balance_label') }}
                     </div>
                     <div class="text-3xl font-semibold tabular-nums text-primary-900">
-                        {{ trans_choice(':count leads|:count leads', $balance, ['count' => $balance]) }}
+                        {{ $money($balanceCents) }}
                     </div>
-                    @if ($isPending && $credits > 0)
+                    @if ($isPending && $amountCents > 0)
                         <div class="text-sm text-neutral-500">
-                            {{ __('+:count once the payment arrives', ['count' => $credits]) }}
+                            {{ __('marketplace.wallet.top_up.success.pending_addition', ['amount' => $money($amountCents)]) }}
                         </div>
                     @endif
                 </div>

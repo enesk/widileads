@@ -21,9 +21,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  * Rechnet nichts ab, sondern legt Rechenschaft ab: Was hat der Kaeufer in
  * diesem Monat bekommen, was ist daraus geworden, und wie hat sich sein
- * Guthaben bewegt. Bezahlt wird im Voraus per Guthaben (Entscheidung 1); die
- * Rechnungen dazu stellt SaaSykit beim Kauf des Pakets aus und werden hier nur
- * verknuepft.
+ * Wallet bewegt. Bezahlt wird im Voraus aus dem Wallet (Entscheidung 1); die
+ * Rechnungen dazu stellt SaaSykit beim Aufladen aus und werden hier nur
+ * verknuepft. Alle Geldwerte sind Betraege, keine Stueckzahlen.
  */
 class BuyerBilling extends Page
 {
@@ -139,9 +139,10 @@ class BuyerBilling extends Page
             fputcsv($handle, [], ';');
             fputcsv($handle, [__('marketplace.billing.purchases'), $statement['purchases']], ';');
             fputcsv($handle, [__('marketplace.billing.revenue'), $statement['revenue_cents'] / 100, $statement['currency']], ';');
-            fputcsv($handle, [__('marketplace.billing.credits_debited'), $statement['credits_debited']], ';');
-            fputcsv($handle, [__('marketplace.billing.credits_refunded'), $statement['credits_refunded']], ';');
-            fputcsv($handle, [__('marketplace.billing.credits_purchased'), $statement['credits_purchased']], ';');
+            fputcsv($handle, [__('marketplace.billing.topped_up'), $statement['topped_up_cents'] / 100, $statement['currency']], ';');
+            fputcsv($handle, [__('marketplace.billing.captured'), $statement['captured_cents'] / 100, $statement['currency']], ';');
+            fputcsv($handle, [__('marketplace.billing.refunded'), $statement['refunded_cents'] / 100, $statement['currency']], ';');
+            fputcsv($handle, [__('marketplace.billing.captured_expected'), $statement['captured_expected_cents'] / 100, $statement['currency']], ';');
 
             fclose($handle);
         }, sprintf('abrechnung-%s-%s.csv', $buyer->getKey(), $statement['month']), [

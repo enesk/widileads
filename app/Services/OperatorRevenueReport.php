@@ -4,19 +4,28 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Constants\CreditLedgerType;
-use App\Models\LeadPurchase;
+use App\Constants\PurchaseStatus;
 use App\Models\Tenant;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use stdClass;
 
 /**
- * Umsatzuebersicht eines Betreibers (FB-072).
+ * Umsatzuebersicht eines Betreibers (FB-072, auf das Wallet umgestellt mit
+ * LP-WALLET-022).
  *
  * Was haben die eigenen Funnels eingebracht, und was ist davon wieder
  * abgegangen? Aufgeschluesselt je Funnel und je Kaeufer.
+ *
+ * **Gezeigt wird der Erloes, nicht der Kaufpreis.** Massgeblich ist
+ * `seller_net_cents` -- der Betrag, der nach Abzug der Plattformprovision im
+ * Verkaeufer-Wallet landet. Der Bruttopreis waere die groessere, aber falsche
+ * Zahl: Sie stuende neben einem Wallet-Saldo, der sie nie erreicht.
+ *
+ * **Gutschriften kommen aus dem Kaufbeleg.** Eine anerkannte Reklamation setzt
+ * den Kauf ueber PurchaseService::refund() auf `refunded` und bucht den Erloes
+ * beim Verkaeufer zurueck. Der Stand des Belegs ist damit die Quelle -- das
+ * Guthabenjournal wird nicht mehr gelesen.
  *
  * Gerechnet wird durchgaengig in der kleinsten Waehrungseinheit -- Cent, nie
  * Gleitkomma. Ein Rundungsfehler in einer Umsatzuebersicht faellt niemandem
@@ -37,12 +46,10 @@ class OperatorRevenueReport
      */
     public function for(Tenant $tenant, ?Carbon $from = null, ?Carbon $until = null): array
     {
-        $refunds = $this->refundsByPurchase($tenant, $from, $until);
-
         return [
-            'by_funnel' => $this->group($tenant, $from, $until, 'funnels.name', $refunds),
-            'by_buyer' => $this->group($tenant, $from, $until, 'buyers.name', $refunds),
-            'totals' => $this->group($tenant, $from, $until, null, $refunds),
+            'by_funnel' => $this->group($tenant, $from, $until, 'funnels.name'),
+            'by_buyer' => $this->group($tenant, $from, $until, 'buyers.name'),
+            'totals' => $this->group($tenant, $from, $until, null),
         ];
     }
 
@@ -54,11 +61,12 @@ class OperatorRevenueReport
      * GROUP BY als zwei verschiedene Ausdruecke da und faellt MySQL im Modus
      * `only_full_group_by` auf die Fuesse.
      *
-     * @param  array<int, int>  $refunds  Kauf-ID => gutgeschriebene Cent
      * @return list<array<string, mixed>>
      */
-    private function group(Tenant $tenant, ?Carbon $from, ?Carbon $until, ?string $labelColumn, array $refunds): array
+    private function group(Tenant $tenant, ?Carbon $from, ?Carbon $until, ?string $labelColumn): array
     {
+        $refunded = 'lead_purchases.status = ?';
+
         $rows = $this->purchaseQuery($tenant, $from, $until)
             ->when(
                 $labelColumn !== null,
@@ -66,22 +74,26 @@ class OperatorRevenueReport
             )
             ->selectRaw('lead_purchases.currency as currency')
             ->selectRaw('count(*) as sold')
-            ->selectRaw('sum(lead_purchases.price_cents) as revenue_cents')
-            ->selectRaw('group_concat(lead_purchases.id) as purchase_ids')
+            ->selectRaw('sum(lead_purchases.seller_net_cents) as revenue_cents')
+            ->selectRaw('sum(case when '.$refunded.' then 1 else 0 end) as refunds', [PurchaseStatus::REFUNDED->value])
+            ->selectRaw(
+                'sum(case when '.$refunded.' then lead_purchases.seller_net_cents else 0 end) as refunded_cents',
+                [PurchaseStatus::REFUNDED->value],
+            )
             ->groupBy('lead_purchases.currency')
             ->get();
 
         $result = [];
 
         foreach ($rows as $row) {
-            [$refundCount, $refundedCents] = $this->refundTotals($row, $refunds);
             $revenue = (int) $row->revenue_cents;
+            $refundedCents = (int) $row->refunded_cents;
 
             $entry = [
                 'currency' => (string) $row->currency,
                 'sold' => (int) $row->sold,
                 'revenue_cents' => $revenue,
-                'refunds' => $refundCount,
+                'refunds' => (int) $row->refunds,
                 'refunded_cents' => $refundedCents,
                 'net_cents' => $revenue - $refundedCents,
             ];
@@ -100,63 +112,6 @@ class OperatorRevenueReport
         usort($result, static fn (array $a, array $b): int => $b['net_cents'] <=> $a['net_cents']);
 
         return $result;
-    }
-
-    /**
-     * @param  array<int, int>  $refunds
-     * @return array{0: int, 1: int}
-     */
-    private function refundTotals(stdClass $row, array $refunds): array
-    {
-        $ids = array_filter(explode(',', (string) ($row->purchase_ids ?? '')));
-
-        $count = 0;
-        $cents = 0;
-
-        foreach ($ids as $id) {
-            $refunded = $refunds[(int) $id] ?? null;
-
-            if ($refunded === null) {
-                continue;
-            }
-
-            $count++;
-            $cents += $refunded;
-        }
-
-        return [$count, $cents];
-    }
-
-    /**
-     * Gutschriften je Kauf.
-     *
-     * Eine Gutschrift entsteht nach einer anerkannten Reklamation (FB-058) und
-     * traegt den Kauf als Beleg. Gebucht wird sie in Guthaben, nicht in Cent --
-     * fuer die Umsatzuebersicht zaehlt aber der Betrag, den der Kauf gekostet
-     * hat: Genau der geht dem Betreiber wieder ab.
-     *
-     * @return array<int, int> Kauf-ID => gutgeschriebene Cent
-     */
-    private function refundsByPurchase(Tenant $tenant, ?Carbon $from, ?Carbon $until): array
-    {
-        $rows = $this->purchaseQuery($tenant, $from, $until)
-            ->join('credit_ledger', function ($join): void {
-                $join->on('credit_ledger.reference_id', '=', 'lead_purchases.id')
-                    ->where('credit_ledger.reference_type', '=', LeadPurchase::class)
-                    ->where('credit_ledger.type', '=', CreditLedgerType::REFUND->value);
-            })
-            ->groupBy('lead_purchases.id')
-            ->selectRaw('lead_purchases.id as purchase_id')
-            ->selectRaw('lead_purchases.price_cents as price_cents')
-            ->get();
-
-        $refunds = [];
-
-        foreach ($rows as $row) {
-            $refunds[(int) $row->purchase_id] = (int) $row->price_cents;
-        }
-
-        return $refunds;
     }
 
     /**

@@ -45,6 +45,20 @@ interface LeadPurchaseAction
      * Den Beleg braucht die Oberflaeche, um den Kaeufer danach direkt auf
      * seinen Lead zu fuehren -- ohne ihn muesste sie den Kauf nachtraeglich
      * suchen und koennte im Mehrfachverkauf den falschen finden.
+     *
+     * @param  int|null  $priceShownCents  Preis, den die Oberflaeche dem Kaeufer
+     *                                     genannt hat. Weicht er vom heutigen
+     *                                     Preis des Verkaeufers ab, wird der
+     *                                     Kauf abgelehnt (LP-WALLET-007).
      */
-    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null): LeadPurchase;
+    public function purchase(Tenant $buyer, Lead $lead, ?User $actor = null, ?int $priceShownCents = null): LeadPurchase;
+
+    /**
+     * Der Preis dieses Leads in Cent, wie er dem Kaeufer anzuzeigen ist.
+     *
+     * Die Oberflaeche fragt ihn hier ab und schickt ihn beim Kauf als
+     * price_shown_cents zurueck -- so faellt auf, wenn der Verkaeufer den Preis
+     * inzwischen geaendert hat (LP-WALLET-007).
+     */
+    public function priceCentsOf(Lead $lead): int;
 }

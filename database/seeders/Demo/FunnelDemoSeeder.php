@@ -6,25 +6,34 @@ namespace Database\Seeders\Demo;
 
 use App\Actions\PublishFunnel;
 use App\Actions\PurchaseLead;
+use App\Constants\CallAttemptOutcome;
+use App\Constants\CallAttemptStatus;
 use App\Constants\FunnelFieldKey;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
+use App\Constants\PurchaseStatus;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Models\BuyerProfile;
+use App\Models\CallAttempt;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\LeadAnswer;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\BuyerOnboardingService;
-use App\Services\CreditLedgerService;
 use App\Services\FunnelTemplateImporter;
+use App\Services\LeadResolver;
 use App\Services\LeadStateService;
 use App\Services\TenantCreationService;
+use App\Services\Wallet\PurchaseService;
+use App\Services\Wallet\WalletService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -33,7 +42,8 @@ use Illuminate\Support\Collection;
  * Legt einen vollstaendigen, in sich stimmigen Datenbestand an: einen
  * Betreiber mit veroeffentlichtem Pfotencheck-Funnel, zwei freigeschaltete
  * Kaeufer mit unterschiedlichen Kaufkriterien, 200 Leads ueber alle acht
- * Zustaende, Guthaben, echte Kaeufe und eine anerkannte Reklamation.
+ * Zustaende, aufgeladene Wallets, echte Kaeufe und eine anerkannte
+ * Reklamation.
  *
  * Aufruf:
  *
@@ -48,8 +58,21 @@ use Illuminate\Support\Collection;
  *   direkt gesetztes `lead_state` waere schneller, wuerde aber das
  *   Zustandsprotokoll leer lassen -- und genau das Protokoll ist es, was diese
  *   Demo zeigen soll. Die Architekturregel aus FB-042 schlaegt darauf ohnehin an.
- * - **Kaeufe laufen ueber PurchaseLead.** Damit stimmen Kaufbeleg, Guthabenkonto
+ * - **Kaeufe laufen ueber PurchaseLead.** Damit stimmen Kaufbeleg, Wallet
  *   und Zustand zusammen, statt drei Mal von Hand nachgebaut zu werden.
+ * - **Die Erreichbarkeit entscheidet der LeadResolver** (Ticket #23). Ein
+ *   direkt gesetztes `contact_status` wuerde LeadResolved verschlucken, der
+ *   Listener SettleLeadPurchase liefe nie, und alle 60 Kaeufe blieben auf
+ *   `reserved` stehen -- ohne Einnahme beim Verkaeufer und ohne Provision bei
+ *   der Plattform. Die Entscheidung faellt deshalb aus echten `call_attempts`:
+ *   ein angenommener Versuch fuer die Gruppe `erreicht`, drei gueltige
+ *   Fehlversuche an drei Kalendertagen fuer `unerreichbar`. Der kuerzere Weg
+ *   ueber `resolve()` mit explizitem Grund haette Leads hinterlassen, die als
+ *   unerreichbar gelten, ohne dass ein einziger Anruf im Portal steht.
+ * - **SettleLeadPurchase ist ShouldQueue.** Fuer die Dauer der Entscheidung
+ *   schaltet der Seeder die Queue-Verbindung auf `sync` (siehe settle()),
+ *   damit die Abrechnung im selben Lauf passiert und nicht in einer Queue
+ *   liegen bleibt, die bei einem Demo-Aufbau niemand abarbeitet.
  */
 class FunnelDemoSeeder extends Seeder
 {
@@ -62,6 +85,12 @@ class FunnelDemoSeeder extends Seeder
     private const PASSWORD = 'demo1234';
 
     private const LEAD_COUNT = 200;
+
+    /**
+     * Absendernummer der Demo-Anrufversuche. Im Betrieb ist das die
+     * bestaetigte Rufnummer des Kaeufers; die Demo telefoniert nicht.
+     */
+    private const DEMO_CALLER_NUMBER = '+493055501234';
 
     /**
      * Zielverteilung der Leads. Die Summe ist LEAD_COUNT.
@@ -81,6 +110,14 @@ class FunnelDemoSeeder extends Seeder
         'abgelaufen' => 5,
     ];
 
+    /**
+     * Kaeufer-Workspace-Id => anrufender Benutzer. Reine Merkliste, damit die
+     * Anrufversuche nicht je Lead denselben Benutzer nachschlagen.
+     *
+     * @var array<int, int>
+     */
+    private array $buyerUserIds = [];
+
     public function __construct(
         private readonly TenantCreationService $tenantCreation,
         private readonly BuyerOnboardingService $buyerOnboarding,
@@ -88,7 +125,9 @@ class FunnelDemoSeeder extends Seeder
         private readonly PublishFunnel $publishFunnel,
         private readonly PurchaseLead $purchaseLead,
         private readonly LeadStateService $states,
-        private readonly CreditLedgerService $credits,
+        private readonly LeadResolver $resolver,
+        private readonly WalletService $wallets,
+        private readonly PurchaseService $purchases,
     ) {}
 
     public function run(): void
@@ -141,14 +180,18 @@ class FunnelDemoSeeder extends Seeder
         );
 
         // Reichlich Deckung: 60 Leads werden gekauft, der Rest bleibt als
-        // sichtbares Guthaben im Konto stehen.
-        $this->credits->purchase($north, 50, 49_900);
-        $this->credits->purchase($south, 50, 49_900);
-        $this->credits->adjust($south, 10, null, null);
+        // sichtbares Guthaben im Konto stehen. Gerechnet wird in Cent -- der
+        // Kaufpreis kommt aus `tenants.lead_price_cents` des Verkaeufers.
+        $this->topUp($north, 100_000, 'demo');
+        $this->topUp($south, 100_000, 'demo');
+
+        // Eine zweite, kleinere Aufladung fuer den Sueden: So hat mindestens
+        // ein Kaeufer einen Verlauf mit mehr als einer Zeile.
+        $this->topUp($south, 25_000, 'demo-2');
 
         $leads = $this->createLeads($funnel, $operator);
 
-        $this->distribute($leads, $operatorUser, $north, $south);
+        $this->distribute($leads, $operatorUser, $admin, $north, $south);
 
         $this->command?->info('Demo-Umgebung angelegt.');
         $this->command?->line('  Betreiber:  '.self::OPERATOR_EMAIL.' / '.self::PASSWORD);
@@ -367,7 +410,7 @@ class FunnelDemoSeeder extends Seeder
      *
      * @param  Collection<int, Lead>  $leads
      */
-    private function distribute(Collection $leads, User $operatorUser, Tenant $north, Tenant $south): void
+    private function distribute(Collection $leads, User $operatorUser, User $admin, Tenant $north, Tenant $south): void
     {
         $queue = $leads->values();
         $offset = 0;
@@ -409,6 +452,7 @@ class FunnelDemoSeeder extends Seeder
 
         foreach ($this->buy($take(self::DISTRIBUTION['erreicht']), $operatorUser, $north, $south) as $lead) {
             $this->states->transition($lead, LeadState::ERREICHT, LeadTransitionReason::CALL_ANSWERED, $operatorUser);
+            $this->reachLead($lead);
         }
 
         $unreached = $this->buy($take(self::DISTRIBUTION['unerreichbar']), $operatorUser, $north, $south);
@@ -420,6 +464,8 @@ class FunnelDemoSeeder extends Seeder
                 LeadTransitionReason::CALL_ATTEMPTS_EXHAUSTED,
                 $operatorUser,
             );
+
+            $this->exhaustLead($lead);
         }
 
         $reasons = [
@@ -448,7 +494,7 @@ class FunnelDemoSeeder extends Seeder
             );
         }
 
-        $this->fileComplaint($sold->first(), $operatorUser);
+        $this->fileComplaint($sold->first(), $operatorUser, $admin);
     }
 
     /**
@@ -478,14 +524,186 @@ class FunnelDemoSeeder extends Seeder
     }
 
     /**
-     * Eine anerkannte Reklamation: Der Lead wird ungueltig, der Kaeufer bekommt
-     * sein Guthaben zurueck.
+     * Ein angenommener Anruf -- der Lead wird abgerechnet.
      *
-     * FB-058 baut daraus spaeter einen eigenen Vorgang mit Frist und
-     * Entscheidung. Hier stehen nur die beiden Buchungen, die am Ende ohnehin
-     * dabei herauskommen -- mehr wuerde dem Ticket vorgreifen.
+     * Der Versuch wird so hinterlegt, wie ihn der AttemptClassifier nach einem
+     * Twilio-Rueckruf hinterlassen haette; entschieden wird danach ueber den
+     * regulaeren Weg. Ergebnis: `contact_status` = billable, LeadResolved,
+     * Kauf auf `captured`, Einnahme beim Verkaeufer und Provision bei der
+     * Plattform.
      */
-    private function fileComplaint(?Lead $lead, User $operatorUser): void
+    private function reachLead(Lead $lead): void
+    {
+        $purchase = $this->purchaseOf($lead);
+
+        if (! $purchase instanceof LeadPurchase) {
+            return;
+        }
+
+        $attempt = $this->recordAttempt(
+            $purchase,
+            $lead,
+            now()->subHours(6),
+            CallAttemptOutcome::ANSWERED,
+        );
+
+        $this->settle(fn () => $this->resolver->resolveAfter($attempt));
+    }
+
+    /**
+     * Drei gueltige Fehlversuche an drei Kalendertagen -- der Lead gilt als
+     * nicht erreichbar und die Reservierung wird freigegeben.
+     *
+     * Die Zahl der Versuche und die Streuung ueber Tage kommen aus
+     * config('lead_calls.*'); ein Tag mehr als gefordert ist Absicht, damit die
+     * Demo auch dann noch entscheidet, wenn jemand die Schwellwerte in der
+     * .env leicht anhebt.
+     */
+    private function exhaustLead(Lead $lead): void
+    {
+        $purchase = $this->purchaseOf($lead);
+
+        if (! $purchase instanceof LeadPurchase) {
+            return;
+        }
+
+        $attempts = max((int) config('lead_calls.unreachable_attempts'), 3);
+
+        $attempt = null;
+
+        for ($index = $attempts; $index >= 1; $index--) {
+            // Ein Versuch je Kalendertag, der aelteste zuerst -- damit deckt
+            // die Spanne `unreachable_min_days` sicher ab.
+            $attempt = $this->recordAttempt(
+                $purchase,
+                $lead,
+                now()->subDays($index)->setTime(10 + $index, 20),
+                CallAttemptOutcome::FAILED_VALID,
+            );
+        }
+
+        if (! $attempt instanceof CallAttempt) {
+            return;
+        }
+
+        $this->settle(fn () => $this->resolver->resolveAfter($attempt));
+    }
+
+    /**
+     * Legt einen bereits bewerteten Anrufversuch an.
+     *
+     * Alle belegenden Spalten stehen in $guarded (sie gehoeren im Betrieb dem
+     * CallService), deshalb `forceFill`.
+     */
+    private function recordAttempt(
+        LeadPurchase $purchase,
+        Lead $lead,
+        Carbon $startedAt,
+        CallAttemptOutcome $outcome,
+    ): CallAttempt {
+        $answered = $outcome === CallAttemptOutcome::ANSWERED;
+        $duration = $answered ? (int) config('lead_calls.answered_min_seconds') + 62 : 0;
+
+        $attempt = new CallAttempt;
+
+        $attempt->forceFill([
+            'tenant_id' => $purchase->buyer_tenant_id,
+            'lead_purchase_id' => $purchase->getKey(),
+            'lead_id' => $lead->getKey(),
+            'user_id' => $this->buyerUserId((int) $purchase->buyer_tenant_id),
+            'caller_number' => self::DEMO_CALLER_NUMBER,
+            'lead_number' => (string) $lead->phone_e164,
+            'status' => $answered ? CallAttemptStatus::COMPLETED : CallAttemptStatus::NO_ANSWER,
+            'dial_status' => $answered ? 'completed' : 'no-answer',
+            'duration_seconds' => $duration,
+            'answered_by' => $answered ? 'human' : null,
+            'outcome' => $outcome,
+            'started_at' => $startedAt,
+            'answered_at' => $answered ? $startedAt->copy()->addSeconds(11) : null,
+            'ended_at' => $startedAt->copy()->addSeconds($answered ? $duration + 11 : 30),
+        ])->save();
+
+        return $attempt;
+    }
+
+    /**
+     * Der Kaufbeleg zum Lead. Lead::purchases() gibt es nicht -- gesucht wird
+     * wie in fileComplaint() von hier aus.
+     */
+    private function purchaseOf(Lead $lead): ?LeadPurchase
+    {
+        return LeadPurchase::query()->where('lead_id', $lead->getKey())->latest('id')->first();
+    }
+
+    /**
+     * Der anrufende Benutzer des Kaeufer-Workspaces, je Mandant einmal
+     * nachgeschlagen.
+     */
+    private function buyerUserId(int $tenantId): int
+    {
+        return $this->buyerUserIds[$tenantId] ??= (int) Tenant::query()
+            ->whereKey($tenantId)
+            ->firstOrFail()
+            ->users()
+            ->value('users.id');
+    }
+
+    /**
+     * Fuehrt die Erreichbarkeitsentscheidung samt Abrechnung sofort aus.
+     *
+     * SettleLeadPurchase ist ShouldQueue. Auf der Standardverbindung landete
+     * die Abrechnung in einer Queue, die bei einem Demo-Aufbau niemand
+     * abarbeitet -- die Kaeufe blieben auf `reserved`. Die Umschaltung gilt nur
+     * fuer diesen Aufruf, damit der uebrige Seeder (Mails, Webhooks) sein
+     * gewohntes Verhalten behaelt.
+     */
+    private function settle(callable $resolve): void
+    {
+        $previous = config('queue.default');
+
+        config(['queue.default' => 'sync']);
+
+        try {
+            $resolve();
+        } finally {
+            config(['queue.default' => $previous]);
+        }
+    }
+
+    /**
+     * Eine Aufladung des Kaeufer-Wallets (LP-WALLET-021).
+     *
+     * Im Betrieb entsteht eine Aufladung aus einer bezahlten Bestellung; in
+     * der Demo gibt es keine, deshalb ist der Mandant selbst die Referenz des
+     * Idempotenzschluessels. Der Zusatz haelt mehrere Aufladungen desselben
+     * Kaeufers auseinander.
+     */
+    private function topUp(Tenant $buyer, int $amountCents, string $suffix): void
+    {
+        $this->wallets->post(
+            wallet: Wallet::forBuyer($buyer),
+            type: WalletTransactionType::TOPUP,
+            amountCents: $amountCents,
+            description: __('marketplace.wallet.descriptions.topup', ['order' => 'Demo']),
+            reference: $buyer,
+            idempotencyKey: WalletService::keyFor(WalletTransactionType::TOPUP, $buyer, $suffix),
+            meta: ['source' => 'demo_seeder'],
+        );
+    }
+
+    /**
+     * Eine anerkannte Reklamation: Der Lead wird ungueltig, der Kaeufer bekommt
+     * sein Geld zurueck.
+     *
+     * Die Erstattung laeuft ueber den PurchaseService, damit
+     * `lead_purchases.status` und die Gegenbuchungen bei Verkaeufer und
+     * Plattform stimmen. Der Kauf muss dafuer abgerechnet sein: Die Leads
+     * dieser Gruppe stehen auf `verkauft`, ihre Erreichbarkeit ist also nie
+     * entschieden worden und nichts hat sie abgebucht. Deshalb wird hier erst
+     * abgerechnet und dann erstattet -- genau der Weg, den eine Reklamation
+     * nach der Abrechnung im Betrieb nimmt.
+     */
+    private function fileComplaint(?Lead $lead, User $operatorUser, User $admin): void
     {
         if (! $lead instanceof Lead) {
             return;
@@ -508,6 +726,10 @@ class FunnelDemoSeeder extends Seeder
             ['lead_purchase_id' => $purchase->getKey()],
         );
 
-        $this->credits->refund($purchase->buyer, PurchaseLead::CREDITS_PER_LEAD, $purchase);
+        if ($purchase->status === PurchaseStatus::RESERVED) {
+            $purchase = $this->purchases->capture($purchase);
+        }
+
+        $this->purchases->refund($purchase, 'Demo: anerkannte Reklamation', $admin);
     }
 }

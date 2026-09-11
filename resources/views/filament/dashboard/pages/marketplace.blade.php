@@ -8,6 +8,7 @@
     @php
         $leads = $this->leads();
         $balance = $this->balance();
+        $topUpUrl = \App\Filament\Dashboard\Pages\WalletTopUp::getUrl();
     @endphp
 
     <div class="flex flex-col gap-8">
@@ -28,17 +29,10 @@
                 @endunless
             </div>
 
-            <div class="flex shrink-0 items-center gap-4 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-                <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">{{ __('marketplace.listing.balance_label') }}</div>
-                    <div @class([
-                        'text-2xl font-semibold tabular-nums',
-                        'text-gray-950 dark:text-white' => $balance > 0,
-                        'text-danger-600 dark:text-danger-400' => $balance <= 0,
-                    ])>
-                        {{ __('marketplace.listing.balance_value', ['credits' => $balance]) }}
-                    </div>
-                </div>
+            {{-- Guthabenkopf: dieselbe Komponente wie auf der Guthabenseite,
+                 damit Stand und Reservierung an beiden Stellen gleich stehen. --}}
+            <div class="shrink-0 rounded-xl bg-white px-5 py-4 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+                @livewire('buyer.wallet-balance', ['compact' => true])
             </div>
         </div>
 
@@ -46,7 +40,7 @@
         @if ($balance <= 0)
             <div class="flex items-center gap-3 rounded-xl border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-warning-300">
                 <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5 flex-none" />
-                {{ __('marketplace.listing.no_credits') }}
+                {{ __('marketplace.listing.no_funds') }}
             </div>
         @endif
 
@@ -142,17 +136,29 @@
 
                         {{-- Fuss: Preis links, Kauf rechts. --}}
                         <div class="mt-auto flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{{ $lead['price'] }}</span>
+                            <span class="text-sm font-medium text-gray-950 dark:text-white">{{ $lead['price'] }}</span>
 
                             <x-filament::button
                                 icon="heroicon-o-shopping-cart"
                                 class="w-full sm:w-auto"
-                                :disabled="! $lead['purchasable']"
-                                x-on:click="if (confirm({{ Js::from(__('marketplace.purchase.confirm')) }})) { busy = true; $wire.purchase({{ $lead['id'] }}) }"
+                                :disabled="! $lead['purchasable'] || ! $lead['affordable']"
+                                x-on:click="if (confirm({{ Js::from(__('marketplace.purchase.confirm')) }})) { busy = true; $wire.purchase({{ $lead['id'] }}, {{ $lead['price_cents'] }}) }"
                             >
                                 {{ __('marketplace.listing.purchase') }}
                             </x-filament::button>
                         </div>
+
+                        {{-- Sagt, warum der Knopf aus ist, und wo es weitergeht.
+                             Ein ausgegrauter Knopf ohne Begruendung ist eine
+                             Sackgasse. --}}
+                        @if ($lead['purchasable'] && ! $lead['affordable'])
+                            <p class="-mt-1 text-xs text-danger-600 dark:text-danger-400">
+                                {{ __('marketplace.listing.price_exceeds_balance') }}
+                                <a href="{{ $topUpUrl }}" class="underline">
+                                    {{ __('marketplace.wallet.top_up.title') }}
+                                </a>
+                            </p>
+                        @endif
                     </div>
                 @endforeach
             </div>

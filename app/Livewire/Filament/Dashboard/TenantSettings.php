@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Filament\Dashboard;
 
+use App\Models\Tenant;
 use App\Services\TenantService;
+use App\Services\Wallet\PayoutService;
+use Closure;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -12,6 +15,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Livewire\Component;
 use Parfaitementweb\FilamentCountryField\Forms\Components\Country;
+use RuntimeException;
 
 class TenantSettings extends Component implements HasForms
 {
@@ -88,8 +92,81 @@ class TenantSettings extends Component implements HasForms
                         ->label(__('Tax Number')),
                 ])->heading(__('Organization Address'))
                     ->description(__('This address will be used for issuing invoices')),
+
+                // Bankverbindung fuer die Auszahlung der Lead-Einnahmen
+                // (LP-WALLET-010). Nur fuer Verkaeufer: Kaeufer-Mandanten
+                // zahlen ein, sie bekommen nichts ausgezahlt.
+                Section::make([
+                    TextInput::make('payout_iban')
+                        ->label(__('marketplace.wallet.payout.profile.iban'))
+                        ->helperText(fn (): string => $this->ibanHelperText())
+                        ->autocomplete(false)
+                        ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
+                            if (! is_string($value) || $value === '') {
+                                return;
+                            }
+
+                            // Formatpruefung, keine Pruefziffernrechnung: Ob
+                            // die IBAN wirklich existiert, sagt uns erst die
+                            // Bank bei der Ueberweisung.
+                            if (preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/', PayoutService::normalizeIban($value)) !== 1) {
+                                $fail(__('marketplace.wallet.payout.profile.invalid_iban'));
+                            }
+                        }),
+                ])->heading(__('marketplace.wallet.payout.profile.heading'))
+                    ->description(__('marketplace.wallet.payout.profile.description'))
+                    ->visible(fn (): bool => ! $this->currentTenant()->isBuyer()),
             ])
             ->statePath('data');
+    }
+
+    /**
+     * Der Mandant des Panels, als Tenant statt als blosses Model: Die
+     * Bankverbindung haengt an Feldern, die nur Tenant kennt.
+     */
+    private function currentTenant(): Tenant
+    {
+        $tenant = Filament::getTenant();
+
+        if (! $tenant instanceof Tenant) {
+            // Die Seite liegt im Dashboard-Panel und ist ohne Workspace nicht
+            // erreichbar; der Wurf ist die ehrliche Alternative zu einem
+            // stillen Nullwert.
+            throw new RuntimeException('Diese Seite braucht einen Workspace.');
+        }
+
+        return $tenant;
+    }
+
+    /**
+     * Die hinterlegte IBAN wird nie ausgegeben -- auch nicht in das eigene
+     * Formular. Der Hinweistext nennt nur die letzte Vierergruppe, das Feld
+     * bleibt leer; wer es leer laesst, aendert nichts.
+     */
+    private function ibanHelperText(): string
+    {
+        $last4 = $this->currentTenant()->payout_iban_last4;
+
+        return $last4 === null
+            ? __('marketplace.wallet.payout.profile.iban_helper')
+            : __('marketplace.wallet.payout.profile.iban_stored', ['last4' => $last4]);
+    }
+
+    /**
+     * Gespeichert wird die vollstaendige IBAN, verschluesselt (Cast auf
+     * Tenant). Ein leeres Feld laesst die vorhandene Bankverbindung stehen:
+     * Weil sie nirgends angezeigt wird, kann der Verkaeufer sie nicht
+     * abschreiben und wieder eintragen -- ein leeres Feld als Loeschbefehl zu
+     * lesen, wuerde sie bei jedem Speichern der Adresse verlieren.
+     */
+    private function savePayoutIban(Tenant $tenant, ?string $iban): void
+    {
+        if (! is_string($iban) || trim($iban) === '') {
+            return;
+        }
+
+        $tenant->payout_iban = PayoutService::normalizeIban($iban);
+        $tenant->save();
     }
 
     public function save(): void
@@ -99,6 +176,8 @@ class TenantSettings extends Component implements HasForms
         $tenant = Filament::getTenant();
 
         $this->tenantService->updateTenantName($tenant, $data['tenant_name']);
+
+        $this->savePayoutIban($this->currentTenant(), $data['payout_iban'] ?? null);
 
         $address = $tenant->address()->first();
 

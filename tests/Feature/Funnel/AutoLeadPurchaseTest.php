@@ -7,6 +7,7 @@ namespace Tests\Feature\Funnel;
 use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Models\BuyerProfile;
 use App\Models\BuyerRegistration;
 use App\Models\Funnel;
@@ -15,8 +16,9 @@ use App\Models\LeadAnswer;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\AutoLeadPurchaseService;
-use App\Services\CreditLedgerService;
+use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\Mail;
 use Tests\Feature\FeatureTest;
 
@@ -66,7 +68,7 @@ class AutoLeadPurchaseTest extends FeatureTest
     /**
      * @param  array<string, mixed>  $criteria
      */
-    private function autoBuyer(int $credits, array $criteria = []): Tenant
+    private function autoBuyer(int $balanceCents, array $criteria = []): Tenant
     {
         $tenant = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
         $tenant->users()->attach(User::factory()->create());
@@ -76,8 +78,13 @@ class AutoLeadPurchaseTest extends FeatureTest
             'auto_buy' => true,
         ], $criteria));
 
-        if ($credits > 0) {
-            app(CreditLedgerService::class)->purchase($tenant, $credits, $credits * 1500);
+        if ($balanceCents > 0) {
+            app(WalletService::class)->post(
+                wallet: Wallet::forBuyer($tenant),
+                type: WalletTransactionType::TOPUP,
+                amountCents: $balanceCents,
+                description: 'Aufladung im Test',
+            );
         }
 
         return $tenant;
@@ -89,13 +96,13 @@ class AutoLeadPurchaseTest extends FeatureTest
             $this->lead();
         }
 
-        $buyer = $this->autoBuyer(credits: 5, criteria: ['daily_limit' => 2]);
+        $buyer = $this->autoBuyer(balanceCents: 7500, criteria: ['daily_limit' => 2]);
 
         $bought = app(AutoLeadPurchaseService::class)->run();
 
         $this->assertSame(2, $bought);
         $this->assertSame(2, LeadPurchase::query()->where('buyer_tenant_id', $buyer->getKey())->count());
-        $this->assertSame(3, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(4500, (int) Wallet::forBuyer($buyer)->refresh()->available_cents);
 
         // Ein zweiter Lauf am selben Tag kauft nichts mehr dazu -- sonst waere
         // das Tageslimit nur ein Limit je Lauf.
@@ -103,19 +110,19 @@ class AutoLeadPurchaseTest extends FeatureTest
         $this->assertSame(2, LeadPurchase::query()->where('buyer_tenant_id', $buyer->getKey())->count());
     }
 
-    public function test_the_job_buys_only_what_the_profile_matches_and_stops_when_credits_run_out(): void
+    public function test_the_job_buys_only_what_the_profile_matches_and_stops_when_the_balance_runs_out(): void
     {
         $matching = $this->lead(postalCode: '76131');
         $wrongRegion = $this->lead(postalCode: '10115');
         $secondMatching = $this->lead(postalCode: '76200');
 
         // Guthaben fuer genau einen Kauf, aber zwei passende Leads.
-        $buyer = $this->autoBuyer(credits: 1, criteria: ['postal_prefixes' => ['76']]);
+        $buyer = $this->autoBuyer(balanceCents: 1500, criteria: ['postal_prefixes' => ['76']]);
 
         $bought = app(AutoLeadPurchaseService::class)->run();
 
         $this->assertSame(1, $bought);
-        $this->assertSame(0, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(0, (int) Wallet::forBuyer($buyer)->refresh()->available_cents);
 
         // Der Lead ausserhalb der Region wurde nicht angefasst.
         $this->assertSame(LeadState::VERFUEGBAR, $wrongRegion->fresh()->lead_state);

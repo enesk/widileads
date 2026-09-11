@@ -9,6 +9,7 @@ use App\Constants\FunnelStatus;
 use App\Constants\LeadState;
 use App\Constants\SaleMode;
 use App\Constants\TenantType;
+use App\Constants\WalletTransactionType;
 use App\Exceptions\LeadNotPurchasableException;
 use App\Models\BuyerRegistration;
 use App\Models\Funnel;
@@ -16,7 +17,8 @@ use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\CreditLedgerService;
+use App\Models\Wallet;
+use App\Services\Wallet\WalletService;
 use Illuminate\Support\Facades\Mail;
 use Tests\Feature\FeatureTest;
 
@@ -30,9 +32,15 @@ use Tests\Feature\FeatureTest;
  */
 class SharedLeadSaleTest extends FeatureTest
 {
-    private function sharedLead(int $maxBuyers = 3, ?float $sharedPrice = null): Lead
+    private function sharedLead(int $maxBuyers = 3, int $sellerPriceCents = 1500): Lead
     {
-        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        // Der Verkaufspreis steht seit LP-WALLET-003 am Verkaeufer-Mandanten.
+        // Die Verkaufsart entscheidet nur noch, wie oft verkauft wird -- einen
+        // eigenen Anteilspreis kennt die Geldseite nicht mehr.
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => $sellerPriceCents,
+        ]);
 
         $funnel = Funnel::factory()->create([
             'tenant_id' => $operator->getKey(),
@@ -40,7 +48,6 @@ class SharedLeadSaleTest extends FeatureTest
             'lead_price' => 15.00,
             'sale_mode' => SaleMode::SHARED,
             'max_buyers' => $maxBuyers,
-            'shared_price' => $sharedPrice,
         ]);
 
         return Lead::factory()->inState(LeadState::VERFUEGBAR)->create([
@@ -60,7 +67,12 @@ class SharedLeadSaleTest extends FeatureTest
         $user = User::factory()->create();
         $tenant->users()->attach($user);
 
-        app(CreditLedgerService::class)->purchase($tenant, 5, 7500);
+        app(WalletService::class)->post(
+            wallet: Wallet::forBuyer($tenant),
+            type: WalletTransactionType::TOPUP,
+            amountCents: 7500,
+            description: 'Aufladung im Test',
+        );
 
         return [$tenant, $user];
     }
@@ -101,13 +113,13 @@ class SharedLeadSaleTest extends FeatureTest
         $action->handle($fourth, $lead->fresh(), $fourthUser);
     }
 
-    public function test_each_buyer_of_a_shared_lead_pays_the_shared_price_and_only_once(): void
+    public function test_each_buyer_of_a_shared_lead_pays_the_sellers_price_and_only_once(): void
     {
         Mail::fake();
 
-        // Eigener Anteilspreis am Funnel -- er gilt, nicht der Exklusivpreis
-        // und nicht der beim Anlegen des Leads festgehaltene.
-        $lead = $this->sharedLead(maxBuyers: 3, sharedPrice: 6.00);
+        // Der Preis des Verkaeufers gilt -- und zwar jedem Kaeufer gegenueber
+        // derselbe, unabhaengig von der Verkaufsart.
+        $lead = $this->sharedLead(maxBuyers: 3, sellerPriceCents: 600);
 
         [$buyer, $user] = $this->buyer();
 
@@ -115,9 +127,8 @@ class SharedLeadSaleTest extends FeatureTest
 
         $this->assertSame(600, $purchase->price_cents);
 
-        // Ein Guthaben je Kauf, unabhaengig von der Verkaufsart: Das Guthaben
-        // ist die Einheit "ein Lead", der Preis die Geldgroesse daneben.
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        // Genau einmal geblockt: 6,00 EUR von 75,00 EUR sind reserviert.
+        $this->assertSame(6900, (int) Wallet::forBuyer($buyer)->refresh()->available_cents);
 
         // Derselbe Kaeufer kauft denselben Lead nicht zweimal -- das waere fuer
         // ihn nichts als eine zweite Abbuchung.
@@ -129,6 +140,6 @@ class SharedLeadSaleTest extends FeatureTest
         }
 
         $this->assertSame(1, LeadPurchase::query()->where('lead_id', $lead->getKey())->count());
-        $this->assertSame(4, app(CreditLedgerService::class)->balanceFor($buyer->fresh()));
+        $this->assertSame(6900, (int) Wallet::forBuyer($buyer)->refresh()->available_cents);
     }
 }

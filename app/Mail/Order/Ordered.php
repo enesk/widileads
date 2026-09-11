@@ -2,6 +2,7 @@
 
 namespace App\Mail\Order;
 
+use App\Models\OneTimeProduct;
 use App\Models\Order;
 use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
@@ -31,7 +32,7 @@ class Ordered extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __('marketplace.credit.mail.subject', ['app' => config('app.wordmark')]),
+            subject: __('marketplace.wallet.order_mail.subject', ['app' => config('app.wordmark')]),
         );
     }
 
@@ -44,6 +45,7 @@ class Ordered extends Mailable implements ShouldQueue
             view: 'emails.order.ordered',
             with: [
                 'marketplaceUrl' => $this->marketplaceUrl(),
+                'topupProductId' => $this->topupProductId(),
             ],
         );
     }
@@ -68,6 +70,32 @@ class Ordered extends Mailable implements ShouldQueue
         }
 
         return route('filament.dashboard.pages.marketplace', ['tenant' => $tenant]);
+    }
+
+    /**
+     * Kennung des Aufladeprodukts, sofern diese Bestellung eine Aufladung
+     * enthaelt (LP-WALLET-019).
+     *
+     * Die Aufladung laeuft ueber ein Einmalkauf-Produkt zu 1,00 EUR, dessen
+     * Menge im Warenkorb der Betrag in Euro ist. Diese Menge ist ein
+     * Umsetzungsdetail des Checkouts und gehoert nicht in eine Kundenmail --
+     * die Ansicht nennt bei dieser Position deshalb den Betrag statt der Menge.
+     * Alle uebrigen Einmalkaeufe bleiben unveraendert bei der Mengenangabe.
+     *
+     * Verglichen wird gegen die Produktkennung und nicht gegen den Slug jeder
+     * Position, damit die Ansicht ohne weitere Abfrage auskommt.
+     */
+    private function topupProductId(): ?int
+    {
+        $slug = (string) config('wallet.topup_product_slug');
+
+        if ($slug === '') {
+            return null;
+        }
+
+        $productId = OneTimeProduct::query()->where('slug', $slug)->value('id');
+
+        return $productId === null ? null : (int) $productId;
     }
 
     /**

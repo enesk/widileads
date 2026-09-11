@@ -65,20 +65,39 @@
                             </td>
                         </tr>
                         <tr>
-                            <td class="py-1">{{ __('marketplace.billing.credits_purchased') }}</td>
-                            <td class="py-1 text-right font-medium">{{ $statement['credits_purchased'] }}</td>
+                            <td class="py-1">{{ __('marketplace.billing.topped_up') }}</td>
+                            <td class="py-1 text-right font-medium">
+                                {{ number_format($statement['topped_up_cents'] / 100, 2, ',', '.') }}
+                                {{ $statement['currency'] }}
+                            </td>
                         </tr>
                         <tr>
-                            <td class="py-1">{{ __('marketplace.billing.credits_debited') }}</td>
-                            <td class="py-1 text-right font-medium">{{ $statement['credits_debited'] }}</td>
+                            <td class="py-1">{{ __('marketplace.billing.captured') }}</td>
+                            <td class="py-1 text-right font-medium">
+                                {{ number_format($statement['captured_cents'] / 100, 2, ',', '.') }}
+                                {{ $statement['currency'] }}
+                            </td>
                         </tr>
                         <tr>
-                            <td class="py-1">{{ __('marketplace.billing.credits_refunded') }}</td>
-                            <td class="py-1 text-right font-medium">{{ $statement['credits_refunded'] }}</td>
+                            <td class="py-1">{{ __('marketplace.billing.refunded') }}</td>
+                            <td class="py-1 text-right font-medium">
+                                {{ number_format($statement['refunded_cents'] / 100, 2, ',', '.') }}
+                                {{ $statement['currency'] }}
+                            </td>
+                        </tr>
+                        <tr class="border-t">
+                            <td class="py-1">{{ __('marketplace.billing.captured_expected') }}</td>
+                            <td @class([
+                                    'py-1 text-right font-medium',
+                                    'text-danger-600' => $statement['captured_expected_cents'] !== $statement['captured_cents'],
+                                ])>
+                                {{ number_format($statement['captured_expected_cents'] / 100, 2, ',', '.') }}
+                                {{ $statement['currency'] }}
+                            </td>
                         </tr>
                     </table>
 
-                    <p class="mt-3 text-xs opacity-70">{{ __('marketplace.billing.credits_hint') }}</p>
+                    <p class="mt-3 text-xs opacity-70">{{ __('marketplace.billing.money_hint') }}</p>
                 </div>
             </div>
 

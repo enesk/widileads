@@ -66,3 +66,15 @@ Schedule::command('leads:send-deadline-reminders')
     ->hourly()
     ->withoutOverlapping()
     ->onOneServer();
+
+// LP-WALLET-015: Taegliche Konsistenzpruefung des Wallet-Ledgers. Um 04:00
+// Ortszeit, wenn kein Kauf laeuft -- ein Lauf waehrend laufender Buchungen
+// meldet sonst Abweichungen, die im naechsten Moment keine mehr sind.
+// onOneServer, weil zwei parallele Laeufe dieselbe Abweichung zweimal melden
+// wuerden. Ohne --repair: Ein abgewichener Saldo wird gemeldet, nicht
+// stillschweigend geheilt.
+Schedule::command('wallet:verify')
+    ->dailyAt('04:00')
+    ->timezone('Europe/Berlin')
+    ->withoutOverlapping()
+    ->onOneServer();

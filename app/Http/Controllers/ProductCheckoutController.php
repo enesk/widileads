@@ -4,11 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Constants\OrderStatus;
 use App\Dto\CartItemDto;
-use App\Models\OneTimeProduct;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Tenant;
-use App\Services\CreditLedgerService;
+use App\Models\Wallet;
 use App\Services\DiscountService;
 use App\Services\OneTimeProductService;
 use App\Services\SessionService;
@@ -97,7 +95,7 @@ class ProductCheckoutController extends Controller
      * Einloesen des Gutscheins in die Adresszeile -- ein Neuladen oder der
      * Zurueck-Knopf fuehrt dann auf dieselbe Ansicht statt auf die Startseite.
      */
-    public function productCheckoutSuccess(CreditLedgerService $creditLedger)
+    public function productCheckoutSuccess()
     {
         $orderUuid = request()->query('bestellung');
 
@@ -139,35 +137,13 @@ class ProductCheckoutController extends Controller
         return view('checkout.product-thank-you', [
             'order' => $order,
             'tenant' => $tenant,
-            'credits' => $this->creditsIn($order),
-            'balance' => $tenant instanceof Tenant ? $creditLedger->balanceFor($tenant) : 0,
+            // Der aufgeladene Betrag ist der bezahlte Betrag der Bestellung --
+            // dieselbe Groesse, aus der der Zuhoerer CreditWalletAfterPayment
+            // bucht. Eine zweite Rechenweise waere die Stelle, an der Anzeige
+            // und Buchung auseinanderlaufen (LP-WALLET-009).
+            'amountCents' => (int) $order->total_amount_after_discount,
+            'balanceCents' => $tenant instanceof Tenant ? Wallet::forBuyer($tenant)->balance_cents : 0,
             'isPending' => $order->status !== OrderStatus::SUCCESS,
         ]);
-    }
-
-    /**
-     * Wie viel Guthaben diese Bestellung enthaelt. Gelesen wird dasselbe
-     * Metadatenfeld, aus dem der Listener bucht -- eine zweite Zaehlweise waere
-     * genau die Stelle, an der Anzeige und Buchung auseinanderlaufen.
-     */
-    private function creditsIn(Order $order): int
-    {
-        $items = OrderItem::query()->where('order_id', $order->getKey())->get();
-
-        $creditsPerProduct = OneTimeProduct::query()
-            ->whereIn('id', $items->pluck('one_time_product_id')->all())
-            ->get()
-            ->mapWithKeys(static fn (OneTimeProduct $product): array => [
-                (int) $product->getKey() => (int) (($product->metadata ?? [])[CreditLedgerService::PRODUCT_METADATA_KEY] ?? 0),
-            ])
-            ->all();
-
-        $credits = 0;
-
-        foreach ($items as $item) {
-            $credits += ($creditsPerProduct[(int) $item->one_time_product_id] ?? 0) * (int) $item->quantity;
-        }
-
-        return $credits;
     }
 }

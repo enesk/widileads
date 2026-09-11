@@ -4,6 +4,7 @@ use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Buyer\LeadCallController;
+use App\Http\Controllers\Buyer\WalletTopupController;
 use App\Http\Controllers\Funnel\FunnelPreviewController;
 use App\Http\Controllers\Funnel\LeadExportDownloadController;
 use App\Http\Controllers\Funnel\ThemePreviewController;
@@ -336,3 +337,18 @@ Route::get('/kaeufer/registrierung', function () {
 Route::post('/leads/{lead}/call', LeadCallController::class)
     ->middleware(['auth', 'throttle:lead-calls'])
     ->name('buyer.leads.call');
+
+/*
+|--------------------------------------------------------------------------
+| Guthaben aufladen (LP-WALLET-009)
+|--------------------------------------------------------------------------
+|
+| Nimmt den frei gewaehlten Betrag der Aufladeseite an und uebergibt an den
+| vorhandenen Einmalkauf-Checkout. Gebucht wird hier nichts -- die Gutschrift
+| macht nach bestaetigter Zahlung der Zuhoerer CreditWalletAfterPayment.
+|
+*/
+
+Route::post('/guthaben/aufladen', [WalletTopupController::class, 'store'])
+    ->middleware('auth')
+    ->name('buyer.wallet.topup');

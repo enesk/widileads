@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\BuyerLeadFeedback;
+use App\Constants\PurchaseStatus;
 use App\Models\Scopes\TenantScopes;
 use Database\Factories\LeadPurchaseFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,9 +31,18 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $lead_id
  * @property int $buyer_tenant_id
+ * @property int $seller_tenant_id
  * @property int $price_cents
+ * @property string $commission_percent Provisionssatz, festgeschrieben zum Kaufzeitpunkt
+ * @property int $commission_cents
+ * @property int $seller_net_cents
+ * @property PurchaseStatus $status
  * @property string $currency
  * @property Carbon $purchased_at
+ * @property Carbon $reserved_at
+ * @property Carbon|null $captured_at
+ * @property Carbon|null $released_at
+ * @property Carbon|null $refunded_at
  * @property BuyerLeadFeedback|null $buyer_feedback
  * @property Carbon|null $buyer_feedback_at
  * @property Carbon|null $created_at
@@ -46,9 +56,18 @@ class LeadPurchase extends Model
     protected $fillable = [
         'lead_id',
         'buyer_tenant_id',
+        'seller_tenant_id',
         'price_cents',
+        'commission_percent',
+        'commission_cents',
+        'seller_net_cents',
+        'status',
         'currency',
         'purchased_at',
+        'reserved_at',
+        'captured_at',
+        'released_at',
+        'refunded_at',
         'buyer_feedback',
         'buyer_feedback_at',
     ];
@@ -107,6 +126,16 @@ class LeadPurchase extends Model
     }
 
     /**
+     * Der verkaufende Betreiber-Mandant, dem der Lead gehoert (LP-WALLET-004).
+     *
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'seller_tenant_id');
+    }
+
+    /**
      * Kaeufe eines Mandanten.
      *
      * Bewusst kein BelongsToTenant: Ein Kaufbeleg gehoert dem Kaeufer, der
@@ -128,7 +157,14 @@ class LeadPurchase extends Model
     {
         return [
             'price_cents' => 'integer',
+            'commission_cents' => 'integer',
+            'seller_net_cents' => 'integer',
+            'status' => PurchaseStatus::class,
             'purchased_at' => 'datetime',
+            'reserved_at' => 'datetime',
+            'captured_at' => 'datetime',
+            'released_at' => 'datetime',
+            'refunded_at' => 'datetime',
             'buyer_feedback' => BuyerLeadFeedback::class,
             'buyer_feedback_at' => 'datetime',
         ];

@@ -20,7 +20,7 @@ tenants (SaasyKit) ─┬─ tenant_user (SaasyKit, + role)
                     │         ├─ lead_purchases             (Kauf durch buyer-Tenant)
                     │         └─ call_attempts              (Phase 2, Beweisprotokoll)
                     ├─ buyer_profiles                       (Kaufkriterien je buyer-Tenant)
-                    ├─ credit_ledger                        (Guthabenbuchungen, append-only)
+                    ├─ wallets ─ wallet_transactions        (Geldbuchungen, append-only)
                     └─ audit_logs
 ```
 

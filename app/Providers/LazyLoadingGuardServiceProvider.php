@@ -7,7 +7,6 @@ namespace App\Providers;
 use App\Models\AuditLog;
 use App\Models\BuyerProfile;
 use App\Models\BuyerRegistration;
-use App\Models\CreditLedgerEntry;
 use App\Models\Funnel;
 use App\Models\FunnelCondition;
 use App\Models\FunnelOption;
@@ -72,7 +71,6 @@ class LazyLoadingGuardServiceProvider extends ServiceProvider
         AuditLog::class,
         BuyerProfile::class,
         BuyerRegistration::class,
-        CreditLedgerEntry::class,
         Funnel::class,
         FunnelCondition::class,
         FunnelOption::class,

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Actions\PurchaseLead;
-use App\Exceptions\InsufficientCreditsException;
+use App\Exceptions\InsufficientFundsException;
 use App\Exceptions\LeadNotPurchasableException;
 use App\Marketplace\MarketplaceListing;
 use App\Models\BuyerProfile;
@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Zwei Ausgaenge sind Alltag und kein Fehler: Ein anderer war schneller
  * (LeadNotPurchasableException) -- weitermachen mit dem naechsten. Das Guthaben
- * ist alle (InsufficientCreditsException) -- fuer diesen Kaeufer aufhoeren, die
+ * ist alle (InsufficientFundsException) -- fuer diesen Kaeufer aufhoeren, die
  * uebrigen laufen weiter.
  */
 class AutoLeadPurchaseService
@@ -97,7 +97,7 @@ class AutoLeadPurchaseService
                 // Ein anderer war schneller oder der Lead ist inzwischen
                 // vergeben -- der naechste ist dran.
                 continue;
-            } catch (InsufficientCreditsException) {
+            } catch (InsufficientFundsException) {
                 // Fuer diesen Kaeufer ist Schluss. Es waere sinnlos, die
                 // restlichen Leads durchzuprobieren, und jeder Versuch
                 // reservierte den Lead kurz und gaebe ihn wieder frei.
