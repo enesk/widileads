@@ -63,6 +63,23 @@ enum AuditAction: string
     /** Rufnummer von Twilio bestaetigt und als Rufnummernanzeige zugelassen (FB-080). */
     case CALLER_ID_VERIFIED = 'caller_id.verified';
 
+    /** Antrag auf Pay as you go freigegeben -- wird von LP-POSTPAID-006 aufgerufen. */
+    case POSTPAID_APPROVED = 'postpaid.approved';
+
+    /** Antrag auf Pay as you go abgelehnt -- wird von LP-POSTPAID-006 aufgerufen. */
+    case POSTPAID_REJECTED = 'postpaid.rejected';
+
+    /** Kreditrahmen eines Postpaid-Wallets geaendert -- wird von LP-POSTPAID-006 aufgerufen. */
+    case POSTPAID_CREDIT_LIMIT_CHANGED = 'postpaid.credit_limit_changed';
+
+    /**
+     * Pay as you go nach einer Zahlungsstoerung beendet -- wird von
+     * LP-POSTPAID-009 aufgerufen. Der Eintrag traegt Grund, Gebuehr und den
+     * offenen Betrag zum Zeitpunkt der Rueckstufung; ein Mensch war daran
+     * nicht beteiligt, deshalb steht am Eintrag kein Admin.
+     */
+    case POSTPAID_DOWNGRADED = 'postpaid.downgraded';
+
     /**
      * Deutsche Beschriftung fuer die Anzeige im Admin-Panel.
      */

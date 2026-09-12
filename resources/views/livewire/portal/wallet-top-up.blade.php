@@ -21,6 +21,7 @@
       $packages        euro, leads, popular
       $workspaces      uuid, name
       $recentTopUps    date, amount
+      $prefillEuro     vorbelegter Betrag in Euro, 0 ohne Vorbelegung
       $marketplaceUrl, $transactionsUrl, $ordersUrl
 --}}
 <div>
@@ -38,6 +39,12 @@
         </div>
     </div>
 
+    {{-- Bei Pay as you go steht hier der offene Betrag samt Kreditrahmen;
+         bei Prepaid rendert der Baustein nichts (LP-POSTPAID-010). --}}
+    <div class="mt-6 empty:mt-0">
+        @livewire('portal.postpaid-balance')
+    </div>
+
     <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] items-start">
 
         <form class="card p-5 md:p-8 space-y-6 min-w-0" id="topup" method="POST" action="{{ route('buyer.wallet.topup') }}" data-balance="{{ $balanceCents / 100 }}" data-vat="{{ $vatPercent }}" data-pay-label="{{ __('portal.topup.submit', ['amount' => ':amount']) }}">
@@ -53,7 +60,7 @@
                 <div class="grid gap-3 sm:grid-cols-3 sm:pt-2">
                     @foreach ($packages as $package)
                         <label class="pkg flex-row sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center">
-                            <input type="radio" name="amount_euro" value="{{ $package['euro'] }}" class="sr-only" @checked($loop->first)>
+                            <input type="radio" name="amount_euro" value="{{ $package['euro'] }}" class="sr-only" @checked($loop->first && $prefillEuro === 0)>
                             <span class="flex flex-col"><span class="text-lg font-semibold text-zinc-900 tabular-nums">{{ $package['euro'] }} &euro;</span><span class="text-sm text-zinc-500">{{ trans_choice('portal.topup.package_leads', $package['leads'], ['count' => $package['leads']]) }}</span></span>
                             @if ($package['popular'])
                                 <span class="pill-solid text-xs sm:absolute sm:-top-3 sm:left-1/2 sm:-translate-x-1/2">{{ __('portal.topup.popular') }}</span>
@@ -64,9 +71,9 @@
                     @endforeach
                 </div>
                 <button type="button" class="mt-3 text-sm text-brand font-medium hover:underline" data-toggle="custom">{{ __('portal.topup.custom_toggle') }}</button>
-                <div id="custom" class="hidden mt-3">
+                <div id="custom" @class(['mt-3', 'hidden' => $prefillEuro === 0])>
                     <label for="amount" class="block text-sm font-medium text-zinc-700 mb-1">{{ __('portal.topup.custom_label') }}</label>
-                    <div class="relative"><input id="amount" name="amount_euro" type="number" min="{{ $minEuro }}" max="{{ $maxEuro }}" step="1" class="input pr-10" placeholder="{{ __('portal.topup.custom_placeholder', ['amount' => $minEuro * 2]) }}" inputmode="numeric" disabled><span class="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">&euro;</span></div>
+                    <div class="relative"><input id="amount" name="amount_euro" type="number" min="{{ $minEuro }}" max="{{ $maxEuro }}" step="1" class="input pr-10" placeholder="{{ __('portal.topup.custom_placeholder', ['amount' => $minEuro * 2]) }}" inputmode="numeric" value="{{ $prefillEuro > 0 ? $prefillEuro : '' }}" @disabled($prefillEuro === 0)><span class="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">&euro;</span></div>
                     <p class="text-xs text-zinc-500 mt-1">{{ __('portal.topup.custom_hint', ['min' => $minEuro, 'max' => $maxEuro]) }}</p>
                 </div>
                 @error('amount_euro')
@@ -127,5 +134,11 @@
             @endif
         </aside>
 
+    </div>
+
+    {{-- Der Antrag auf Pay as you go. Nur fuer einen Prepaid-Kaeufer bei
+         laufendem Rollout, sonst rendert der Baustein nichts. --}}
+    <div class="mt-6 empty:mt-0">
+        @livewire('portal.postpaid-application')
     </div>
 </div>

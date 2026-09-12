@@ -96,4 +96,128 @@ return [
     // landen Provisionen und von dort gehen Auszahlungen und Erstattungen aus.
     'platform_wallet_owner' => env('WALLET_PLATFORM_OWNER', 'platform'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pay as you go (Postpaid, LP-POSTPAID)
+    |--------------------------------------------------------------------------
+    |
+    | Kaeufer mit freigeschaltetem Postpaid kaufen gegen einen Kreditrahmen und
+    | zahlen im Nachhinein per Lastschrift oder Karte. Saemtliche Betraege,
+    | Prozentsaetze und Zeitpunkte dieses Verfahrens stehen hier -- Antrag,
+    | Aufschlag, Einzug, Mahnung und Rueckstufung lesen ausschliesslich
+    | config('wallet.postpaid.*').
+    |
+    */
+    'postpaid' => [
+
+        // Hauptschalter des Rollouts. Steht er auf false, ist jeder
+        // Postpaid-Pfad abgeschaltet: kein Antrag im Portal, kein Aufschlag am
+        // Marktplatz, kein Einzug durch den Scheduler. Bereits freigeschaltete
+        // Kaeufer werden dadurch NICHT zurueckgestuft und behalten ihre
+        // offenen Betraege -- der Schalter steuert nur, ob das Verfahren
+        // laeuft, nicht wer es darf.
+        'enabled' => (bool) env('WALLET_POSTPAID_ENABLED', false),
+
+        // Aufschlag (Prozent des Leadpreises), den ein Postpaid-Kaeufer je Kauf
+        // zusaetzlich zahlt. Er deckt Zahlungsausfall und Zahlungsgebuehren des
+        // nachgelagerten Einzugs. Bewusst ein Float: 7,5 % laesst sich nicht als
+        // ganze Prozent ausdruecken. Der Aufschlag wird beim Kauf als Snapshot
+        // am Kaufbeleg festgehalten, damit eine spaetere Aenderung des Satzes
+        // laufende Kaeufe nicht rueckwirkend verteuert.
+        'surcharge_percent' => (float) env('WALLET_POSTPAID_SURCHARGE_PERCENT', 7.5),
+
+        // Kreditrahmen (Cent), den ein frisch freigeschalteter Kaeufer erhaelt.
+        // Der Rahmen steht am Mandanten und kann vom Admin je Kaeufer
+        // abweichend gesetzt werden; dieser Wert ist nur die Vorgabe.
+        'default_credit_limit_cents' => (int) env('WALLET_POSTPAID_CREDIT_LIMIT_CENTS', 30000),
+
+        // Offener Betrag (Cent), ab dem sofort eingezogen wird, ohne den
+        // woechentlichen Termin abzuwarten. Schuetzt die Plattform davor, dass
+        // ein Kaeufer binnen weniger Tage seinen ganzen Rahmen ausschoepft und
+        // der Ausfall erst am Wochentermin auffaellt.
+        'settlement_threshold_cents' => (int) env('WALLET_POSTPAID_SETTLEMENT_THRESHOLD_CENTS', 15000),
+
+        // Wochentag und Uhrzeit des regulaeren Einzugs (Zeitzone der
+        // Anwendung). Der Wochentag ist als englischer Kleinbuchstabenname
+        // angegeben, wie ihn der Laravel-Scheduler in ->weeklyOn() erwartet.
+        'settlement_weekday' => env('WALLET_POSTPAID_SETTLEMENT_WEEKDAY', 'monday'),
+        'settlement_time' => env('WALLET_POSTPAID_SETTLEMENT_TIME', '06:00'),
+
+        // Vorlauffrist (Werktage) der SEPA-Vorabankuendigung
+        // (LP-POSTPAID-014). Bei der SEPA-Basislastschrift muss der
+        // Zahlungsempfaenger Betrag und Belastungsdatum vorher ankuendigen;
+        // ohne diese Ankuendigung darf der Kaeufer die Abbuchung als
+        // unberechtigt zurueckgeben -- und genau diese Ruecklastschrift loest
+        // bei uns Gebuehr, Sperre und Rueckstufung aus. Der Fehler auf unserer
+        // Seite wuerde also den Kaeufer Geld kosten.
+        //
+        // Gezaehlt werden Werktage, nicht Kalendertage: Eine Ankuendigung am
+        // Freitag mit Belastung am Samstag gibt dem Kaeufer keinen Tag Zeit,
+        // sein Konto zu decken. Stripe verlangt bei SEPA regelmaessig
+        // mindestens einen Werktag Vorlauf, deshalb die Vorgabe 1. Der Wert
+        // gilt nur fuer Lastschriften -- bei Karte entfaellt die Ankuendigung
+        // (App\Constants\PaymentMethodType::requiresPrenotification()).
+        'prenotification_days' => (int) env('WALLET_POSTPAID_PRENOTIFICATION_DAYS', 1),
+
+        // Wartezeit (Tage) bis zum zweiten Einzugsversuch nach einer
+        // fehlgeschlagenen Abbuchung. Ein sofortiger Wiederholungsversuch
+        // scheitert bei mangelnder Deckung nur ein zweites Mal und kostet
+        // erneut Ruecklastschriftgebuehr.
+        'retry_after_days' => (int) env('WALLET_POSTPAID_RETRY_AFTER_DAYS', 3),
+
+        // Mahngebuehr (Cent), die bei ausbleibender Zahlung erhoben wird.
+        'dunning_fee_cents' => (int) env('WALLET_POSTPAID_DUNNING_FEE_CENTS', 1000),
+
+        // Ruecklastschriftgebuehr (Cent), die der Kaeufer traegt, wenn seine
+        // Bank die Abbuchung zurueckgibt.
+        'return_fee_cents' => (int) env('WALLET_POSTPAID_RETURN_FEE_CENTS', 1500),
+
+        // SEPA-Lastschriftmandat (LP-POSTPAID-005). Vor der Bestaetigung eines
+        // Lastschriftmandats muss der Kaeufer lesen koennen, wer da abbucht --
+        // das ist keine Hoeflichkeit, sondern Inhalt des Mandats.
+        //
+        // `creditor_name` ist der Glaeubiger, wie er auf dem Kontoauszug des
+        // Kaeufers erscheint. `creditor_id` ist die Glaeubiger-Identifikations-
+        // nummer. Bleibt sie leer, wird im Mandatstext die von Stripe genutzte
+        // Kennung genannt: Stripe tritt als Zahlungsdienstleister mit eigener
+        // Glaeubiger-ID auf, eine eigene Nummer von der Bundesbank ist dafuer
+        // nicht erforderlich. Beantragt der Betreiber spaeter eine eigene,
+        // traegt er sie hier ein, ohne dass Code sich aendert.
+        'creditor_name' => env('WALLET_POSTPAID_CREDITOR_NAME', 'Enes Kul – Webentwicklung & IT-Dienstleistungen'),
+        'creditor_id' => env('WALLET_POSTPAID_CREDITOR_ID', ''),
+        'creditor_id_fallback' => 'DE98ZZZ09999999999',
+
+        // Eigenes Webhook-Secret des Postpaid-Endpunkts. Postpaid haengt an
+        // einem zweiten Stripe-Webhook (Zahlungsmittel, Mandate, Einzuege) und
+        // damit an einem eigenen Secret. Bleibt es leer, gilt das Secret des
+        // vorhandenen SaaSykit-Endpunkts -- so laeuft der Fall, dass beide
+        // Ereignismengen auf einem Endpunkt eingerichtet sind.
+        'webhook_signing_secret' => env('WALLET_POSTPAID_WEBHOOK_SIGNING_SECRET'),
+
+        // Eignung: Mindestzahl abgerechneter (captured) Leadkaeufe, Mindestalter
+        // des Kontos in Tagen und Zeitraum in Tagen, in dem die Zahlungshistorie
+        // ohne Stoerung sein muss. Wer diese Huerden nicht nimmt, kann Postpaid
+        // nicht beantragen.
+        'min_captured_purchases' => (int) env('WALLET_POSTPAID_MIN_CAPTURED_PURCHASES', 5),
+        'min_account_age_days' => (int) env('WALLET_POSTPAID_MIN_ACCOUNT_AGE_DAYS', 30),
+        'clean_history_days' => (int) env('WALLET_POSTPAID_CLEAN_HISTORY_DAYS', 180),
+
+        // Serie der Belegnummern fuer Postpaid-Abrechnungen
+        // (LP-POSTPAID-015). Die vollstaendige Nummer ist Serie, Jahr des
+        // Einzugs und der aufgefuellte Schluessel des Settlements, also etwa
+        // ABR-2026-00042. Eigene Serie und nicht die der Rechnungen aus
+        // config('invoices.serial_number.series'): Beide Nummernkreise laufen
+        // unabhaengig voneinander, eine gemeinsame Serie mit zwei Zaehlern
+        // gaebe doppelte Nummern.
+        'settlement_invoice_series' => env('WALLET_POSTPAID_INVOICE_SERIES', 'ABR'),
+
+        // Sperrfrist (Tage) nach einer Ablehnung, bevor derselbe Kaeufer
+        // erneut beantragen darf (LP-POSTPAID-006). Ohne sie koennte ein
+        // abgelehnter Kaeufer denselben Antrag am naechsten Tag wieder
+        // stellen -- die Ablehnungsmail nennt diese Frist ausdruecklich, sie
+        // darf also nicht nur ein Satz sein.
+        'reapply_after_days' => (int) env('WALLET_POSTPAID_REAPPLY_AFTER_DAYS', 90),
+
+    ],
+
 ];

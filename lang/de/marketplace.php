@@ -249,6 +249,53 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'orders' => [
+        'heading' => 'Bestellungen',
+        'search' => 'Bestellung suchen',
+        'search_placeholder' => 'Nummer oder Betrag',
+        'year' => 'Jahr',
+        'all_years' => 'Alle Jahre',
+        'method_unknown' => 'Zahlungsweg unbekannt',
+        'unknown_month' => 'Ohne Datum',
+        'count_line' => '{0} Keine Bestellungen|[1,*] :count von :total Bestellungen',
+        'load_more' => '{1} 1 weitere laden|[2,*] :count weitere laden',
+        'footnote' => 'Jede Bestellung ist eine Guthaben-Aufladung. Was du für einzelne Leads bezahlt hast, siehst du im',
+        'footnote_link' => 'Guthaben-Verlauf.',
+        'stats' => [
+            'year' => 'Dieses Jahr',
+            'count' => 'Bestellungen',
+            'count_short' => 'Anzahl',
+            'pending' => 'Ausstehend',
+            'pending_short' => 'Offen',
+        ],
+        'tabs' => [
+            'label' => 'Status',
+            'all' => 'Alle',
+            'paid' => 'Bezahlt',
+            'pending' => 'Ausstehend',
+            'failed' => 'Fehlgeschlagen',
+        ],
+        'status' => [
+            'paid' => 'Bezahlt',
+            'pending' => 'Ausstehend',
+            'failed' => 'Fehlgeschlagen',
+            'refunded' => 'Erstattet',
+            'disputed' => 'Strittig',
+            'other' => 'Offen',
+        ],
+        'actions' => [
+            'invoice' => 'Rechnung',
+            'complete' => 'Zahlung abschließen',
+            'complete_short' => 'Abschließen',
+            'retry' => 'Erneut versuchen',
+            'retry_short' => 'Erneut',
+        ],
+        'empty' => [
+            'title' => 'Nichts gefunden',
+            'text' => 'In diesem Status gibt es keine Bestellungen.',
+        ],
+    ],
+
     'listing' => [
         'fits_count' => '{0} Kein Lead passt|{1} 1 Lead passt|[2,*] :count Leads passen',
         'contact_after_purchase' => 'Kontakt nach dem Kauf',
@@ -736,6 +783,259 @@ return [
 
         /*
         |----------------------------------------------------------------------
+        | Beleg zu einer Postpaid-Abrechnung (LP-POSTPAID-015)
+        |----------------------------------------------------------------------
+        |
+        | Eigener Zweig `settlement_invoice`, damit er sich mit keinem der
+        | parallel entstehenden Postpaid-Zweige beisst.
+        |
+        */
+
+        'settlement_invoice' => [
+
+            'title' => 'Abrechnung',
+            'status_paid' => 'Bezahlt',
+            'link' => 'Beleg',
+            'action' => 'Beleg :reference herunterladen',
+            'period' => ':start bis :end',
+            'period_until' => 'bis :end',
+            'method_unknown' => 'Hinterlegtes Zahlungsmittel',
+
+            'fields' => [
+                'period' => 'Abrechnungszeitraum',
+                'method' => 'Zahlungsmittel',
+            ],
+
+            'items' => [
+                'lead' => 'Lead #:lead',
+                'funnel' => 'Funnel: :funnel',
+                'captured_at' => 'abgerechnet am :date',
+                'split' => 'Leadpreis :price zzgl. Aufschlag :surcharge',
+                'refund' => 'Erstattung',
+                'carried_over' => 'Übertrag aus dem vorherigen Abrechnungszeitraum',
+                'credited' => 'Verrechnetes Guthaben',
+                'balance_hint' => 'Differenz zwischen den aufgeführten Positionen und dem eingezogenen Betrag',
+            ],
+
+            'notes' => [
+                'paid' => 'Der Betrag wurde am :date über :method eingezogen. Es ist nichts weiter zu tun.',
+                'vat' => 'Alle Beträge sind Bruttobeträge und enthalten :percent % Umsatzsteuer.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | SEPA-Vorabankuendigung vor dem Postpaid-Einzug (LP-POSTPAID-014)
+        |----------------------------------------------------------------------
+        |
+        | Bewusst unter `wallet.prenotification` und nicht unter
+        | `wallet.postpaid`: An dieser Datei arbeiten mehrere Postpaid-Tickets
+        | gleichzeitig, und ein zweiter Block mit demselben Schluessel gewinnt
+        | still und ueberschreibt den ersten.
+        */
+
+        /*
+        |----------------------------------------------------------------------
+        | Meldungen zum Postpaid-Einzug (LP-POSTPAID-008)
+        |----------------------------------------------------------------------
+        |
+        | Eigener Ast neben 'prenotification': Jene kuendigt an, diese melden
+        | das Ergebnis. 'error' geht als einzige an den Betreiber und nicht an
+        | den Kaeufer -- eine technische Stoerung ist kein Zahlungsverzug.
+        |
+        */
+
+        'settlement_notice' => [
+
+            'label' => 'Pay as you go',
+            'amount_label' => 'Betrag',
+            'date_label' => 'Eingegangen am',
+            'method_label' => 'Zahlungsmittel',
+            'method_unknown' => 'Nicht mehr hinterlegt',
+            'invoice_label' => 'Beleg',
+            'payment_method_cta' => 'Zahlungsmittel prüfen',
+
+            'paid' => [
+                'subject' => 'Zahlung über :amount ist eingegangen',
+                'heading' => 'Deine Zahlung ist eingegangen',
+                'intro' => 'Wir haben :amount von deinem hinterlegten Zahlungsmittel eingezogen. Dein offener Betrag ist damit ausgeglichen.',
+                'invoice_cta' => 'Beleg ansehen',
+                'outro' => 'Der Beleg steht dir im Portal unter den Abrechnungen dauerhaft zur Verfügung.',
+            ],
+
+            'failed_retry' => [
+                'subject' => 'Einzug über :amount ist fehlgeschlagen',
+                'heading' => 'Der Einzug ist fehlgeschlagen',
+                'intro' => 'Wir konnten :amount nicht einziehen. Wir versuchen es am :date erneut – bitte prüfe bis dahin dein Zahlungsmittel.',
+                'date_label' => 'Nächster Versuch',
+                'outro' => 'Scheitert auch der zweite Versuch, wird Pay as you go vorübergehend gesperrt und es fallen Gebühren an.',
+            ],
+
+            'failed_final' => [
+                'subject' => 'Einzug über :amount endgültig fehlgeschlagen',
+                'heading' => 'Der Einzug ist endgültig fehlgeschlagen',
+                'intro' => 'Auch der zweite Versuch, :amount einzuziehen, ist gescheitert. Pay as you go ist damit vorerst gesperrt; der offene Betrag von :amount bleibt bestehen.',
+                'outro' => 'Hinterlege ein neues Zahlungsmittel und gleiche den offenen Betrag aus, dann schalten wir Pay as you go wieder frei.',
+            ],
+
+            'error' => [
+                'subject' => 'Einzug #:settlement technisch gescheitert',
+                'heading' => 'Einzug konnte nicht angestoßen werden',
+                'intro' => 'Der Einzug ist nach drei Versuchen an einer technischen Störung gescheitert – nicht an einer Ablehnung des Zahlungsmittels. Der Käufer wurde deshalb nicht zurückgestuft und nicht benachrichtigt.',
+                'settlement_label' => 'Abrechnung',
+                'wallet_label' => 'Wallet',
+                'reason_label' => 'Fehler',
+                'outro' => 'Die Forderung bleibt bestehen und muss im Admin von Hand neu angestoßen werden.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Aufhebung der Kaufsperre (LP-POSTPAID-009)
+        |----------------------------------------------------------------------
+        |
+        | Gegenstueck zur Rueckstufungsmail und bewusst kurz: kein Rueckblick
+        | auf den Grund der Sperre.
+        */
+        'unblocked' => [
+
+            'mail' => [
+                'subject' => 'Dein Konto ist wieder freigeschaltet',
+                'label' => 'Guthaben',
+                'heading' => 'Dein Konto ist wieder freigeschaltet',
+                'intro' => 'Dein offener Betrag ist ausgeglichen. Dein Guthaben beträgt :balance und du kannst ab sofort wieder Leads kaufen.',
+                'cta' => 'Zum Marktplatz',
+                'outro' => 'Pay as you go bleibt vorerst deaktiviert – du kannst es jederzeit neu beantragen.',
+            ],
+
+        ],
+
+        'prenotification' => [
+
+            'mail' => [
+                'subject' => 'Ankündigung: Wir buchen am :date :amount ab',
+                'label' => 'SEPA-Lastschrift',
+                'heading' => 'Ankündigung deiner Abbuchung',
+                'intro' => 'Wir ziehen :amount am :date per SEPA-Lastschrift von deinem Konto ein. Diese Ankündigung schicken wir dir vor jeder Abbuchung, damit du sie zuordnen kannst.',
+                'amount_label' => 'Betrag',
+                'date_label' => 'Belastungsdatum',
+                'iban_label' => 'Konto',
+                'mandate_label' => 'Mandatsreferenz',
+                'mandate_unknown' => 'Wird mit der Abbuchung mitgeteilt',
+                'creditor_label' => 'Zahlungsempfänger',
+                'coverage_hint' => 'Bitte sorge bis dahin für Deckung auf dem Konto. Wird die Lastschrift zurückgegeben, fallen Gebühren an und dein Pay-as-you-go-Zugang wird vorübergehend gesperrt.',
+                'support_hint' => 'Stimmt etwas nicht? Melde dich vor dem Belastungsdatum bei uns, dann klären wir das ohne Rücklastschrift.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Eignung, Antrag und Freischaltung von Pay as you go (LP-POSTPAID-006)
+        |----------------------------------------------------------------------
+        |
+        | Die Begruendungen der Eignungspruefung stehen dem Kaeufer im Portal
+        | vor Augen und sind deshalb als Saetze geschrieben, nicht als
+        | Regelnamen. Die Ablehnungsmail nennt bewusst keinen Grund: Wer
+        | erfaehrt, an welcher Zahl es lag, kann genau diese Zahl herstellen.
+        */
+
+        'postpaid' => [
+
+            'eligibility' => [
+
+                'reasons' => [
+                    'no_tenant' => 'Zu diesem Guthabenkonto ist kein Workspace hinterlegt.',
+                    'purchases' => 'Du hast bisher :count abgerechnete Leadkäufe, nötig sind :required.',
+                    'account_age' => 'Dein Konto besteht seit :days Tagen, nötig sind :required.',
+                    'payment_history' => 'In den letzten :days Tagen gab es eine Zahlungsstörung auf deinem Konto.',
+                    'previous_downgrade' => 'Dein Pay-as-you-go-Zugang wurde innerhalb der letzten :days Tage wegen einer Zahlungsstörung beendet.',
+                    'purchase_blocked' => 'Für dein Konto besteht zurzeit eine Kaufsperre.',
+                ],
+
+            ],
+
+            'errors' => [
+                'disabled' => 'Pay as you go steht zurzeit nicht zur Verfügung.',
+                'not_eligible' => 'Du erfüllst die Voraussetzungen für Pay as you go noch nicht.',
+                'payment_method_required' => 'Hinterlege zuerst ein Zahlungsmittel, von dem wir einziehen können.',
+                'application_pending' => 'Dein Antrag liegt uns bereits vor. Wir melden uns, sobald er geprüft ist.',
+                'rejected_recently' => 'Ein neuer Antrag ist in :days Tagen wieder möglich.',
+                'already_enabled' => 'Du kaufst bereits mit Pay as you go.',
+            ],
+
+            'mail' => [
+
+                'received' => [
+                    'subject' => 'Pay as you go beantragt: :buyer',
+                    'label' => 'Antrag',
+                    'heading' => 'Neuer Antrag auf Pay as you go',
+                    'intro' => ':buyer möchte Leads mit Pay as you go kaufen. Der Antrag wartet auf deine Entscheidung im Admin-Bereich.',
+                    'buyer_label' => 'Käufer',
+                    'applicant_label' => 'Antragsteller',
+                    'purchases_label' => 'Abgerechnete Käufe',
+                    'account_age_label' => 'Kontoalter',
+                    'account_age_value' => ':days Tage',
+                    'balance_label' => 'Guthaben',
+                    'reference_label' => 'Antrag',
+                    'hint' => 'Die vollständigen Prüfzahlen stehen am Antrag im Admin-Bereich.',
+                ],
+
+                'approved' => [
+                    'subject' => 'Pay as you go ist freigeschaltet',
+                    'label' => 'Freigeschaltet',
+                    'heading' => 'Du kaufst ab jetzt mit Pay as you go',
+                    'intro' => 'Wir haben deinen Antrag freigegeben. Du kaufst Leads ohne Vorauszahlung und wir ziehen den offenen Betrag von deinem hinterlegten Zahlungsmittel ein.',
+                    'credit_limit_label' => 'Dein Kreditrahmen',
+                    'surcharge_label' => 'Aufschlag je Lead',
+                    'surcharge_value' => ':percent % des Leadpreises',
+                    'settlement_label' => 'Abrechnung',
+                    'settlement_value' => 'Wöchentlich, dazu sofort ab :threshold offen',
+                    'prenotification_hint' => 'Vor jeder Lastschrift kündigen wir dir Betrag und Belastungsdatum per E-Mail an.',
+                    'hint' => 'Sorge für Deckung auf dem hinterlegten Konto. Scheitert ein Einzug, sperren wir den Kauf und stufen dich auf Vorauszahlung zurück.',
+                ],
+
+                'rejected' => [
+                    'subject' => 'Dein Antrag auf Pay as you go',
+                    'label' => 'Antrag',
+                    'heading' => 'Wir können Pay as you go noch nicht freischalten',
+                    'intro' => 'Wir haben deinen Antrag geprüft und können ihn zurzeit nicht freigeben. Das ist keine Bewertung deines Unternehmens, sondern eine Frage unserer Vergaberegeln.',
+                    'retry_hint' => 'Du kannst in :days Tagen erneut beantragen. Bis dahin kaufst du wie gewohnt mit Guthaben.',
+                    'support_hint' => 'Fragen dazu? Melde dich bei uns.',
+                ],
+
+                'downgraded' => [
+                    'subject' => 'Pay as you go ist beendet',
+                    'operator_subject' => 'Pay as you go beendet: :buyer',
+                    'label' => 'Pay as you go',
+                    'heading' => 'Pay as you go ist beendet',
+                    'operator_hint' => 'Kopie zur Kenntnis. Betroffen ist :buyer.',
+                    'intro' => 'Wir haben deinen Pay-as-you-go-Zugang beendet. Du kaufst ab jetzt wieder mit Guthaben, das du vorher auflädst.',
+                    'reason_label' => 'Grund',
+                    'open_amount_label' => 'Offener Betrag',
+                    'fee_label' => 'Gebühr',
+                    'reasons' => [
+                        'settlement_failed' => 'Der Einzug ist zweimal fehlgeschlagen',
+                        'sepa_return' => 'Die Lastschrift wurde zurückgegeben',
+                        'chargeback' => 'Die Kartenzahlung wurde angefochten',
+                        'no_payment_method' => 'Beim Einzug war kein Zahlungsmittel hinterlegt',
+                        'payment_method_revoked' => 'Dein Zahlungsmittel wurde widerrufen',
+                    ],
+                    'blocked_hint' => 'Solange der offene Betrag besteht, kannst du keine neuen Leads kaufen. Lade dein Guthaben um mindestens den offenen Betrag auf, dann ist dein Konto sofort wieder freigeschaltet.',
+                    'open_hint' => 'Gleiche den offenen Betrag bitte per Aufladung aus. Deine gekauften Leads bleiben dir in jedem Fall erhalten.',
+                    'deadline_hint' => 'Bitte gleiche den offenen Betrag innerhalb von :days Tagen aus.',
+                    'cta' => 'Guthaben aufladen',
+                    'outro' => 'Pay as you go kannst du später erneut beantragen. Melde dich bei Fragen einfach bei uns – wir finden eine Lösung.',
+                ],
+
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
         | Guthaben und Transaktionsverlauf im Kaeuferportal (LP-WALLET-011)
         |----------------------------------------------------------------------
         |
@@ -788,6 +1088,198 @@ return [
 
         'admin' => [
 
+            /*
+            |------------------------------------------------------------------
+            | Adminwerkzeuge zu Pay as you go (LP-POSTPAID-012)
+            |------------------------------------------------------------------
+            |
+            | Antrags-Queue, Einzuege und die Handlungen am Wallet. Eigener
+            | Zweig unter 'admin', weil der Kaeufer diese Texte nie zu sehen
+            | bekommt -- was er liest, steht unter 'wallet.postpaid'.
+            |
+            */
+            'postpaid' => [
+
+                'yes' => 'Ja',
+                'no' => 'Nein',
+                'blocked_yes' => 'Gesperrt',
+                'blocked_no' => 'Frei',
+                'no_payment_method' => 'Kein Zahlungsmittel',
+                'reenable_note' => 'Vom Betreiber nach einer Rückstufung wieder freigeschaltet.',
+
+                'payment_mode' => [
+                    'prepaid' => 'Vorauszahlung',
+                    'postpaid' => 'Pay as you go',
+                ],
+
+                'fields' => [
+                    'payment_mode' => 'Zahlungsmodus',
+                    'credit_limit' => 'Kreditrahmen',
+                    'credit_limit_cents' => 'Kreditrahmen in Cent',
+                    'open_amount' => 'Offener Betrag',
+                    'open_total' => 'Offene Forderungen gesamt',
+                    'blocked' => 'Gesperrt',
+                    'disabled_reason' => 'Grund der Rückstufung',
+                    'downgrade_reason' => 'Grund',
+                    'fee_cents' => 'Gebühr in Cent',
+                ],
+
+                'hints' => [
+                    'credit_limit_cents' => 'Betrag, um den der Saldo ins Minus laufen darf. 30000 sind 300,00 €.',
+                    'downgrade_reason' => 'Am Grund hängen Gebühr, Kaufsperre und der Text der E-Mail an den Käufer.',
+                    'fee_cents' => 'Vorbelegt ist die Gebühr des gewählten Grundes. 0 erhebt ausdrücklich keine.',
+                ],
+
+                'actions' => [
+                    'change_credit_limit' => 'Kreditrahmen ändern',
+                    'change_credit_limit_description' => 'Der Rahmen ist eine Erlaubnis, kein Guthaben – es wird nichts gebucht. Ein gesenkter Rahmen stoppt weitere Käufe, der bereits offene Betrag bleibt bestehen.',
+                    'credit_limit_changed' => 'Kreditrahmen geändert',
+                    'settle_now' => 'Jetzt einziehen',
+                    'settle_now_description' => 'Zieht den heute offenen Betrag ein, ohne den Wochentermin abzuwarten. Bei SEPA wird zuerst angekündigt und erst nach Ablauf der Frist belastet.',
+                    'settled' => 'Einzug angestoßen',
+                    'downgrade' => 'Auf Prepaid zurückstufen',
+                    'downgrade_description' => 'Beendet Pay as you go: Kreditrahmen auf 0, offene Einzüge werden beendet, bei offenem Betrag folgt die Kaufsperre. Käufer und Betreiber bekommen eine E-Mail.',
+                    'downgraded' => 'Auf Vorauszahlung zurückgestuft',
+                    'reenable' => 'Postpaid wieder freischalten',
+                    'reenable_description' => 'Schaltet Pay as you go trotz der früheren Rückstufung wieder frei. Die Eignungsprüfung wird dabei übergangen – das ist eine Entscheidung gegen die Regel. Der Käufer bekommt die Freischaltungsmail.',
+                    'reenabled' => 'Pay as you go wieder freigeschaltet',
+                ],
+
+                'stats' => [
+                    'open_receivables' => 'Offene Forderungen',
+                    'open_receivables_hint' => '{0} Kein Käufer im Minus|{1} :count Käufer im Minus|[2,*] :count Käufer im Minus',
+                    'in_flight' => 'Einzüge in Bearbeitung',
+                    'in_flight_hint' => '{0} Kein Einzug unterwegs|{1} :count Einzug unterwegs|[2,*] :count Einzüge unterwegs',
+                    'failed' => 'Fehlgeschlagene Einzüge',
+                    'failed_hint' => 'Gescheitert oder zurückgegeben in den letzten :days Tagen',
+                    'surcharge' => 'Ertrag aus Aufschlag',
+                    'surcharge_hint' => 'Pay-as-you-go-Aufschlag im laufenden Monat',
+                ],
+
+                'application' => [
+
+                    'resource' => [
+                        'label' => 'Pay-as-you-go-Antrag',
+                        'plural_label' => 'Pay-as-you-go-Anträge',
+                    ],
+
+                    'empty_heading' => 'Kein offener Antrag',
+                    'empty_description' => 'Sobald ein Käufer Pay as you go beantragt, steht sein Antrag hier.',
+                    'snapshot_hint' => 'Die Zahlen zum Zeitpunkt der Antragstellung. Sie werden nicht neu berechnet – sie belegen, worüber entschieden wird.',
+
+                    'sections' => [
+                        'application' => 'Antrag',
+                        'eligibility' => 'Eignungsprüfung',
+                        'context' => 'Zahlungsmittel und Kaufhistorie',
+                    ],
+
+                    'fields' => [
+                        'requested_at' => 'Beantragt',
+                        'buyer' => 'Käufer',
+                        'workspace' => 'Workspace',
+                        'status' => 'Stand',
+                        'decided_at' => 'Entschieden',
+                        'decided_by' => 'Entschieden von',
+                        'note' => 'Notiz',
+                        'rule' => 'Angabe',
+                        'value' => 'Wert',
+                        'payment_method' => 'Zahlungsmittel',
+                        'captured_purchases' => 'Abgerechnete Käufe',
+                        'purchase_history' => 'Kaufhistorie (tagesaktuell)',
+                    ],
+
+                    'hints' => [
+                        'note_required' => 'Bleibt intern. Der Käufer erfährt nur, wann er wieder beantragen darf.',
+                    ],
+
+                    'status' => [
+                        'requested' => 'Offen',
+                        'approved' => 'Freigegeben',
+                        'rejected' => 'Abgelehnt',
+                    ],
+
+                    'actions' => [
+                        'approve' => 'Freigeben',
+                        'approve_confirm' => 'Der Käufer kauft danach gegen Kreditrahmen und zahlt im Nachhinein. Er bekommt die Freischaltung per E-Mail.',
+                        'approved' => 'Pay as you go freigegeben',
+                        'reject' => 'Ablehnen',
+                        'reject_confirm' => 'Der Käufer erfährt nur, dass wir nicht freischalten, und wann er erneut beantragen darf.',
+                        'rejected' => 'Antrag abgelehnt',
+                    ],
+
+                    'snapshot' => [
+                        'eligible' => 'Eignung',
+                        'eligible_yes' => 'Alle Regeln erfüllt',
+                        'eligible_no' => 'Nicht alle Regeln erfüllt',
+                        'of_required' => ':value (nötig: :required)',
+                        'captured_purchases' => 'Abgerechnete Käufe',
+                        'account_age_days' => 'Kontoalter in Tagen',
+                        'failed_settlements' => 'Fehlgeschlagene Einzüge im Beobachtungszeitraum',
+                        'chargebacks' => 'Rückgaben im Beobachtungszeitraum',
+                        'clean_history_days' => 'Beobachtungszeitraum in Tagen',
+                        'balance_cents' => 'Saldo',
+                        'open_amount_cents' => 'Offener Betrag',
+                        'purchase_blocked' => 'Kaufsperre',
+                        'postpaid_disabled_reason' => 'Frühere Rückstufung',
+                        'reasons' => 'Offene Punkte',
+                    ],
+
+                    'history' => [
+                        'captured' => 'Abgerechnete Käufe',
+                        'released' => 'Aufgelöste Käufe',
+                        'refunded' => 'Erstattete Käufe',
+                        'revenue' => 'Umsatz der letzten 90 Tage',
+                    ],
+
+                ],
+
+                'settlement' => [
+
+                    'resource' => [
+                        'label' => 'Einzug',
+                        'plural_label' => 'Einzüge',
+                    ],
+
+                    'empty_heading' => 'Noch kein Einzug',
+                    'empty_description' => 'Einzüge entstehen am Wochentermin, ab der Einzugsschwelle oder von Hand am Wallet.',
+
+                    'fields' => [
+                        'created_at' => 'Erstellt',
+                        'buyer' => 'Käufer',
+                        'amount' => 'Betrag',
+                        'status' => 'Stand',
+                        'attempts' => 'Versuche',
+                        'next_attempt_at' => 'Nächster Versuch',
+                        'payment_intent' => 'Zahlung beim Anbieter',
+                        'failure_reason' => 'Fehlergrund',
+                        'invoice_reference' => 'Beleg',
+                    ],
+
+                    'status' => [
+                        'pending' => 'Offen',
+                        'processing' => 'Unterwegs',
+                        'retry_pending' => 'Zweiter Versuch',
+                        'paid' => 'Bezahlt',
+                        'failed' => 'Gescheitert',
+                        'returned' => 'Zurückgegeben',
+                    ],
+
+                    'trigger' => [
+                        'scheduled' => 'Wochentermin',
+                        'threshold' => 'Einzugsschwelle',
+                        'manual' => 'Von Hand',
+                    ],
+
+                    'actions' => [
+                        'retry' => 'Erneut versuchen',
+                        'retry_confirm' => 'Belastet das hinterlegte Zahlungsmittel erneut. Eingezogen wird der heute offene Betrag, nicht der Betrag des gescheiterten Versuchs. Bei SEPA wird vorher erneut angekündigt.',
+                        'retried' => 'Einzug erneut angestoßen',
+                    ],
+
+                ],
+
+            ],
+
             'resource' => [
                 'label' => 'Wallet',
                 'plural_label' => 'Wallets',
@@ -813,6 +1305,9 @@ return [
                 'payout' => 'Auszahlung',
                 'adjustment' => 'Korrektur',
                 'opening_balance' => 'Eröffnungssaldo',
+                'settlement' => 'Einzug',
+                'surcharge' => 'Aufschlag',
+                'fee' => 'Gebühr',
             ],
 
             'fields' => [
@@ -956,6 +1451,66 @@ return [
 
         ],
 
+        /*
+        |----------------------------------------------------------------------
+        | Hinterlegte Zahlungsmittel (LP-POSTPAID-005)
+        |----------------------------------------------------------------------
+        |
+        | Der Mandatstext ist der Wortlaut des SEPA-Lastschriftmandats. Er steht
+        | im Portal ueber der Bestaetigung, weil er Inhalt des Mandats ist: Ohne
+        | ihn weiss der Kaeufer nicht, wem er eine Abbuchungserlaubnis erteilt.
+        | Glaeubiger und Glaeubiger-ID werden eingesetzt, nicht ausgeschrieben --
+        | sie stehen in config('wallet.postpaid.*').
+        |
+        */
+        'payment_methods' => [
+            'title' => 'Zahlungsmittel',
+            'description' => 'Für Pay as you go brauchen wir einen Einzugsweg. Du kannst eine SEPA-Lastschrift oder eine Karte hinterlegen. Die Daten gibst du direkt bei unserem Zahlungsanbieter ein, wir sehen nur die letzten vier Stellen.',
+            'choose' => 'Zahlungsmittel wählen',
+            'add' => 'Zahlungsmittel hinterlegen',
+            'added' => 'Zahlungsmittel hinterlegt.',
+            'remove' => 'Entfernen',
+            'removed' => 'Zahlungsmittel entfernt.',
+            'default_badge' => 'Wird eingezogen',
+            'empty' => 'Noch kein Zahlungsmittel hinterlegt.',
+
+            'types' => [
+                'sepa_debit' => 'SEPA-Lastschrift',
+                'card' => 'Karte',
+            ],
+
+            'type_hints' => [
+                'sepa_debit' => 'Abbuchung von deinem Konto. Du kannst eine Belastung bis zu acht Wochen danach zurückgeben lassen.',
+                'card' => 'Kredit- oder Debitkarte. Die Zahlung wird sofort entschieden.',
+            ],
+
+            'status' => [
+                'active' => 'Aktiv',
+                'revoked' => 'Widerrufen',
+                'failed' => 'Gescheitert',
+            ],
+
+            'mandate' => [
+                'heading' => 'SEPA-Lastschriftmandat',
+                'creditor_label' => 'Gläubiger',
+                'creditor_id_label' => 'Gläubiger-Identifikationsnummer',
+                'text' => 'Ich ermächtige :creditor (Gläubiger-Identifikationsnummer :creditor_id), Zahlungen von meinem Konto mittels SEPA-Lastschrift einzuziehen. Zugleich weise ich mein Kreditinstitut an, die von :creditor auf mein Konto gezogenen Lastschriften einzulösen. Ich kann innerhalb von acht Wochen, beginnend mit dem Belastungsdatum, die Erstattung des belasteten Betrages verlangen; es gelten dabei die mit meinem Kreditinstitut vereinbarten Bedingungen.',
+                'accept' => 'Ich erteile das oben stehende SEPA-Lastschriftmandat.',
+                'prenotification_hint' => 'Vor jeder Abbuchung kündigen wir dir Betrag und Belastungsdatum per E-Mail an.',
+                'accepted_at' => 'Mandat erteilt am :date',
+            ],
+
+            'errors' => [
+                'mandate_required' => 'Ohne erteiltes SEPA-Lastschriftmandat können wir nichts einziehen. Bitte bestätige das Mandat.',
+                'mandate_missing' => 'Der Zahlungsanbieter hat uns kein Lastschriftmandat gemeldet. Bitte versuche es noch einmal.',
+                'setup_not_completed' => 'Das Zahlungsmittel wurde nicht bestätigt (Stand: :status). Bitte versuche es noch einmal.',
+                'setup_intent_unknown' => 'Diesen Vorgang kennen wir nicht. Bitte fange noch einmal an.',
+                'last_method_postpaid' => 'Das ist dein einziges Zahlungsmittel und du kaufst mit Pay as you go. Hinterlege zuerst ein anderes, dann kannst du dieses entfernen.',
+                'last_method_open_amount' => 'Das ist dein einziges Zahlungsmittel und es sind noch :amount offen. Hinterlege zuerst ein anderes oder begleiche den offenen Betrag.',
+                'provider_unavailable' => 'Der Zahlungsanbieter ist gerade nicht erreichbar. Bitte versuche es in einigen Minuten noch einmal.',
+            ],
+        ],
+
         'top_up' => [
             'title' => 'Guthaben aufladen',
             'nav_label' => 'Guthaben',
@@ -976,6 +1531,26 @@ return [
             ],
 
             'success' => [
+                'amount_label' => 'Aufladung',
+                'done_text' => ':amount sind gutgeschrieben und sofort verfügbar.',
+                'balance_now' => 'Dein Guthaben jetzt',
+                'covers' => '{0} reicht für keinen Lead|{1} reicht für 1 Lead|[2,*] reicht für :count Leads',
+                'invoice' => 'Rechnung als PDF',
+                'invoice_mail' => 'Die Rechnung geht auch an :email.',
+                'pending' => [
+                    'heading' => 'Einen Moment',
+                    'text' => 'Deine Zahlung ist da. Wir schreiben das Guthaben gerade gut.',
+                    'step_paid' => 'Zahlung bestätigt',
+                    'step_credit' => 'Guthaben wird gutgeschrieben',
+                    'step_invoice' => 'Rechnung wird erstellt',
+                    'hint' => 'Das dauert normalerweise unter fünf Sekunden. Du kannst die Seite offen lassen.',
+                ],
+                'slow' => [
+                    'heading' => 'Dauert etwas länger',
+                    'text' => 'Die Zahlung ist bestätigt, die Gutschrift hängt gerade. Es wurde nichts doppelt abgebucht – wir schreiben das Guthaben automatisch gut, sobald es durch ist, und schicken dir eine E-Mail.',
+                    'reference' => 'Zahlungs-Referenz',
+                    'support' => 'Support schreiben',
+                ],
                 'heading' => 'Guthaben aufgeladen',
                 'pending_heading' => 'Fast fertig',
                 'text' => ':amount wurden deinem Guthaben hinzugefügt.',
@@ -1052,6 +1627,9 @@ return [
             'payout' => 'Auszahlung',
             'adjustment' => 'Korrektur',
             'opening_balance' => 'Eröffnungssaldo',
+            'settlement' => 'Einzug',
+            'surcharge' => 'Aufschlag',
+            'fee' => 'Gebühr',
         ],
 
         /*
@@ -1127,6 +1705,7 @@ return [
             'insufficient_reserve' => 'Ihr verfügbares Guthaben reicht nicht aus. Fehlbetrag: :missing.',
             'insufficient_balance' => 'Das Guthaben reicht für diese Buchung nicht: vorhanden sind :balance, benötigt werden :required.',
             'release_exceeds_reserved' => 'Es sind nur :reserved reserviert, aufgelöst werden sollen :requested.',
+            'purchase_blocked' => 'Dein Konto ist gesperrt, bis der offene Betrag ausgeglichen ist.',
         ],
 
         'descriptions' => [
@@ -1140,9 +1719,20 @@ return [
             'refund' => 'Erstattung für Lead #:lead',
             'earning_reversal' => 'Rückbuchung der Einnahme aus Lead #:lead',
             'commission_reversal' => 'Rückbuchung der Provision aus Lead #:lead',
+            'surcharge' => 'Aufschlag Pay as you go aus Lead #:lead',
+            'surcharge_reversal' => 'Rückbuchung des Aufschlags aus Lead #:lead',
             'chargeback' => 'Rückbuchung der Aufladung aus Bestellung :order',
             'payout' => 'Auszahlung #:payout',
             'payout_rejected' => 'Rückbuchung der abgelehnten Auszahlung #:payout',
+            'settlement' => 'Einzug des offenen Betrags (Abrechnung #:settlement)',
+            'settlement_return' => 'Rückgabe der Zahlung zu Abrechnung #:settlement',
+            'fee' => [
+                'settlement_failed' => 'Mahngebühr nach fehlgeschlagenem Einzug',
+                'sepa_return' => 'Rücklastschriftgebühr',
+                'chargeback' => 'Gebühr für angefochtene Kartenzahlung',
+                'no_payment_method' => 'Gebühr: kein Zahlungsmittel hinterlegt',
+                'payment_method_revoked' => 'Gebühr: Zahlungsmittel widerrufen',
+            ],
         ],
 
         /*
@@ -1244,6 +1834,7 @@ return [
                 'reserved' => 'Reserviert',
                 'expected' => 'Soll',
                 'actual' => 'Ist',
+                'findings' => 'Verletzte Postpaid-Regeln',
                 'repaired' => 'Der Stand wurde in diesem Lauf auf das Ledger zurückgesetzt.',
                 'reservation_totals' => 'Die reservierten Beträge der Käufer-Wallets passen nicht zu den offenen Leadkäufen: Soll :expected, Ist :actual.',
                 'outro' => 'Maßgeblich ist immer das Ledger. Bitte die Ursache klären, bevor der Stand korrigiert wird.',

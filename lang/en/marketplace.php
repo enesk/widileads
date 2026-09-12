@@ -247,6 +247,53 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'orders' => [
+        'heading' => 'Orders',
+        'search' => 'Search orders',
+        'search_placeholder' => 'Number or amount',
+        'year' => 'Year',
+        'all_years' => 'All years',
+        'method_unknown' => 'Payment method unknown',
+        'unknown_month' => 'Without date',
+        'count_line' => '{0} No orders|[1,*] :count of :total orders',
+        'load_more' => '{1} Load 1 more|[2,*] Load :count more',
+        'footnote' => 'Every order is a balance top-up. What you paid for individual leads is in the',
+        'footnote_link' => 'balance history.',
+        'stats' => [
+            'year' => 'This year',
+            'count' => 'Orders',
+            'count_short' => 'Count',
+            'pending' => 'Pending',
+            'pending_short' => 'Open',
+        ],
+        'tabs' => [
+            'label' => 'Status',
+            'all' => 'All',
+            'paid' => 'Paid',
+            'pending' => 'Pending',
+            'failed' => 'Failed',
+        ],
+        'status' => [
+            'paid' => 'Paid',
+            'pending' => 'Pending',
+            'failed' => 'Failed',
+            'refunded' => 'Refunded',
+            'disputed' => 'Disputed',
+            'other' => 'Open',
+        ],
+        'actions' => [
+            'invoice' => 'Invoice',
+            'complete' => 'Complete payment',
+            'complete_short' => 'Complete',
+            'retry' => 'Try again',
+            'retry_short' => 'Retry',
+        ],
+        'empty' => [
+            'title' => 'Nothing found',
+            'text' => 'There are no orders with this status.',
+        ],
+    ],
+
     'listing' => [
         'fits_count' => '{0} No lead matches|{1} 1 lead matches|[2,*] :count leads match',
         'contact_after_purchase' => 'Contact after purchase',
@@ -725,6 +772,237 @@ return [
 
     'wallet' => [
 
+        /*
+        |----------------------------------------------------------------------
+        | Receipt for a postpaid settlement (LP-POSTPAID-015)
+        |----------------------------------------------------------------------
+        */
+
+        'settlement_invoice' => [
+
+            'title' => 'Settlement',
+            'status_paid' => 'Paid',
+            'link' => 'Receipt',
+            'action' => 'Download receipt :reference',
+            'period' => ':start to :end',
+            'period_until' => 'until :end',
+            'method_unknown' => 'Stored payment method',
+
+            'fields' => [
+                'period' => 'Billing period',
+                'method' => 'Payment method',
+            ],
+
+            'items' => [
+                'lead' => 'Lead #:lead',
+                'funnel' => 'Funnel: :funnel',
+                'captured_at' => 'settled on :date',
+                'split' => 'Lead price :price plus surcharge :surcharge',
+                'refund' => 'Refund',
+                'carried_over' => 'Carried over from the previous billing period',
+                'credited' => 'Credit applied',
+                'balance_hint' => 'Difference between the listed items and the amount collected',
+            ],
+
+            'notes' => [
+                'paid' => 'The amount was collected on :date via :method. No further action is required.',
+                'vat' => 'All amounts are gross amounts and include :percent % VAT.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | SEPA pre-notification before a postpaid settlement (LP-POSTPAID-014)
+        |----------------------------------------------------------------------
+        */
+
+        /*
+        |----------------------------------------------------------------------
+        | Postpaid settlement notices (LP-POSTPAID-008)
+        |----------------------------------------------------------------------
+        */
+
+        'settlement_notice' => [
+
+            'label' => 'Pay as you go',
+            'amount_label' => 'Amount',
+            'date_label' => 'Received on',
+            'method_label' => 'Payment method',
+            'method_unknown' => 'No longer on file',
+            'invoice_label' => 'Document',
+            'payment_method_cta' => 'Check payment method',
+
+            'paid' => [
+                'subject' => 'Payment of :amount received',
+                'heading' => 'Your payment has been received',
+                'intro' => 'We charged :amount to your stored payment method. Your open amount is settled.',
+                'invoice_cta' => 'View document',
+                'outro' => 'The document stays available in your portal under settlements.',
+            ],
+
+            'failed_retry' => [
+                'subject' => 'Charge of :amount failed',
+                'heading' => 'The charge failed',
+                'intro' => 'We could not collect :amount. We will try again on :date – please check your payment method before then.',
+                'date_label' => 'Next attempt',
+                'outro' => 'If the second attempt fails as well, pay as you go is suspended and fees apply.',
+            ],
+
+            'failed_final' => [
+                'subject' => 'Charge of :amount failed for good',
+                'heading' => 'The charge failed for good',
+                'intro' => 'The second attempt to collect :amount failed as well. Pay as you go is suspended for now; the open amount of :amount remains.',
+                'outro' => 'Add a new payment method and settle the open amount, then we will re-enable pay as you go.',
+            ],
+
+            'error' => [
+                'subject' => 'Settlement #:settlement failed technically',
+                'heading' => 'Settlement could not be started',
+                'intro' => 'The charge failed after three attempts due to a technical error, not a declined payment method. The buyer was neither downgraded nor notified.',
+                'settlement_label' => 'Settlement',
+                'wallet_label' => 'Wallet',
+                'reason_label' => 'Error',
+                'outro' => 'The claim remains open and has to be restarted manually in the admin panel.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Kaufsperre aufgehoben (LP-POSTPAID-009)
+        |----------------------------------------------------------------------
+        */
+        'unblocked' => [
+
+            'mail' => [
+                'subject' => 'Your account is unlocked again',
+                'label' => 'Balance',
+                'heading' => 'Your account is unlocked again',
+                'intro' => 'Your open amount is settled. Your balance is :balance and you can buy leads again right away.',
+                'cta' => 'Go to the marketplace',
+                'outro' => 'Pay as you go stays disabled for now. You can apply for it again at any time.',
+            ],
+
+        ],
+
+        'prenotification' => [
+
+            'mail' => [
+                'subject' => 'Advance notice: we will debit :amount on :date',
+                'label' => 'SEPA Direct Debit',
+                'heading' => 'Advance notice of your debit',
+                'intro' => 'We will collect :amount from your account by SEPA Direct Debit on :date. We send this notice before every debit so you can match it to your mandate.',
+                'amount_label' => 'Amount',
+                'date_label' => 'Debit date',
+                'iban_label' => 'Account',
+                'mandate_label' => 'Mandate reference',
+                'mandate_unknown' => 'Provided with the debit',
+                'creditor_label' => 'Creditor',
+                'coverage_hint' => 'Please make sure the account is funded by then. A returned debit incurs fees and temporarily suspends your pay-as-you-go access.',
+                'support_hint' => 'Something wrong? Get in touch before the debit date so we can sort it out without a return.',
+            ],
+
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Eligibility, application and approval of pay as you go (LP-POSTPAID-006)
+        |----------------------------------------------------------------------
+        */
+
+        'postpaid' => [
+
+            'eligibility' => [
+
+                'reasons' => [
+                    'no_tenant' => 'There is no workspace attached to this balance account.',
+                    'purchases' => 'You have :count settled lead purchases so far, :required are required.',
+                    'account_age' => 'Your account is :days days old, :required days are required.',
+                    'payment_history' => 'There was a payment issue on your account within the last :days days.',
+                    'previous_downgrade' => 'Your pay-as-you-go access was ended within the last :days days because of a payment issue.',
+                    'purchase_blocked' => 'Your account is currently blocked from purchasing.',
+                ],
+
+            ],
+
+            'errors' => [
+                'disabled' => 'Pay as you go is currently unavailable.',
+                'not_eligible' => 'You do not meet the requirements for pay as you go yet.',
+                'payment_method_required' => 'Add a payment method we can collect from first.',
+                'application_pending' => 'We already have your application. We will get back to you once it is reviewed.',
+                'rejected_recently' => 'You can apply again in :days days.',
+                'already_enabled' => 'You already buy with pay as you go.',
+            ],
+
+            'mail' => [
+
+                'received' => [
+                    'subject' => 'Pay as you go requested: :buyer',
+                    'label' => 'Application',
+                    'heading' => 'New pay-as-you-go application',
+                    'intro' => ':buyer wants to buy leads with pay as you go. The application is waiting for your decision in the admin area.',
+                    'buyer_label' => 'Buyer',
+                    'applicant_label' => 'Applicant',
+                    'purchases_label' => 'Settled purchases',
+                    'account_age_label' => 'Account age',
+                    'account_age_value' => ':days days',
+                    'balance_label' => 'Balance',
+                    'reference_label' => 'Application',
+                    'hint' => 'The full eligibility figures are stored with the application in the admin area.',
+                ],
+
+                'approved' => [
+                    'subject' => 'Pay as you go is enabled',
+                    'label' => 'Approved',
+                    'heading' => 'You now buy with pay as you go',
+                    'intro' => 'We approved your application. You buy leads without paying upfront and we collect the open amount from your stored payment method.',
+                    'credit_limit_label' => 'Your credit limit',
+                    'surcharge_label' => 'Surcharge per lead',
+                    'surcharge_value' => ':percent % of the lead price',
+                    'settlement_label' => 'Settlement',
+                    'settlement_value' => 'Weekly, and immediately from :threshold open',
+                    'prenotification_hint' => 'We announce amount and debit date by email before every direct debit.',
+                    'hint' => 'Please keep the account funded. If a collection fails we block purchases and move you back to prepaid.',
+                ],
+
+                'rejected' => [
+                    'subject' => 'Your pay-as-you-go application',
+                    'label' => 'Application',
+                    'heading' => 'We cannot enable pay as you go yet',
+                    'intro' => 'We reviewed your application and cannot approve it at the moment. This is not a judgement of your business, it follows our lending rules.',
+                    'retry_hint' => 'You can apply again in :days days. Until then you buy with balance as usual.',
+                    'support_hint' => 'Questions? Get in touch.',
+                ],
+
+                'downgraded' => [
+                    'subject' => 'Pay as you go has ended',
+                    'operator_subject' => 'Pay as you go ended: :buyer',
+                    'label' => 'Pay as you go',
+                    'heading' => 'Pay as you go has ended',
+                    'operator_hint' => 'Copy for your information. This concerns :buyer.',
+                    'intro' => 'We have ended your pay-as-you-go access. From now on you buy with balance that you top up in advance.',
+                    'reason_label' => 'Reason',
+                    'open_amount_label' => 'Open amount',
+                    'fee_label' => 'Fee',
+                    'reasons' => [
+                        'settlement_failed' => 'The collection failed twice',
+                        'sepa_return' => 'The direct debit was returned',
+                        'chargeback' => 'The card payment was disputed',
+                        'no_payment_method' => 'No payment method was on file at collection time',
+                        'payment_method_revoked' => 'Your payment method was revoked',
+                    ],
+                    'blocked_hint' => 'While the open amount remains, you cannot buy new leads. Top up your balance by at least the open amount and your account is unlocked right away.',
+                    'open_hint' => 'Please settle the open amount with a top-up. The leads you bought remain yours either way.',
+                    'deadline_hint' => 'Please settle the open amount within :days days.',
+                    'cta' => 'Top up balance',
+                    'outro' => 'You can apply for pay as you go again later. Get in touch any time and we will find a solution.',
+                ],
+
+            ],
+
+        ],
+
         'buyer' => [
 
             'title' => 'Balance & transactions',
@@ -767,6 +1045,193 @@ return [
 
         'admin' => [
 
+            /*
+            |------------------------------------------------------------------
+            | Admin tooling for pay as you go (LP-POSTPAID-012)
+            |------------------------------------------------------------------
+            */
+            'postpaid' => [
+
+                'yes' => 'Yes',
+                'no' => 'No',
+                'blocked_yes' => 'Blocked',
+                'blocked_no' => 'Open',
+                'no_payment_method' => 'No payment method',
+                'reenable_note' => 'Re-enabled by the operator after a downgrade.',
+
+                'payment_mode' => [
+                    'prepaid' => 'Prepaid',
+                    'postpaid' => 'Pay as you go',
+                ],
+
+                'fields' => [
+                    'payment_mode' => 'Payment mode',
+                    'credit_limit' => 'Credit limit',
+                    'credit_limit_cents' => 'Credit limit in cents',
+                    'open_amount' => 'Open amount',
+                    'open_total' => 'Total receivables',
+                    'blocked' => 'Blocked',
+                    'disabled_reason' => 'Downgrade reason',
+                    'downgrade_reason' => 'Reason',
+                    'fee_cents' => 'Fee in cents',
+                ],
+
+                'hints' => [
+                    'credit_limit_cents' => 'Amount the balance may go negative by. 30000 is 300.00 €.',
+                    'downgrade_reason' => 'The reason drives the fee, the purchase block and the wording of the email to the buyer.',
+                    'fee_cents' => 'Prefilled with the fee of the selected reason. 0 charges none.',
+                ],
+
+                'actions' => [
+                    'change_credit_limit' => 'Change credit limit',
+                    'change_credit_limit_description' => 'The limit is a permission, not a balance – nothing is posted. Lowering it stops further purchases; the open amount remains.',
+                    'credit_limit_changed' => 'Credit limit changed',
+                    'settle_now' => 'Collect now',
+                    'settle_now_description' => 'Collects today\'s open amount without waiting for the weekly run. SEPA is announced first and only charged after the notice period.',
+                    'settled' => 'Collection started',
+                    'downgrade' => 'Downgrade to prepaid',
+                    'downgrade_description' => 'Ends pay as you go: credit limit to 0, open collections are closed, an open amount leads to a purchase block. Buyer and operator are emailed.',
+                    'downgraded' => 'Downgraded to prepaid',
+                    'reenable' => 'Re-enable pay as you go',
+                    'reenable_description' => 'Re-enables pay as you go despite the earlier downgrade. The eligibility check is bypassed – this is a decision against the rule. The buyer receives the approval email.',
+                    'reenabled' => 'Pay as you go re-enabled',
+                ],
+
+                'stats' => [
+                    'open_receivables' => 'Open receivables',
+                    'open_receivables_hint' => '{0} No buyer in the negative|{1} :count buyer in the negative|[2,*] :count buyers in the negative',
+                    'in_flight' => 'Collections in progress',
+                    'in_flight_hint' => '{0} No collection in flight|{1} :count collection in flight|[2,*] :count collections in flight',
+                    'failed' => 'Failed collections',
+                    'failed_hint' => 'Failed or returned within the last :days days',
+                    'surcharge' => 'Surcharge revenue',
+                    'surcharge_hint' => 'Pay-as-you-go surcharge in the current month',
+                ],
+
+                'application' => [
+
+                    'resource' => [
+                        'label' => 'Pay as you go application',
+                        'plural_label' => 'Pay as you go applications',
+                    ],
+
+                    'empty_heading' => 'No pending application',
+                    'empty_description' => 'As soon as a buyer applies for pay as you go, the application shows up here.',
+                    'snapshot_hint' => 'The figures at the time of the application. They are not recalculated – they document what is being decided on.',
+
+                    'sections' => [
+                        'application' => 'Application',
+                        'eligibility' => 'Eligibility check',
+                        'context' => 'Payment method and purchase history',
+                    ],
+
+                    'fields' => [
+                        'requested_at' => 'Requested',
+                        'buyer' => 'Buyer',
+                        'workspace' => 'Workspace',
+                        'status' => 'Status',
+                        'decided_at' => 'Decided',
+                        'decided_by' => 'Decided by',
+                        'note' => 'Note',
+                        'rule' => 'Item',
+                        'value' => 'Value',
+                        'payment_method' => 'Payment method',
+                        'captured_purchases' => 'Captured purchases',
+                        'purchase_history' => 'Purchase history (live)',
+                    ],
+
+                    'hints' => [
+                        'note_required' => 'Stays internal. The buyer only learns when they may apply again.',
+                    ],
+
+                    'status' => [
+                        'requested' => 'Pending',
+                        'approved' => 'Approved',
+                        'rejected' => 'Rejected',
+                    ],
+
+                    'actions' => [
+                        'approve' => 'Approve',
+                        'approve_confirm' => 'The buyer then purchases against a credit limit and pays afterwards. They are notified by email.',
+                        'approved' => 'Pay as you go approved',
+                        'reject' => 'Reject',
+                        'reject_confirm' => 'The buyer only learns that we cannot enable it, and when they may apply again.',
+                        'rejected' => 'Application rejected',
+                    ],
+
+                    'snapshot' => [
+                        'eligible' => 'Eligibility',
+                        'eligible_yes' => 'All rules met',
+                        'eligible_no' => 'Not all rules met',
+                        'of_required' => ':value (required: :required)',
+                        'captured_purchases' => 'Captured purchases',
+                        'account_age_days' => 'Account age in days',
+                        'failed_settlements' => 'Failed collections in the observation window',
+                        'chargebacks' => 'Returns in the observation window',
+                        'clean_history_days' => 'Observation window in days',
+                        'balance_cents' => 'Balance',
+                        'open_amount_cents' => 'Open amount',
+                        'purchase_blocked' => 'Purchase block',
+                        'postpaid_disabled_reason' => 'Earlier downgrade',
+                        'reasons' => 'Open items',
+                    ],
+
+                    'history' => [
+                        'captured' => 'Captured purchases',
+                        'released' => 'Released purchases',
+                        'refunded' => 'Refunded purchases',
+                        'revenue' => 'Revenue of the last 90 days',
+                    ],
+
+                ],
+
+                'settlement' => [
+
+                    'resource' => [
+                        'label' => 'Collection',
+                        'plural_label' => 'Collections',
+                    ],
+
+                    'empty_heading' => 'No collection yet',
+                    'empty_description' => 'Collections are created on the weekly run, at the collection threshold, or by hand on the wallet.',
+
+                    'fields' => [
+                        'created_at' => 'Created',
+                        'buyer' => 'Buyer',
+                        'amount' => 'Amount',
+                        'status' => 'Status',
+                        'attempts' => 'Attempts',
+                        'next_attempt_at' => 'Next attempt',
+                        'payment_intent' => 'Payment at the provider',
+                        'failure_reason' => 'Failure reason',
+                        'invoice_reference' => 'Invoice',
+                    ],
+
+                    'status' => [
+                        'pending' => 'Pending',
+                        'processing' => 'In flight',
+                        'retry_pending' => 'Second attempt',
+                        'paid' => 'Paid',
+                        'failed' => 'Failed',
+                        'returned' => 'Returned',
+                    ],
+
+                    'trigger' => [
+                        'scheduled' => 'Weekly run',
+                        'threshold' => 'Collection threshold',
+                        'manual' => 'By hand',
+                    ],
+
+                    'actions' => [
+                        'retry' => 'Retry',
+                        'retry_confirm' => 'Charges the stored payment method again. What is collected is today\'s open amount, not the amount of the failed attempt. SEPA is announced again beforehand.',
+                        'retried' => 'Collection restarted',
+                    ],
+
+                ],
+
+            ],
+
             'resource' => [
                 'label' => 'Wallet',
                 'plural_label' => 'Wallets',
@@ -792,6 +1257,9 @@ return [
                 'payout' => 'Payout',
                 'adjustment' => 'Adjustment',
                 'opening_balance' => 'Opening balance',
+                'settlement' => 'Collection',
+                'surcharge' => 'Surcharge',
+                'fee' => 'Fee',
             ],
 
             'fields' => [
@@ -935,6 +1403,54 @@ return [
 
         ],
 
+        'payment_methods' => [
+            'title' => 'Payment methods',
+            'description' => 'Pay as you go needs a way to collect payment. You can add a SEPA direct debit mandate or a card. You enter the details directly with our payment provider; we only see the last four digits.',
+            'choose' => 'Choose a payment method',
+            'add' => 'Add payment method',
+            'added' => 'Payment method added.',
+            'remove' => 'Remove',
+            'removed' => 'Payment method removed.',
+            'default_badge' => 'Used for collection',
+            'empty' => 'No payment method added yet.',
+
+            'types' => [
+                'sepa_debit' => 'SEPA direct debit',
+                'card' => 'Card',
+            ],
+
+            'type_hints' => [
+                'sepa_debit' => 'Collected from your bank account. You can have a debit returned for up to eight weeks.',
+                'card' => 'Credit or debit card. The payment is decided immediately.',
+            ],
+
+            'status' => [
+                'active' => 'Active',
+                'revoked' => 'Revoked',
+                'failed' => 'Failed',
+            ],
+
+            'mandate' => [
+                'heading' => 'SEPA direct debit mandate',
+                'creditor_label' => 'Creditor',
+                'creditor_id_label' => 'Creditor identifier',
+                'text' => 'By signing this mandate form, you authorise :creditor (creditor identifier :creditor_id) to send instructions to your bank to debit your account and your bank to debit your account in accordance with the instructions from :creditor. You are entitled to a refund from your bank under the terms and conditions of your agreement with your bank. A refund must be claimed within eight weeks starting from the date on which your account was debited.',
+                'accept' => 'I grant the SEPA direct debit mandate above.',
+                'prenotification_hint' => 'We notify you of the amount and the debit date by email before every collection.',
+                'accepted_at' => 'Mandate granted on :date',
+            ],
+
+            'errors' => [
+                'mandate_required' => 'Without a granted SEPA direct debit mandate we cannot collect anything. Please confirm the mandate.',
+                'mandate_missing' => 'The payment provider did not report a direct debit mandate. Please try again.',
+                'setup_not_completed' => 'The payment method was not confirmed (status: :status). Please try again.',
+                'setup_intent_unknown' => 'We do not know this process. Please start again.',
+                'last_method_postpaid' => 'This is your only payment method and you buy with pay as you go. Add another one first, then you can remove this one.',
+                'last_method_open_amount' => 'This is your only payment method and :amount is still open. Add another one first or settle the open amount.',
+                'provider_unavailable' => 'The payment provider cannot be reached right now. Please try again in a few minutes.',
+            ],
+        ],
+
         'top_up' => [
             'title' => 'Top up balance',
             'nav_label' => 'Balance',
@@ -955,6 +1471,26 @@ return [
             ],
 
             'success' => [
+                'amount_label' => 'Top-up',
+                'done_text' => ':amount have been credited and are available right away.',
+                'balance_now' => 'Your balance now',
+                'covers' => '{0} not enough for a lead|{1} enough for 1 lead|[2,*] enough for :count leads',
+                'invoice' => 'Invoice as PDF',
+                'invoice_mail' => 'The invoice also goes to :email.',
+                'pending' => [
+                    'heading' => 'One moment',
+                    'text' => 'Your payment arrived. We are crediting the balance right now.',
+                    'step_paid' => 'Payment confirmed',
+                    'step_credit' => 'Balance is being credited',
+                    'step_invoice' => 'Invoice is being created',
+                    'hint' => 'This usually takes less than five seconds. You can leave the page open.',
+                ],
+                'slow' => [
+                    'heading' => 'Taking a little longer',
+                    'text' => 'The payment is confirmed, the credit is stuck for a moment. Nothing was charged twice - we credit the balance automatically once it goes through and send you an email.',
+                    'reference' => 'Payment reference',
+                    'support' => 'Write to support',
+                ],
                 'heading' => 'Balance topped up',
                 'pending_heading' => 'Almost there',
                 'text' => ':amount has been added to your balance.',
@@ -1026,6 +1562,9 @@ return [
             'payout' => 'Payout',
             'adjustment' => 'Adjustment',
             'opening_balance' => 'Opening balance',
+            'settlement' => 'Collection',
+            'surcharge' => 'Surcharge',
+            'fee' => 'Fee',
         ],
 
         /*
@@ -1101,6 +1640,7 @@ return [
             'insufficient_reserve' => 'Your available balance is not sufficient. Missing: :missing.',
             'insufficient_balance' => 'The balance is not sufficient for this entry: :balance available, :required required.',
             'release_exceeds_reserved' => 'Only :reserved is reserved, but :requested should be released.',
+            'purchase_blocked' => 'Your account is blocked until the outstanding amount has been settled.',
         ],
 
         'descriptions' => [
@@ -1114,9 +1654,20 @@ return [
             'refund' => 'Refund for lead #:lead',
             'earning_reversal' => 'Reversal of the earning from lead #:lead',
             'commission_reversal' => 'Reversal of the commission from lead #:lead',
+            'surcharge' => 'Pay as you go surcharge from lead #:lead',
+            'surcharge_reversal' => 'Reversal of the surcharge from lead #:lead',
             'chargeback' => 'Reversal of the top-up from order :order',
             'payout' => 'Payout #:payout',
             'payout_rejected' => 'Reversal of the rejected payout #:payout',
+            'settlement' => 'Collection of the open amount (settlement #:settlement)',
+            'settlement_return' => 'Return of the payment for settlement #:settlement',
+            'fee' => [
+                'settlement_failed' => 'Dunning fee after a failed collection',
+                'sepa_return' => 'Direct debit return fee',
+                'chargeback' => 'Fee for a disputed card payment',
+                'no_payment_method' => 'Fee: no payment method on file',
+                'payment_method_revoked' => 'Fee: payment method revoked',
+            ],
         ],
 
         /*
@@ -1218,6 +1769,7 @@ return [
                 'reserved' => 'Reserved',
                 'expected' => 'Expected',
                 'actual' => 'Actual',
+                'findings' => 'Violated postpaid rules',
                 'repaired' => 'The cached balance was reset to the ledger during this run.',
                 'reservation_totals' => 'The reserved amounts of the buyer wallets do not match the open lead purchases: expected :expected, actual :actual.',
                 'outro' => 'The ledger is always authoritative. Please find the cause before correcting the balance.',

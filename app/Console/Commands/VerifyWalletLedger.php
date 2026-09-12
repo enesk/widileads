@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Constants\PaymentMode;
 use App\Constants\PurchaseStatus;
+use App\Constants\SettlementStatus;
 use App\Constants\WalletOwnerType;
+use App\Constants\WalletTransactionType;
 use App\Mail\Wallet\WalletLedgerMismatch;
 use App\Models\LeadPurchase;
+use App\Models\Settlement;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\SupportMailbox;
 use App\Services\Wallet\WalletService;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -36,6 +42,12 @@ use Illuminate\Support\Facades\Mail;
  *    faengt den Fall, den die erste Pruefung nicht sieht: ein Ledger, das in
  *    sich stimmt, aber eine Reservierung traegt, zu der es keinen offenen Kauf
  *    mehr gibt (oder umgekehrt).
+ * 3. Postpaid-Invarianten (LP-POSTPAID-013). Sie pruefen nicht den Saldo gegen
+ *    das Journal, sondern die Regeln, die Pay as you go ueber das Journal
+ *    hinaus setzt -- Kreditrahmen, Einzug und Aufschlag. Sie sind im Einzelnen
+ *    an checkPostpaidInvariants() beschrieben und werden nie repariert: Eine
+ *    verletzte Regel ist ein Fehler im Ablauf, kein abgelaufener
+ *    Zwischenstand.
  *
  * Bei Abweichung: Protokolleintrag je Wallet mit Soll und Ist, eine Mail an die
  * Support-Adresse und Rueckgabewert 1 -- auch dann, wenn `--repair` die Staende
@@ -109,16 +121,17 @@ class VerifyWalletLedger extends Command
         });
 
         $reservationTotals = $this->checkReservationTotals();
+        $findings = $this->checkPostpaidInvariants();
 
-        $this->renderSummary($mismatches, $reservationTotals, $checked);
+        $this->renderSummary($mismatches, $reservationTotals, $findings, $checked);
 
-        if ($mismatches === [] && $reservationTotals === null) {
+        if ($mismatches === [] && $reservationTotals === null && $findings === []) {
             $this->info(sprintf('%d Wallet(s) geprueft, keine Abweichung.', $checked));
 
             return self::SUCCESS;
         }
 
-        $this->notify($mismatches, $reservationTotals, $checked);
+        $this->notify($mismatches, $reservationTotals, $findings, $checked);
 
         return self::FAILURE;
     }
@@ -205,9 +218,13 @@ class VerifyWalletLedger extends Command
             ->where('owner_type', WalletOwnerType::BUYER->value)
             ->sum('reserved_cents');
 
+        // Preis UND Aufschlag: Reserviert wird beim Postpaid-Kauf der
+        // Gesamtbetrag (PurchaseService::buyerTotalCents), sonst meldete diese
+        // Klammer ab dem ersten Pay-as-you-go-Kauf eine Abweichung, die keine
+        // ist. Bei Prepaid ist der Aufschlag 0, die Rechnung bleibt die alte.
         $reservedInPurchases = (int) LeadPurchase::query()
             ->where('status', PurchaseStatus::RESERVED->value)
-            ->sum('price_cents');
+            ->sum(DB::raw('price_cents + surcharge_cents'));
 
         if ($reservedInWallets === $reservedInPurchases) {
             return null;
@@ -223,10 +240,227 @@ class VerifyWalletLedger extends Command
     }
 
     /**
+     * Dritte Klammer: die Regeln, die Pay as you go ueber das Journal hinaus
+     * setzt (LP-POSTPAID-013).
+     *
+     * Fuenf Invarianten, jede mit ihrem eigenen Ausfallbild:
+     *
+     * 1. Ein Prepaid-Wallet darf nicht im Minus stehen. Legitime Ausnahmen sind
+     *    Ruecklastschrift und Chargeback (Buchung `adjustment`), die
+     *    Rueckstufungsgebuehr (`fee`) und der Nachlauf einer Rueckstufung: Ein
+     *    Kauf, der vor der Rueckstufung reserviert wurde, wird danach noch
+     *    abgebucht und fuehrt den Saldo bewusst ins Minus. Daran erkennbar,
+     *    dass `postpaid_disabled_at` steht.
+     * 2. Ein Postpaid-Wallet darf offenen Betrag und Reservierungen zusammen
+     *    nicht ueber den Kreditrahmen fuehren; das ist dieselbe Rechnung wie
+     *    `available_cents >= 0`, nur von der anderen Seite. Sie schlaegt an,
+     *    wenn ein Kauf an der Deckungspruefung vorbeigelaufen ist oder ein
+     *    Rahmen unter den bereits ausgeschoepften Betrag gesenkt wurde.
+     * 3. Je Wallet darf es hoechstens einen unentschiedenen Einzug geben
+     *    (`pending`, `processing`, `retry_pending`). Zwei offene Settlements
+     *    ziehen denselben offenen Betrag zweimal ein.
+     * 4. Zu jedem bezahlten Einzug gehoert genau die Gutschrift im Journal, die
+     *    ihn traegt -- eine Buchung vom Typ `settlement` mit dem
+     *    Idempotenzschluessel aus WalletService::keyFor(). Fehlt sie, ist beim
+     *    Kaeufer Geld eingezogen, ohne dass sein Saldo es gesehen hat.
+     * 5. Die Aufschlagszeilen auf dem Plattform-Wallet muessen der Summe der
+     *    `surcharge_cents` aller abgerechneten Postpaid-Kaeufe entsprechen.
+     *    Erstattete Kaeufe heben sich im Journal selbst auf (Buchung und
+     *    Gegenbuchung) und stehen nicht mehr auf `captured` -- beide Seiten
+     *    lassen sie also aus.
+     *
+     * Repariert wird hier nichts: Anders als ein abgelaufener Zwischenstand ist
+     * eine verletzte Invariante ein Fehler im Ablauf, den erst ein Mensch
+     * einordnen muss.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkPostpaidInvariants(): array
+    {
+        $findings = [
+            ...$this->checkNegativePrepaidWallets(),
+            ...$this->checkCreditLimits(),
+            ...$this->checkOpenSettlements(),
+            ...$this->checkPaidSettlementLedger(),
+            ...$this->checkSurchargeTotals(),
+        ];
+
+        foreach ($findings as $finding) {
+            Log::error('Postpaid-Invariante verletzt.', $finding);
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Invariante 1: negatives Guthaben ohne Postpaid-Vergangenheit.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkNegativePrepaidWallets(): array
+    {
+        $wallets = Wallet::query()
+            ->where('payment_mode', PaymentMode::PREPAID->value)
+            ->where('balance_cents', '<', 0)
+            ->whereNull('postpaid_disabled_at')
+            ->whereDoesntHave('transactions', function (Builder $query): void {
+                $query->whereIn('type', [
+                    WalletTransactionType::ADJUSTMENT->value,
+                    WalletTransactionType::FEE->value,
+                ]);
+            })
+            ->orderBy('id')
+            ->get();
+
+        return $wallets->map(fn (Wallet $wallet): array => [
+            'check' => 'Prepaid im Minus',
+            'subject' => sprintf('Wallet #%s (%s)', $wallet->getKey(), $this->describeOwner($wallet)),
+            'detail' => sprintf(
+                'Saldo %s ohne Korrektur-, Gebuehren- oder Rueckstufungshistorie.',
+                $this->formatMoney($wallet->balance_cents),
+            ),
+        ])->values()->all();
+    }
+
+    /**
+     * Invariante 2: offener Betrag plus Reservierungen ueber dem Kreditrahmen.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkCreditLimits(): array
+    {
+        $wallets = Wallet::query()
+            ->where('payment_mode', PaymentMode::POSTPAID->value)
+            ->whereRaw('(reserved_cents - balance_cents) > credit_limit_cents')
+            ->orderBy('id')
+            ->get();
+
+        return $wallets->map(fn (Wallet $wallet): array => [
+            'check' => 'Kreditrahmen ueberschritten',
+            'subject' => sprintf('Wallet #%s (%s)', $wallet->getKey(), $this->describeOwner($wallet)),
+            'detail' => sprintf(
+                'Offen %s zuzueglich reserviert %s uebersteigt den Rahmen %s.',
+                $this->formatMoney($wallet->open_amount_cents),
+                $this->formatMoney($wallet->reserved_cents),
+                $this->formatMoney($wallet->credit_limit_cents),
+            ),
+        ])->values()->all();
+    }
+
+    /**
+     * Invariante 3: mehr als ein unentschiedener Einzug je Wallet.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkOpenSettlements(): array
+    {
+        $rows = Settlement::query()
+            ->unresolved()
+            ->groupBy('wallet_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->selectRaw('wallet_id, COUNT(*) AS open_count')
+            // toBase(): Das Ergebnis sind Aggregate, keine Einzuege.
+            ->toBase()
+            ->get();
+
+        $findings = [];
+
+        foreach ($rows as $row) {
+            $findings[] = [
+                'check' => 'Mehrere offene Einzuege',
+                'subject' => sprintf('Wallet #%s', (int) $row->wallet_id),
+                'detail' => sprintf(
+                    '%d Settlements in pending, processing oder retry_pending -- der offene Betrag wuerde mehrfach eingezogen.',
+                    (int) $row->open_count,
+                ),
+            ];
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Invariante 4: bezahlter Einzug ohne die Gutschrift im Journal.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkPaidSettlementLedger(): array
+    {
+        $findings = [];
+
+        Settlement::query()
+            ->where('status', SettlementStatus::PAID->value)
+            ->orderBy('id')
+            ->chunkById(self::CHUNK_SIZE, function (Collection $settlements) use (&$findings): void {
+                $keys = $settlements
+                    ->mapWithKeys(fn (Settlement $settlement): array => [
+                        WalletService::keyFor(WalletTransactionType::SETTLEMENT, $settlement) => $settlement,
+                    ]);
+
+                $booked = WalletTransaction::query()
+                    ->whereIn('idempotency_key', $keys->keys()->all())
+                    ->pluck('idempotency_key')
+                    ->all();
+
+                foreach (array_diff($keys->keys()->all(), $booked) as $missing) {
+                    /** @var Settlement $settlement */
+                    $settlement = $keys[$missing];
+
+                    $findings[] = [
+                        'check' => 'Einzug ohne Buchung',
+                        'subject' => sprintf('Settlement #%s (Wallet #%d)', $settlement->getKey(), $settlement->wallet_id),
+                        'detail' => sprintf(
+                            'Stand paid ueber %s, aber keine Buchung mit dem Schluessel "%s".',
+                            $this->formatMoney($settlement->amount_cents),
+                            $missing,
+                        ),
+                    ];
+                }
+            });
+
+        return $findings;
+    }
+
+    /**
+     * Invariante 5: Aufschlagszeilen der Plattform gegen die abgerechneten
+     * Postpaid-Kaeufe.
+     *
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkSurchargeTotals(): array
+    {
+        $booked = (int) WalletTransaction::query()
+            ->where('wallet_id', Wallet::forPlatform()->getKey())
+            ->where('type', WalletTransactionType::SURCHARGE->value)
+            ->sum('amount_cents');
+
+        $expected = (int) LeadPurchase::query()
+            ->where('status', PurchaseStatus::CAPTURED->value)
+            ->where('payment_mode', PaymentMode::POSTPAID->value)
+            ->sum('surcharge_cents');
+
+        if ($booked === $expected) {
+            return [];
+        }
+
+        return [[
+            'check' => 'Aufschlaege stimmen nicht',
+            'subject' => 'Plattform-Wallet',
+            'detail' => sprintf(
+                'Gebucht %s, aus abgerechneten Postpaid-Kaeufen erwartet %s (Differenz %s).',
+                $this->formatMoney($booked),
+                $this->formatMoney($expected),
+                $this->formatMoney($booked - $expected),
+            ),
+        ]];
+    }
+
+    /**
      * @param  list<array{wallet_id: int, owner: string, balance_expected: int, balance_actual: int, reserved_expected: int, reserved_actual: int, repaired: bool}>  $mismatches
      * @param  array{expected: int, actual: int}|null  $reservationTotals
+     * @param  list<array{check: string, subject: string, detail: string}>  $findings
      */
-    private function renderSummary(array $mismatches, ?array $reservationTotals, int $checked): void
+    private function renderSummary(array $mismatches, ?array $reservationTotals, array $findings, int $checked): void
     {
         if ($mismatches !== []) {
             $this->table(
@@ -253,6 +487,19 @@ class VerifyWalletLedger extends Command
                 $this->formatMoney($reservationTotals['actual'] - $reservationTotals['expected']),
             ));
         }
+
+        if ($findings !== []) {
+            $this->table(
+                ['Pruefung', 'Betroffen', 'Befund'],
+                array_map(static fn (array $finding): array => [
+                    $finding['check'],
+                    $finding['subject'],
+                    $finding['detail'],
+                ], $findings),
+            );
+
+            $this->error(sprintf('%d verletzte Postpaid-Invariante(n).', count($findings)));
+        }
     }
 
     /**
@@ -264,8 +511,9 @@ class VerifyWalletLedger extends Command
      *
      * @param  list<array{wallet_id: int, owner: string, balance_expected: int, balance_actual: int, reserved_expected: int, reserved_actual: int, repaired: bool}>  $mismatches
      * @param  array{expected: int, actual: int}|null  $reservationTotals
+     * @param  list<array{check: string, subject: string, detail: string}>  $findings
      */
-    private function notify(array $mismatches, ?array $reservationTotals, int $checked): void
+    private function notify(array $mismatches, ?array $reservationTotals, array $findings, int $checked): void
     {
         $recipient = $this->support->address();
 
@@ -275,7 +523,7 @@ class VerifyWalletLedger extends Command
             return;
         }
 
-        Mail::to($recipient)->send(new WalletLedgerMismatch($mismatches, $reservationTotals, $checked));
+        Mail::to($recipient)->send(new WalletLedgerMismatch($mismatches, $reservationTotals, $checked, $findings));
     }
 
     private function describeOwner(Wallet $wallet): string

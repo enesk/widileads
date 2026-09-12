@@ -22,6 +22,7 @@ use App\Services\CallNotPossible;
 use App\Services\CallService;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
+use App\Support\PostpaidTerms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
@@ -129,7 +130,16 @@ class LeadDetail extends Component
             'blockedReason' => $this->blockedReason(),
             'callingHint' => $this->callingHint(),
             'isOpen' => $lead->isOpen(),
-            'price' => Money::format($purchase->price_cents, $purchase->currency),
+            // Der Preis, den dieser Kaeufer traegt: bei Pay as you go der
+            // Leadpreis zuzueglich des beim Kauf festgeschriebenen Aufschlags
+            // (LP-POSTPAID-007). Gerechnet wird mit dem Schnappschuss am
+            // Kaufbeleg und nicht mit dem heutigen Satz -- sonst aenderte sich
+            // ein bezahlter Preis rueckwirkend.
+            'price' => Money::format(
+                (int) $purchase->price_cents + (int) $purchase->surcharge_cents,
+                $purchase->currency,
+            ),
+            'surchargeHint' => $purchase->surcharge_cents > 0 ? PostpaidTerms::surchargeHint() : null,
             'priceStatus' => __('marketplace.purchased.detail.price_status.'.$purchase->status->value),
             'statusOptions' => BuyerLeadStatus::options(),
             'complaintUrl' => $this->complaintUrl(),

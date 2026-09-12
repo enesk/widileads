@@ -6,6 +6,7 @@
  | Elemente tragen stattdessen data-Attribute, dieses Skript haengt sich daran.
  */
 
+import { setUpPaymentMethod } from './modules/payment-method.js';
 import { setUpPhoneVerify } from './modules/phone-verify.js';
 import { setUpToasts } from './modules/toasts.js';
 import { setUpTopUp } from './modules/topup.js';
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setUpScrollTargets();
     setUpTopUp();
     setUpPhoneVerify();
+    setUpPaymentMethod();
     setUpToasts();
     setUpDialogEscape();
     setUpTabStrips();

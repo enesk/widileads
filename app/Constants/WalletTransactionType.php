@@ -54,6 +54,30 @@ enum WalletTransactionType: string
     case OPENING_BALANCE = 'opening_balance';
 
     /**
+     * Eingang eines Postpaid-Einzugs (LP-POSTPAID-002). Gleicht den offenen
+     * Betrag des Kaeufers aus, hebt also seinen Saldo -- die Lastschrift ist
+     * fuer das Wallet eine Aufladung, nur nachtraeglich und automatisch.
+     */
+    case SETTLEMENT = 'settlement';
+
+    /**
+     * Aufschlag auf einen Postpaid-Kauf (LP-POSTPAID-002), gebucht als Einnahme
+     * auf das Plattform-Wallet. Er deckt Zahlungsausfall und Gebuehren des
+     * nachgelagerten Einzugs.
+     *
+     * Beide Richtungen sind zulaessig wie bei `commission` (LP-POSTPAID-007):
+     * Wird ein abgerechneter Kauf erstattet, steht die Rueckbuchung als
+     * negative Zeile neben der urspruenglichen Einnahme.
+     */
+    case SURCHARGE = 'surcharge';
+
+    /**
+     * Gebuehr zulasten des Kaeufers (Mahnung, Ruecklastschrift). Immer negativ:
+     * eine Gebuehr, die Guthaben schafft, gibt es nicht.
+     */
+    case FEE = 'fee';
+
+    /**
      * Erwartetes Vorzeichen der Buchung auf dem betroffenen Saldo:
      * 1 = erhoeht, -1 = verringert, 0 = beides zulaessig.
      *
@@ -66,9 +90,10 @@ enum WalletTransactionType: string
     public function sign(): int
     {
         return match ($this) {
-            self::TOPUP, self::RESERVE, self::REFUND, self::OPENING_BALANCE => 1,
-            self::CAPTURE, self::RELEASE, self::PAYOUT => -1,
-            self::EARNING, self::COMMISSION, self::ADJUSTMENT => 0,
+            self::TOPUP, self::RESERVE, self::REFUND, self::OPENING_BALANCE,
+            self::SETTLEMENT => 1,
+            self::CAPTURE, self::RELEASE, self::PAYOUT, self::FEE => -1,
+            self::EARNING, self::COMMISSION, self::SURCHARGE, self::ADJUSTMENT => 0,
         };
     }
 
@@ -114,12 +139,18 @@ enum WalletTransactionType: string
      * daran scheitern zu lassen, hiesse den Kaeufer fuer die Liquiditaet des
      * Verkaeufers haften zu lassen; das Minus ist die ehrlichere Darstellung
      * und wird dem Admin in der Wallet-Uebersicht gezeigt.
+     *
+     * Die Gebuehr darf es ebenfalls (LP-POSTPAID-004): Mahn- und
+     * Ruecklastschriftgebuehren treffen einen Kaeufer, dessen Saldo per
+     * Definition schon im Minus steht. Eine Gebuehr, die an fehlender Deckung
+     * scheitert, waere genau dort wirkungslos, wo sie gebraucht wird.
      */
     public function allowsNegativeBalance(int $amountCents): bool
     {
         return match ($this) {
             self::ADJUSTMENT => true,
-            self::EARNING, self::COMMISSION => $amountCents < 0,
+            self::EARNING, self::COMMISSION, self::SURCHARGE => $amountCents < 0,
+            self::FEE => $amountCents < 0,
             default => false,
         };
     }

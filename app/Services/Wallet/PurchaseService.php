@@ -40,6 +40,13 @@ use Illuminate\Support\Facades\DB;
  * InvalidPurchaseTransitionException ab: Das ist ein Fehler im Aufrufer und
  * wuerde den Saldo des Kaeufers verfaelschen.
  *
+ * **Postpaid kostet einen Aufschlag (LP-POSTPAID-007).** Kauft der Kaeufer
+ * gegen Kreditrahmen, wird beim Reservieren `surcharge_cents` neben dem
+ * Leadpreis festgeschrieben. Das Kaeufer-Wallet bewegt immer Preis plus
+ * Aufschlag, die Verkaeuferseite bleibt unberuehrt: Erloes und Provision
+ * rechnen weiter gegen `price_cents`, der Aufschlag geht als eigene Buchung
+ * vollstaendig an die Plattform.
+ *
  * **Der Kauf wird gesperrt gelesen.** Zustandspruefung, Buchungen und
  * Zustandswechsel laufen unter `lockForUpdate()` auf der Kaufzeile. Ohne die
  * Sperre koennten Abbuchung und Aufloesung desselben Kaufs gleichzeitig die
@@ -82,6 +89,12 @@ class PurchaseService
         $commissionCents = self::commissionCents($priceCents, $commissionPercent);
 
         return DB::transaction(function () use ($lead, $buyer, $seller, $priceCents, $commissionPercent, $commissionCents): LeadPurchase {
+            $buyerWallet = Wallet::forBuyer($buyer);
+            $paymentMode = $buyerWallet->payment_mode;
+            $surchargeCents = $paymentMode->hasSurcharge()
+                ? self::surchargeCents($priceCents, $this->surchargePercent())
+                : 0;
+
             $purchase = LeadPurchase::query()->create([
                 'lead_id' => $lead->getKey(),
                 'buyer_tenant_id' => $buyer->getKey(),
@@ -90,6 +103,8 @@ class PurchaseService
                 'commission_percent' => $commissionPercent,
                 'commission_cents' => $commissionCents,
                 'seller_net_cents' => $priceCents - $commissionCents,
+                'surcharge_cents' => $surchargeCents,
+                'payment_mode' => $paymentMode,
                 'status' => PurchaseStatus::RESERVED,
                 'currency' => config('wallet.currency'),
                 'purchased_at' => now(),
@@ -97,9 +112,9 @@ class PurchaseService
             ]);
 
             $this->wallets->post(
-                wallet: Wallet::forBuyer($buyer),
+                wallet: $buyerWallet,
                 type: WalletTransactionType::RESERVE,
-                amountCents: $priceCents,
+                amountCents: self::buyerTotalCents($purchase),
                 description: __('marketplace.wallet.descriptions.reserve', ['lead' => $lead->getKey()]),
                 reference: $purchase,
                 idempotencyKey: WalletService::keyFor(WalletTransactionType::RESERVE, $purchase),
@@ -127,14 +142,14 @@ class PurchaseService
      */
     public function capture(LeadPurchase $purchase): LeadPurchase
     {
-        return $this->transition($purchase, PurchaseStatus::RESERVED, PurchaseStatus::CAPTURED, 'capture', 'captured_at', function (LeadPurchase $locked): void {
+        $captured = $this->transition($purchase, PurchaseStatus::RESERVED, PurchaseStatus::CAPTURED, 'capture', 'captured_at', function (LeadPurchase $locked): void {
             $buyerWallet = Wallet::forBuyer($locked->buyer);
             $leadId = $locked->lead_id;
 
             $this->wallets->post(
                 wallet: $buyerWallet,
                 type: WalletTransactionType::RELEASE,
-                amountCents: -$locked->price_cents,
+                amountCents: -self::buyerTotalCents($locked),
                 description: __('marketplace.wallet.descriptions.release_for_capture', ['lead' => $leadId]),
                 reference: $locked,
                 // Suffix, weil auch die Aufloesung eines geplatzten Kaufs eine
@@ -146,7 +161,7 @@ class PurchaseService
             $this->wallets->post(
                 wallet: $buyerWallet,
                 type: WalletTransactionType::CAPTURE,
-                amountCents: -$locked->price_cents,
+                amountCents: -self::buyerTotalCents($locked),
                 description: __('marketplace.wallet.descriptions.capture', ['lead' => $leadId]),
                 reference: $locked,
                 idempotencyKey: WalletService::keyFor(WalletTransactionType::CAPTURE, $locked),
@@ -179,7 +194,27 @@ class PurchaseService
                     meta: $this->metaFor($locked),
                 );
             }
+
+            // Der Aufschlag ist Plattformertrag wie die Provision, wird aber
+            // bewusst als eigene Zeile gebucht (LP-POSTPAID-007): Nur so ist
+            // im Journal ablesbar, was Pay as you go einbringt, ohne es aus
+            // der Provision herausrechnen zu muessen.
+            if ($locked->surcharge_cents > 0) {
+                $this->wallets->post(
+                    wallet: Wallet::forPlatform(),
+                    type: WalletTransactionType::SURCHARGE,
+                    amountCents: $locked->surcharge_cents,
+                    description: __('marketplace.wallet.descriptions.surcharge', ['lead' => $leadId]),
+                    reference: $locked,
+                    idempotencyKey: WalletService::keyFor(WalletTransactionType::SURCHARGE, $locked),
+                    meta: $this->metaFor($locked),
+                );
+            }
         });
+
+        $this->checkSettlementThreshold($captured);
+
+        return $captured;
     }
 
     /**
@@ -195,7 +230,7 @@ class PurchaseService
             $this->wallets->post(
                 wallet: Wallet::forBuyer($locked->buyer),
                 type: WalletTransactionType::RELEASE,
-                amountCents: -$locked->price_cents,
+                amountCents: -self::buyerTotalCents($locked),
                 description: __('marketplace.wallet.descriptions.release', ['lead' => $locked->lead_id]),
                 reference: $locked,
                 idempotencyKey: WalletService::keyFor(WalletTransactionType::RELEASE, $locked),
@@ -230,7 +265,7 @@ class PurchaseService
             $this->wallets->post(
                 wallet: Wallet::forBuyer($locked->buyer),
                 type: WalletTransactionType::REFUND,
-                amountCents: $locked->price_cents,
+                amountCents: self::buyerTotalCents($locked),
                 description: __('marketplace.wallet.descriptions.refund', ['lead' => $leadId]),
                 reference: $locked,
                 idempotencyKey: WalletService::keyFor(WalletTransactionType::REFUND, $locked),
@@ -265,6 +300,20 @@ class PurchaseService
                     createdBy: (int) $admin->getKey(),
                 );
             }
+
+            if ($locked->surcharge_cents > 0) {
+                $this->wallets->post(
+                    wallet: Wallet::forPlatform(),
+                    type: WalletTransactionType::SURCHARGE,
+                    amountCents: -$locked->surcharge_cents,
+                    description: __('marketplace.wallet.descriptions.surcharge_reversal', ['lead' => $leadId]),
+                    reference: $locked,
+                    idempotencyKey: WalletService::keyFor(WalletTransactionType::SURCHARGE, $locked, 'refund'),
+                    meta: $meta,
+                    allowNegative: true,
+                    createdBy: (int) $admin->getKey(),
+                );
+            }
         });
     }
 
@@ -290,6 +339,69 @@ class PurchaseService
         return $seller->commission_percent !== null
             ? (float) $seller->commission_percent
             : (float) config('wallet.commission_percent');
+    }
+
+    /**
+     * Aufschlag in Cent, gerundet wie die Provision (kaufmaennisch, ganze
+     * Cent). Der Aufschlag steht neben dem Leadpreis und nicht darin: Erloes
+     * des Verkaeufers und Provision rechnen weiter gegen `price_cents`, der
+     * Aufschlag geht vollstaendig an die Plattform.
+     */
+    public static function surchargeCents(int $priceCents, float $surchargePercent): int
+    {
+        return (int) round($priceCents * $surchargePercent / 100, 0, PHP_ROUND_HALF_UP);
+    }
+
+    /**
+     * Wirksamer Aufschlagsatz der Plattform in Prozent.
+     */
+    public function surchargePercent(): float
+    {
+        return (float) config('wallet.postpaid.surcharge_percent');
+    }
+
+    /**
+     * Der Betrag, den das Kaeufer-Wallet traegt: Leadpreis plus Aufschlag.
+     *
+     * Reservierung, Aufloesung, Abbuchung und Erstattung bewegen immer diesen
+     * Betrag -- eine Abbuchung ueber den Leadpreis allein liesse den Aufschlag
+     * als Rest in `reserved_cents` stehen. Bei einem Prepaid-Kauf ist der
+     * Aufschlag 0 und die Rechnung bleibt die alte.
+     */
+    public static function buyerTotalCents(LeadPurchase $purchase): int
+    {
+        return (int) $purchase->price_cents + (int) $purchase->surcharge_cents;
+    }
+
+    /**
+     * Nach jeder Abbuchung auf einem Postpaid-Wallet pruefen, ob der offene
+     * Betrag die Sofort-Einzugsschwelle erreicht hat (LP-POSTPAID-007).
+     *
+     * Die Pruefung laeuft ausserhalb der Buchungstransaktion: Ein Einzug ist
+     * ein Aussenvorgang, und ein Fehler dort darf die bereits erfolgte
+     * Abrechnung des Leads nicht zurueckdrehen.
+     *
+     * Der SettlementService entsteht in LP-POSTPAID-008; bis dahin faellt der
+     * Aufruf still aus, statt jeden Kauf an einer fehlenden Klasse scheitern
+     * zu lassen.
+     */
+    private function checkSettlementThreshold(LeadPurchase $purchase): void
+    {
+        if ($purchase->status !== PurchaseStatus::CAPTURED) {
+            return;
+        }
+
+        $wallet = Wallet::forBuyer($purchase->buyer);
+
+        if (! $wallet->isPostpaid()) {
+            return;
+        }
+
+        if (! class_exists(SettlementService::class)) {
+            return;
+        }
+
+        app(SettlementService::class)->checkThreshold($wallet);
     }
 
     /**
@@ -368,6 +480,8 @@ class PurchaseService
             'commission_percent' => (float) $purchase->commission_percent,
             'commission_cents' => (int) $purchase->commission_cents,
             'seller_net_cents' => (int) $purchase->seller_net_cents,
+            'surcharge_cents' => (int) $purchase->surcharge_cents,
+            'payment_mode' => $purchase->payment_mode->value,
         ];
     }
 }

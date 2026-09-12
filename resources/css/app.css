@@ -2,6 +2,7 @@
 @import './colors.css';
 @import './styles.css';
 @import './portal.css';
+@import './components/postpaid.css';
 @plugin "daisyui" {
     themes: light --default;
 }

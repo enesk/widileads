@@ -24,6 +24,7 @@ use App\Services\CallService;
 use App\Services\LeadPurchaseAction;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
+use App\Support\PostpaidTerms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -82,6 +83,9 @@ class Dashboard extends Component
                 'leads' => $freshLeads,
             ]),
             'balance' => Money::format($wallet?->available_cents ?? 0),
+            // Bei Pay as you go sagt "verfuegbar" zu wenig; dort tritt der
+            // Baustein mit offenem Betrag und Rahmen an seine Stelle.
+            'postpaid' => PostpaidTerms::isPostpaid($wallet),
             'reserved' => Money::format($wallet?->reserved_cents ?? 0),
             'matchCount' => $matching->count(),
             'freshCount' => $freshLeads,

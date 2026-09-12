@@ -19,7 +19,7 @@
     Erwartete Daten:
       $leads             Zeilen der Liste
       $resultCount       Treffer insgesamt
-      $balance, $hasFunds, $topUpUrl
+      $balance, $hasFunds, $topUpUrl, $surchargeHint, $postpaid, $blocked
       $hasBuyerProfile   sind Kaufkriterien hinterlegt?
       $activeFilters     key, label -- je gesetzter Filter ein Chip
       $activeFilterCount Zahl im Abzeichen am Filterknopf
@@ -65,9 +65,13 @@
         </div>
     @endif
 
+    {{-- Ohne Geld geht nichts -- bei Pay as you go heisst das: der
+         Kreditrahmen ist erschoepft, und aufladen hilft genauso. --}}
     @unless ($hasFunds)
         <div class="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <span class="flex-1 min-w-0">{{ __('marketplace.listing.no_funds') }}</span>
+            <span class="flex-1 min-w-0">
+                {{ $postpaid ? __('portal.postpaid.balance.exhausted') : __('marketplace.listing.no_funds') }}
+            </span>
             <a href="{{ $topUpUrl }}" class="btn-secondary shrink-0">{{ __('portal.top_up') }}</a>
         </div>
     @endunless
@@ -229,7 +233,9 @@
                                          Zeilenflaeche (z-10), sonst oeffnete der
                                          Kauf nur das Blatt. --}}
                                     <span class="relative z-10 flex items-center gap-2 shrink-0">
-                                        <span class="text-sm font-semibold text-zinc-900 tabular-nums">{{ $lead['price'] }}</span>
+                                        <span class="text-sm font-semibold text-zinc-900 tabular-nums"
+                                            @if ($surchargeHint !== null) title="{{ $surchargeHint }}" @endif
+                                        >{{ $lead['price'] }}</span>
                                         <button
                                             type="button"
                                             class="btn-primary min-h-10 px-3.5"
@@ -306,6 +312,20 @@
                         {{ __('marketplace.listing.sheet_hint') }}
                     </p>
 
+                    {{-- Der Gesamtpreis, den dieser Kaeufer traegt: bei Pay as
+                         you go einschliesslich Aufschlag (LP-POSTPAID-007). --}}
+                    <div class="flex items-center justify-between gap-3 pt-1 border-t border-zinc-200">
+                        <span class="text-sm text-zinc-500">{{ __('portal.topup.total') }}</span>
+                        <span class="text-lg font-semibold text-zinc-900 tabular-nums">{{ $sheet['price'] }}</span>
+                    </div>
+
+                    @if ($surchargeHint !== null)
+                        <p class="text-xs text-zinc-500 flex items-center gap-1.5 -mt-1">
+                            <x-app.icon name="info" class="size-3.5 shrink-0" />
+                            {{ $surchargeHint }}
+                        </p>
+                    @endif
+
                     <div class="flex gap-2 pt-1">
                         <button type="button" class="btn-ghost flex-1" wire:click="closeLead">
                             {{ __('portal.close') }}
@@ -323,7 +343,9 @@
                         </button>
                     </div>
 
-                    @if ($sheet['purchasable'] && ! $sheet['affordable'])
+                    @if ($blocked)
+                        <p class="text-xs text-red-600">{{ __('portal.postpaid.blocked.heading') }}</p>
+                    @elseif ($sheet['purchasable'] && ! $sheet['affordable'])
                         <p class="text-xs text-red-600">
                             {{ __('marketplace.listing.price_exceeds_balance') }}
                             <a href="{{ $topUpUrl }}" class="underline">{{ __('marketplace.wallet.top_up.title') }}</a>

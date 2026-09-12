@@ -22,6 +22,8 @@ use App\Services\Twilio\TwilioCallerIdValidationClient;
 use App\Services\Twilio\TwilioOutboundCallClient;
 use App\Services\UserVerificationService;
 use App\Services\VerificationProviders\TwilioProvider;
+use App\Services\Wallet\SettlementInvoiceIssuer;
+use App\Services\Wallet\SettlementInvoiceService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
 use Illuminate\Http\Middleware\TrustProxies;
@@ -56,6 +58,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Und der Kaufknopf im Marktplatz wirkt (FB-054).
         $this->app->bind(LeadPurchaseAction::class, LeadPurchaseThroughAction::class);
+
+        // Der Beleg zu einem eingezogenen Postpaid-Betrag (LP-POSTPAID-015).
+        // Der Einzug (LP-POSTPAID-008) kennt nur die Zusage; bis hierher lag
+        // sie auf App\Services\Wallet\NoSettlementInvoice und erzeugte
+        // nichts.
+        $this->app->bind(SettlementInvoiceIssuer::class, SettlementInvoiceService::class);
 
         // Die Twilio-Anbindung fuer Rufnummern-Bestaetigungen (FB-080). Als
         // Bindung, damit Tests den Anruf ersetzen koennen.

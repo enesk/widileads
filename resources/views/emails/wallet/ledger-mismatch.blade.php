@@ -85,6 +85,27 @@
                             </table>
                         @endif
 
+                        @if ($findings !== [])
+                            <p style="margin: 28px 0 8px; font-size: 15px; font-weight: 600; color: #0f172a">
+                                {{ __('marketplace.wallet.verify.mail.findings') }}
+                            </p>
+
+                            <table style="width: 100%; margin-top: 24px; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 10px" cellpadding="0" cellspacing="0" role="none" bgcolor="#f8fafc">
+                                @foreach ($findings as $finding)
+                                    <tr>
+                                        <td style="padding: 16px 20px; border-bottom: {{ $loop->last ? 'none' : '1px solid #e2e8f0' }}; font-size: 15px; color: #0f172a">
+                                            <strong>{{ $finding['check'] }}</strong>
+                                            <span style="color: #64748b"> — {{ $finding['subject'] }}</span>
+
+                                            <p style="margin: 8px 0 0; font-size: 14px; line-height: 22px; color: #334155">
+                                                {{ $finding['detail'] }}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </table>
+                        @endif
+
                         <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>
 
                         <p style="margin: 0; font-size: 14px; line-height: 22px; color: #64748b">

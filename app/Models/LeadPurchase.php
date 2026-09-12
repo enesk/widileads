@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Constants\BuyerLeadFeedback;
 use App\Constants\BuyerLeadStatus;
+use App\Constants\PaymentMode;
 use App\Constants\PurchaseStatus;
 use App\Models\Scopes\TenantScopes;
 use Database\Factories\LeadPurchaseFactory;
@@ -37,6 +38,8 @@ use Illuminate\Support\Carbon;
  * @property string $commission_percent Provisionssatz, festgeschrieben zum Kaufzeitpunkt
  * @property int $commission_cents
  * @property int $seller_net_cents
+ * @property int $surcharge_cents Postpaid-Aufschlag, nicht in `price_cents` enthalten
+ * @property PaymentMode $payment_mode Zahlungsmodus zum Kaufzeitpunkt, festgeschrieben
  * @property PurchaseStatus $status
  * @property string $currency
  * @property Carbon $purchased_at
@@ -56,6 +59,20 @@ class LeadPurchase extends Model
     /** @use HasFactory<LeadPurchaseFactory> */
     use HasFactory;
 
+    /**
+     * Vorgaben der Postpaid-Spalten, gleich den Vorgaben der Datenbank
+     * (LP-POSTPAID-003). Sie stehen hier, damit ein frisch angelegter
+     * Kaufbeleg sie auch im Arbeitsspeicher traegt: Die Deckungspruefung des
+     * WalletService liest `payment_mode` unmittelbar nach dem Anlegen, und ein
+     * nicht geladener Wert waere dort null statt `prepaid`.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'surcharge_cents' => 0,
+        'payment_mode' => PaymentMode::PREPAID->value,
+    ];
+
     protected $fillable = [
         'lead_id',
         'buyer_tenant_id',
@@ -64,6 +81,8 @@ class LeadPurchase extends Model
         'commission_percent',
         'commission_cents',
         'seller_net_cents',
+        'surcharge_cents',
+        'payment_mode',
         'status',
         'currency',
         'purchased_at',
@@ -164,6 +183,8 @@ class LeadPurchase extends Model
             'price_cents' => 'integer',
             'commission_cents' => 'integer',
             'seller_net_cents' => 'integer',
+            'surcharge_cents' => 'integer',
+            'payment_mode' => PaymentMode::class,
             'status' => PurchaseStatus::class,
             'purchased_at' => 'datetime',
             'reserved_at' => 'datetime',

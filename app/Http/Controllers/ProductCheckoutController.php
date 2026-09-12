@@ -134,6 +134,17 @@ class ProductCheckoutController extends Controller
 
         $tenant = $order->tenant_id === null ? null : Tenant::query()->withoutGlobalScopes()->find($order->tenant_id);
 
+        // Aufladungen enden im Portal, nicht auf der Dankeseite des
+        // Starterkits: Dort steht die Gutschrift als Tatsache, obwohl sie erst
+        // mit dem Webhook des Zahlungsanbieters entsteht. Die Portalseite
+        // wartet stattdessen sichtbar auf die Buchung (LP-WALLET-009).
+        if ($tenant instanceof Tenant) {
+            return redirect()->route('portal.wallet.success', [
+                'tenant' => $tenant->uuid,
+                'bestellung' => $order->uuid,
+            ]);
+        }
+
         return view('checkout.product-thank-you', [
             'order' => $order,
             'tenant' => $tenant,

@@ -223,4 +223,120 @@ return [
             'on' => ':date, :time',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pay as you go in the portal (LP-POSTPAID-010)
+    |--------------------------------------------------------------------------
+    */
+
+    'postpaid' => [
+
+        'label' => 'Pay as you go',
+
+        'apply' => [
+            'heading' => 'Pay as you go',
+            'description' => 'Buy leads without paying upfront and settle afterwards. We collect your outstanding amount automatically.',
+            'points' => [
+                'You buy against a credit limit instead of your balance.',
+                'Your limit starts at :limit.',
+                'We collect every :weekday, or earlier once :threshold is outstanding.',
+                'Every lead price carries a surcharge of :percent %.',
+            ],
+            'checklist_heading' => 'What we check first',
+            'rule_met' => 'Met',
+            'rule_open' => 'Open',
+            'rules' => [
+                'purchases' => 'At least :required settled lead purchases – you have :count.',
+                'account_age' => 'Account at least :required days old – yours is :days days old.',
+                'history' => 'No payment incident in the last :days days.',
+                'not_blocked' => 'No purchase block on your account.',
+                'payment_method' => 'A payment method is on file.',
+            ],
+            'submit' => 'Apply for pay as you go',
+            'payment_method_cta' => 'Add a payment method',
+            'payment_method_hint' => 'Without a payment method on file we cannot collect anything.',
+            'not_eligible_hint' => 'You can apply as soon as every point is met.',
+            'pending_heading' => 'Application submitted',
+            'pending_text' => 'We received your application on :date and will get back to you by email.',
+            'rejected_heading' => 'Rejected',
+            'rejected_text' => 'Your last application was rejected.',
+            'rejected_retry' => 'You can apply again in :days days.',
+            'rejected_retry_now' => 'You can apply again now.',
+            'submitted' => 'We received your application and will get back to you by email.',
+        ],
+
+        'balance' => [
+            'open_label' => 'Outstanding amount',
+            'remaining_label' => 'Still available',
+            'remaining_value' => ':available of :limit',
+            'tooltip' => 'The outstanding amount is collected every :weekday, or once :threshold is reached.',
+            'exhausted' => 'Your credit limit is used up. The outstanding amount is settled with the next collection.',
+            'surcharge_hint' => 'incl. :percent % pay-as-you-go surcharge',
+            'settlements_link' => 'View collections',
+        ],
+
+        'blocked' => [
+            'heading' => 'Your account is blocked.',
+            'text' => 'Outstanding amount: :amount',
+            'action' => 'Settle now',
+        ],
+
+        'payment_methods' => [
+            'heading' => 'Payment methods',
+            'description' => 'We collect your outstanding amount through this method. You enter IBAN or card number directly with the payment provider.',
+            'empty_title' => 'No payment method yet',
+            'empty_description' => 'Add a payment method so we can collect your outstanding amount.',
+            'add' => 'Add payment method',
+            'cancel' => 'Cancel',
+            'remove' => 'Remove',
+            'remove_confirm' => 'Really remove this payment method?',
+            'removed' => 'Payment method removed.',
+            'added' => 'Payment method saved.',
+            'make_default' => 'Make default',
+            'default_set' => 'Default changed.',
+            'default_badge' => 'Default',
+            'mandate_since' => 'Mandate since :date',
+            'steps' => [
+                'type' => 'Choose type',
+                'details' => 'Enter details',
+                'mandate' => 'Confirm mandate',
+                'done' => 'Done',
+            ],
+            'step_of' => 'Step :step of :total',
+            'type_heading' => 'How would you like to pay?',
+            'details_heading' => 'Your payment details',
+            'details_hint' => 'The form runs directly with the payment provider. We only store the last four digits.',
+            'mandate_heading' => 'SEPA direct debit mandate',
+            'done_heading' => 'Payment method saved',
+            'done_text' => 'We will collect your outstanding amount through :method from now on.',
+            'back' => 'Back',
+            'next' => 'Next',
+            'save' => 'Save payment method',
+            'close' => 'Done',
+            'unavailable' => 'The payment form could not be loaded. Please try again later.',
+        ],
+
+        'settlements' => [
+            'heading' => 'Collections',
+            'description' => 'Every collection of your outstanding amount with date, amount and payment method.',
+            'empty_title' => 'No collection yet',
+            'empty_description' => 'As soon as we collect your outstanding amount, it shows up here – with a receipt to download.',
+            'date' => 'Date',
+            'amount' => 'Amount',
+            'method' => 'Payment method',
+            'method_unknown' => 'No longer on file',
+            'status' => 'Status',
+            'invoice' => 'Receipt',
+            'status_labels' => [
+                'pending' => 'Pending',
+                'processing' => 'In progress',
+                'retry_pending' => 'Retry on :date',
+                'retry_pending_short' => 'Retry scheduled',
+                'paid' => 'Paid',
+                'failed' => 'Failed',
+                'returned' => 'Charged back',
+            ],
+        ],
+    ],
 ];

@@ -16,6 +16,7 @@ use App\Models\LeadPurchase;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Services\LeadStateService;
 use App\Services\TenantTypeService;
 use App\Services\Wallet\PurchaseService;
@@ -62,6 +63,15 @@ class PurchaseLead
     ) {}
 
     /**
+     * Gemerkter Zahlungsmodus je Kaeufer-Mandant. Der Marktplatz erfragt den
+     * Preis fuer jeden Lead der Liste einzeln; ohne das Merken waere das eine
+     * Wallet-Abfrage je Zeile.
+     *
+     * @var array<int, bool>
+     */
+    private array $buysOnCredit = [];
+
+    /**
      * Ohne handelnden Benutzer gekauft wird beim Autokauf (FB-056) -- dort
      * entscheidet das Kaufprofil, nicht ein Mensch. Das Zustandsprotokoll
      * traegt dann keinen Akteur, was genau richtig ist: Es war keiner.
@@ -75,7 +85,7 @@ class PurchaseLead
     {
         $this->guardBuyer($buyer);
         $this->guardLead($buyer, $lead);
-        $this->guardPrice($lead, $priceShownCents);
+        $this->guardPrice($lead, $priceShownCents, $buyer);
 
         $this->reserve($buyer, $lead, $actor);
 
@@ -150,7 +160,7 @@ class PurchaseLead
 
             // Zwischen Anzeige und Sperre kann der Verkaeufer seinen Preis
             // geaendert haben; unter der Sperre ist die Pruefung verbindlich.
-            $this->guardPrice($locked, $priceShownCents);
+            $this->guardPrice($locked, $priceShownCents, $buyer);
 
             // Legt den Beleg an, schreibt Preis, Provisionssatz und
             // Verkaeuferanteil fest und blockt den Kaufpreis auf dem
@@ -245,15 +255,25 @@ class PurchaseLead
      * mehr ab als angezeigt. Beim Autokauf (FB-056) gibt es keine angezeigte
      * Seite; dort entscheidet das Kaufprofil und die Pruefung entfaellt.
      *
+     * Bei einem Postpaid-Kaeufer (LP-POSTPAID-007) zahlt der Kaeufer Leadpreis
+     * plus Aufschlag. Geprueft wird deshalb gegen den Gesamtpreis; der reine
+     * Leadpreis bleibt zusaetzlich zulaessig, solange eine Oberflaeche noch
+     * ohne Aufschlag auszeichnet. Beide Werte leiten sich aus demselben
+     * heutigen Verkaeuferpreis ab -- die Klammer gegen eine Preisaenderung
+     * waehrend der offenen Seite bleibt damit unveraendert wirksam.
+     *
      * @throws LeadNotPurchasableException wenn sich der Preis geaendert hat
      */
-    private function guardPrice(Lead $lead, ?int $priceShownCents): void
+    private function guardPrice(Lead $lead, ?int $priceShownCents, Tenant $buyer): void
     {
         if ($priceShownCents === null) {
             return;
         }
 
-        if ($priceShownCents !== $this->currentPriceCentsOf($lead)) {
+        $netCents = $this->currentPriceCentsOf($lead);
+        $totalCents = $this->currentPriceCentsOf($lead, $buyer);
+
+        if (! in_array($priceShownCents, [$netCents, $totalCents], true)) {
             throw LeadNotPurchasableException::priceChanged();
         }
     }
@@ -264,14 +284,34 @@ class PurchaseLead
      * Massgeblich ist die Preisvorgabe des Verkaeufers (LP-WALLET-003) -- also
      * des Mandanten, dem der Lead gehoert. Festgeschrieben wird der Preis erst
      * im Kaufbeleg durch den PurchaseService.
+     *
+     * Mit Kaeufer gerechnet kommt bei Pay as you go der Aufschlag hinzu
+     * (LP-POSTPAID-007): Das ist der Betrag, den dieser Kaeufer tatsaechlich
+     * traegt, und damit der Betrag, den seine Oberflaeche anzeigen muss.
      */
-    public function currentPriceCentsOf(Lead $lead): int
+    public function currentPriceCentsOf(Lead $lead, ?Tenant $buyer = null): int
     {
         $seller = $lead->tenant;
 
-        return $seller instanceof Tenant
+        $priceCents = $seller instanceof Tenant
             ? (int) $seller->lead_price_cents
             : (int) config('wallet.default_lead_price_cents');
+
+        if ($buyer === null || ! $this->buysOnCredit($buyer)) {
+            return $priceCents;
+        }
+
+        return $priceCents + PurchaseService::surchargeCents($priceCents, $this->purchases->surchargePercent());
+    }
+
+    /**
+     * Kauft dieser Mandant gegen Kreditrahmen?
+     */
+    private function buysOnCredit(Tenant $buyer): bool
+    {
+        $key = (int) $buyer->getKey();
+
+        return $this->buysOnCredit[$key] ??= Wallet::forBuyer($buyer)->isPostpaid();
     }
 
     /**

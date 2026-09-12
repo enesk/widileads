@@ -21,7 +21,7 @@
     Erwartete Daten: $slot. Optional: $title (Seitentitel), $tenant (sonst der
     Mandant aus dem Pfad).
 --}}
-@props(['tenant' => null])
+@props(['tenant' => null, 'stripe' => false])
 
 @php
     $tenant = $tenant ?? request()->route('tenant');
@@ -43,6 +43,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     @vite(['resources/js/portal.js'])
+
+    {{--
+        Stripe.js als einzige Ausnahme von der Regel, dass kein Skript von
+        einem fremden Server geladen wird: Stripe verlangt es so, weil die
+        Kartendaten sonst durch diese Anwendung liefen und sie damit in den
+        Geltungsbereich von PCI DSS zoege. Geladen nur auf der Seite, die
+        Stripe Elements zeigt (LP-POSTPAID-010).
+    --}}
+    @if ($stripe)
+        <script src="https://js.stripe.com/v3/"></script>
+    @endif
 </head>
 <body class="font-portal bg-zinc-50 text-zinc-700 antialiased">
 
@@ -65,8 +76,19 @@
 
         <div class="flex items-center gap-3">
             @if ($wallet && $tenant)
+                {{--
+                    Bei Pay as you go ist "verfuegbar" die falsche Zahl im Kopf:
+                    Der Kaeufer schuldet etwas, und genau das gehoert hierher
+                    (LP-POSTPAID-010). Die zweite Zahl -- was vom Rahmen noch
+                    uebrig ist -- steht auf der Guthabenseite.
+                --}}
                 <a href="{{ route('portal.wallet', ['tenant' => $tenant->uuid]) }}" class="pill hidden sm:inline-flex hover:bg-zinc-200">
-                    {{ \App\Support\Money::format($wallet->available_cents) }}
+                    @if (\App\Support\PostpaidTerms::isPostpaid($wallet))
+                        <span class="text-zinc-500">{{ __('portal.postpaid.balance.open_label') }}</span>
+                        {{ \App\Support\Money::format($wallet->open_amount_cents) }}
+                    @else
+                        {{ \App\Support\Money::format($wallet->available_cents) }}
+                    @endif
                 </a>
             @endif
 
@@ -124,6 +146,9 @@
     @endif
 
     <main id="portal-content" class="px-4 py-6 md:px-8 md:py-10 max-w-7xl">
+        {{-- Die Kaufsperre gilt ueberall, also steht ihr Band auch ueberall. --}}
+        <x-app.blocked-banner :tenant="$tenant" class="mb-6" />
+
         {{ $slot }}
     </main>
 </div>

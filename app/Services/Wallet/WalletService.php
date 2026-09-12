@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Wallet;
 
+use App\Constants\WalletOwnerType;
 use App\Constants\WalletTransactionType;
+use App\Events\Wallet\WalletUnblocked;
 use App\Exceptions\InsufficientFundsException;
+use App\Exceptions\PurchaseBlockedException;
+use App\Models\LeadPurchase;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Database\Eloquent\Model;
@@ -44,12 +48,26 @@ use InvalidArgumentException;
  *
  * Deckungsregeln:
  * - `reserve` braucht freies Guthaben (`available_cents`), nicht nur Saldo.
+ *   Bei einem Postpaid-Kaeufer (LP-POSTPAID-004) steckt der Kreditrahmen in
+ *   ebendiesem Wert -- der Service rechnet deshalb unveraendert weiter, ohne
+ *   den Zahlungsmodus zu kennen.
  * - `release` kann nicht mehr aufloesen, als reserviert ist.
  * - Jede andere Buchung darf den Saldo nicht unter null druecken. Ausnahmen
  *   nur mit ausdruecklichem `allowNegative` und nur, wo die Buchungsart es
  *   zulaesst (WalletTransactionType::allowsNegativeBalance()): die manuelle
  *   Korrektur des Admins und die Rueckbuchung einer Einnahme oder Provision
  *   bei einer Erstattung.
+ * - `capture` auf einem Kauf-Wallet darf den Saldo ins Minus druecken, wenn
+ *   der zugehoerige Leadkauf ein Postpaid-Kauf war -- das ist der Regelfall
+ *   von Pay as you go und braucht kein `allowNegative` des Aufrufers.
+ *
+ * Zwei Sonderregeln von Pay as you go (LP-POSTPAID-004):
+ *
+ * - Ist `purchase_blocked` gesetzt, wird keine Reservierung mehr angenommen
+ *   (PurchaseBlockedException). Gutschriften, Einzuege und Korrekturen bleiben
+ *   moeglich, sonst liesse sich die Sperre nie wieder aufheben.
+ * - Nach jeder Buchung auf den freien Saldo wird die Sperre aufgehoben, sobald
+ *   der Saldo wieder bei null oder darueber steht (Ereignis WalletUnblocked).
  */
 class WalletService
 {
@@ -64,6 +82,7 @@ class WalletService
      *
      * @throws InvalidArgumentException bei einem Vorzeichen, das nicht zur Buchungsart passt
      * @throws InsufficientFundsException wenn die Deckung nicht reicht
+     * @throws PurchaseBlockedException wenn das Konto des Kaeufers gesperrt ist
      */
     public function post(
         Wallet $wallet,
@@ -117,7 +136,7 @@ class WalletService
                 return $existing;
             }
 
-            $this->guardFunds($locked, $type, $amountCents, $allowNegative);
+            $this->guardFunds($locked, $type, $amountCents, $allowNegative, $reference);
 
             if ($type->affectsReservedBalance()) {
                 $locked->reserved_cents += $amountCents;
@@ -126,6 +145,8 @@ class WalletService
             }
 
             $locked->save();
+
+            $this->releaseBlockIfSettled($locked, $type);
 
             $transaction = WalletTransaction::query()->create([
                 'wallet_id' => $locked->getKey(),
@@ -221,11 +242,21 @@ class WalletService
     /**
      * Deckungspruefung auf dem gesperrten Stand.
      *
+     * @param  Model|null  $reference  Beleg der Buchung; entscheidet bei `capture`, ob der Saldo ins Minus darf
+     *
      * @throws InsufficientFundsException
+     * @throws PurchaseBlockedException
      */
-    private function guardFunds(Wallet $wallet, WalletTransactionType $type, int $amountCents, bool $allowNegative): void
+    private function guardFunds(Wallet $wallet, WalletTransactionType $type, int $amountCents, bool $allowNegative, ?Model $reference = null): void
     {
         if ($type === WalletTransactionType::RESERVE) {
+            if ($wallet->purchase_blocked) {
+                throw PurchaseBlockedException::forWallet($wallet);
+            }
+
+            // `available_cents` traegt den Kreditrahmen bereits in sich
+            // (LP-POSTPAID-004): Bei Prepaid ist er 0, bei Postpaid ist er der
+            // Betrag, den der Kaeufer zusaetzlich ausgeben darf.
             if ($wallet->available_cents < $amountCents) {
                 throw InsufficientFundsException::forReservation($wallet, $amountCents);
             }
@@ -241,13 +272,77 @@ class WalletService
             return;
         }
 
-        if ($allowNegative) {
+        if ($allowNegative || $this->isCoveredByCredit($wallet, $type, $reference)) {
             return;
         }
 
         if ($wallet->balance_cents + $amountCents < 0) {
             throw InsufficientFundsException::forBalance($wallet, $amountCents);
         }
+    }
+
+    /**
+     * Darf diese Abbuchung den Saldo des Kaeufers ins Minus druecken?
+     *
+     * Nur `capture` auf einem Kauf-Wallet, und nur fuer einen Postpaid-Kauf.
+     * Massgeblich ist der Zahlungsmodus, der am Kaufbeleg festgeschrieben ist,
+     * nicht der aktuelle Modus des Wallets: Ein Kaeufer kann zwischen Kauf und
+     * Abrechnung zurueckgestuft worden sein (LP-POSTPAID-009). Wuerde hier der
+     * aktuelle Modus zaehlen, blieben seine laufenden Leads unabrechenbar --
+     * der Verkaeufer bekaeme sein Geld nicht, obwohl der Lead erreichbar war.
+     *
+     * Umgekehrt genuegt der Modus des Wallets, wenn kein Kaufbeleg vorliegt:
+     * Ein Postpaid-Kaeufer soll an keiner Abbuchung scheitern, die er im
+     * Rahmen seines Kredits ausgeloest hat.
+     *
+     * Eine Obergrenze wird hier bewusst nicht noch einmal geprueft. Die
+     * Reservierung hat bereits gegen den damaligen Rahmen geprueft; eine
+     * zweite Pruefung zum Abrechnungszeitpunkt wuerde einen laengst
+     * genehmigten Kauf nachtraeglich platzen lassen.
+     */
+    private function isCoveredByCredit(Wallet $wallet, WalletTransactionType $type, ?Model $reference): bool
+    {
+        if ($type !== WalletTransactionType::CAPTURE) {
+            return false;
+        }
+
+        if ($wallet->owner_type !== WalletOwnerType::BUYER) {
+            return false;
+        }
+
+        // Der Kaufbeleg entscheidet, sofern sein Modus vorliegt. Traegt ein
+        // Bestandsbeleg die Spalte nicht im Arbeitsspeicher, faellt die
+        // Entscheidung auf den Modus des Wallets zurueck.
+        if ($reference instanceof LeadPurchase && $reference->payment_mode !== null) {
+            return $reference->payment_mode->allowsCredit();
+        }
+
+        return $wallet->isPostpaid();
+    }
+
+    /**
+     * Hebt die Kaufsperre auf, sobald der offene Betrag ausgeglichen ist
+     * (LP-POSTPAID-004).
+     *
+     * Laeuft in derselben Transaktion wie die Buchung, die den Saldo bewegt
+     * hat -- Zahlung und Entsperrung gehoeren zusammen. Nur Buchungen auf den
+     * freien Saldo koennen etwas ausgleichen; eine Reservierung bewegt den
+     * offenen Betrag nicht.
+     */
+    private function releaseBlockIfSettled(Wallet $wallet, WalletTransactionType $type): void
+    {
+        if ($type->affectsReservedBalance()) {
+            return;
+        }
+
+        if (! $wallet->purchase_blocked || $wallet->balance_cents < 0) {
+            return;
+        }
+
+        $wallet->purchase_blocked = false;
+        $wallet->save();
+
+        WalletUnblocked::dispatch($wallet->getKey(), $wallet->owner_id, $wallet->balance_cents);
     }
 
     /**

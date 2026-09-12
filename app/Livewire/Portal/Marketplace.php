@@ -20,6 +20,7 @@ use App\Models\Wallet;
 use App\Presenters\LeadPresenter;
 use App\Services\LeadPurchaseAction;
 use App\Support\Money;
+use App\Support\PostpaidTerms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -98,6 +99,12 @@ class Marketplace extends Component
     /** Hoechstpreis in Cent, als Text in der Adresse. */
     #[Url(as: 'preis', except: '')]
     public string $maxPrice = '';
+
+    /**
+     * Innerhalb einer Anfrage einmal aufgeloest, nicht oeffentlich -- wandert
+     * also nicht in den Zustand der Komponente.
+     */
+    private ?Wallet $wallet = null;
 
     /**
      * Wie viele Zeilen gerade sichtbar sind. Steht in der Adresse, damit ein
@@ -288,6 +295,14 @@ class Marketplace extends Component
             'resultCount' => $total,
             'balance' => Money::format($availableCents),
             'hasFunds' => $availableCents > 0,
+            // Bei Pay as you go traegt jeder Preis den Aufschlag; der Hinweis
+            // sagt, warum er hoeher ist als der Preis des Verkaeufers.
+            'surchargeHint' => PostpaidTerms::isPostpaid($this->wallet()) ? PostpaidTerms::surchargeHint() : null,
+            'postpaid' => PostpaidTerms::isPostpaid($this->wallet()),
+            // Eine Kaufsperre schliesst jeden Kauf aus, unabhaengig vom
+            // Guthaben (App\Exceptions\PurchaseBlockedException). Der Knopf
+            // bleibt deshalb tot, statt in eine Fehlermeldung zu laufen.
+            'blocked' => (bool) $this->wallet()->purchase_blocked,
             'hasBuyerProfile' => $this->profile() !== null,
             'topUpUrl' => $this->topUpUrl(),
             'sortOptions' => $this->sortOptions(),
@@ -358,7 +373,7 @@ class Marketplace extends Component
         }
 
         $purchase = app(LeadPurchaseAction::class);
-        $priceCents = $purchase->priceCentsOf($lead);
+        $priceCents = $purchase->priceCentsOf($lead, $this->portalTenant());
         $presenter = $this->presenter($lead);
         $answers = $this->qualificationAnswers($lead);
 
@@ -377,7 +392,9 @@ class Marketplace extends Component
             'free_text' => $this->freeText($answers),
             'price' => Money::format($priceCents),
             'price_cents' => $priceCents,
-            'purchasable' => $purchase->isAvailable() && $purchase->canPurchase($this->portalTenant(), $lead),
+            'purchasable' => ! $this->wallet()->purchase_blocked
+                && $purchase->isAvailable()
+                && $purchase->canPurchase($this->portalTenant(), $lead),
             'affordable' => $availableCents >= $priceCents,
         ];
     }
@@ -477,10 +494,14 @@ class Marketplace extends Component
     {
         $purchase = app(LeadPurchaseAction::class);
         $tenant = $this->portalTenant();
+        $blocked = (bool) $this->wallet()->purchase_blocked;
 
         return $leads
-            ->map(function (Lead $lead) use ($purchase, $tenant, $availableCents): array {
-                $priceCents = $purchase->priceCentsOf($lead);
+            ->map(function (Lead $lead) use ($purchase, $tenant, $availableCents, $blocked): array {
+                // Mit Kaeufer gerechnet: Bei Pay as you go steht hier der
+                // Gesamtpreis inklusive Aufschlag -- also das, was dieser
+                // Kaeufer tatsaechlich traegt (LP-POSTPAID-007).
+                $priceCents = $purchase->priceCentsOf($lead, $tenant);
                 $presenter = $this->presenter($lead);
 
                 return [
@@ -498,7 +519,7 @@ class Marketplace extends Component
                     // Hat der Verkaeufer ihn inzwischen geaendert, wird der Kauf
                     // abgelehnt statt teurer abgerechnet (LP-WALLET-007).
                     'price_cents' => $priceCents,
-                    'purchasable' => $purchase->isAvailable() && $purchase->canPurchase($tenant, $lead),
+                    'purchasable' => ! $blocked && $purchase->isAvailable() && $purchase->canPurchase($tenant, $lead),
                     // Nur eine Anzeige-Entscheidung: Ob das Guthaben wirklich
                     // reicht, prueft die Kauf-Action unter Sperre.
                     'affordable' => $availableCents >= $priceCents,
@@ -529,7 +550,8 @@ class Marketplace extends Component
         if ($this->maxPrice !== '') {
             $maxCents = (int) $this->maxPrice;
             $purchase = app(LeadPurchaseAction::class);
-            $leads = $leads->filter(static fn (Lead $lead): bool => $purchase->priceCentsOf($lead) <= $maxCents);
+            $tenant = $this->portalTenant();
+            $leads = $leads->filter(static fn (Lead $lead): bool => $purchase->priceCentsOf($lead, $tenant) <= $maxCents);
         }
 
         return $leads->values();
@@ -655,7 +677,7 @@ class Marketplace extends Component
         $options = [];
 
         foreach ($this->visibleLeads() as $lead) {
-            $cents = $purchase->priceCentsOf($lead);
+            $cents = $purchase->priceCentsOf($lead, $this->portalTenant());
             $options[(string) $cents] = (string) __('marketplace.listing.filters.price_option', [
                 'amount' => Money::format($cents),
             ]);
@@ -694,7 +716,16 @@ class Marketplace extends Component
      */
     private function availableCents(): int
     {
-        return Wallet::forBuyer($this->portalTenant())->available_cents;
+        return $this->wallet()->available_cents;
+    }
+
+    /**
+     * Das Kauf-Wallet dieser Seite. Einmal je Anfrage gelesen: Preis, Sperre
+     * und Guthabenstand fragen alle danach.
+     */
+    private function wallet(): Wallet
+    {
+        return $this->wallet ??= Wallet::forBuyer($this->portalTenant());
     }
 
     private function topUpUrl(): string

@@ -141,7 +141,9 @@ class WalletTransactions extends Component
     public function badgeColor(WalletTransactionType $type): string
     {
         return match ($type) {
-            WalletTransactionType::TOPUP, WalletTransactionType::REFUND => 'success',
+            WalletTransactionType::TOPUP, WalletTransactionType::REFUND,
+            WalletTransactionType::SETTLEMENT => 'success',
+            WalletTransactionType::FEE => 'danger',
             WalletTransactionType::RESERVE => 'warning',
             WalletTransactionType::RELEASE => 'info',
             WalletTransactionType::ADJUSTMENT => 'gray',
@@ -222,6 +224,12 @@ class WalletTransactions extends Component
             WalletTransactionType::REFUND,
             WalletTransactionType::ADJUSTMENT,
             WalletTransactionType::OPENING_BALANCE,
+            // Pay as you go (LP-POSTPAID): der eingezogene Betrag und die
+            // Gebuehr einer Zahlungsstoerung. Der Aufschlag fehlt hier mit
+            // Absicht -- er wird auf dem Plattform-Wallet gebucht und taucht
+            // deshalb nur im Admin auf.
+            WalletTransactionType::SETTLEMENT,
+            WalletTransactionType::FEE,
         ];
     }
 

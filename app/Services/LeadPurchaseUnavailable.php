@@ -35,7 +35,7 @@ class LeadPurchaseUnavailable implements LeadPurchaseAction
         throw LeadPurchaseNotAvailableException::notImplementedYet();
     }
 
-    public function priceCentsOf(Lead $lead): int
+    public function priceCentsOf(Lead $lead, ?Tenant $buyer = null): int
     {
         return (int) config('wallet.default_lead_price_cents');
     }

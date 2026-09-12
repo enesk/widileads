@@ -4,6 +4,8 @@ use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Buyer\LeadCallController;
+use App\Http\Controllers\Buyer\PaymentMethodController;
+use App\Http\Controllers\Buyer\SettlementInvoiceController;
 use App\Http\Controllers\Buyer\WalletTopupController;
 use App\Http\Controllers\Funnel\FunnelPreviewController;
 use App\Http\Controllers\Funnel\LeadExportDownloadController;
@@ -22,7 +24,11 @@ use App\Livewire\Portal\CallerIdVerification as PortalCallerIdVerification;
 use App\Livewire\Portal\Dashboard as PortalDashboard;
 use App\Livewire\Portal\LeadDetail as PortalLeadDetail;
 use App\Livewire\Portal\Marketplace as PortalMarketplace;
+use App\Livewire\Portal\Orders as PortalOrders;
+use App\Livewire\Portal\PaymentMethods as PortalPaymentMethods;
 use App\Livewire\Portal\PurchasedLeads as PortalPurchasedLeads;
+use App\Livewire\Portal\Settlements as PortalSettlements;
+use App\Livewire\Portal\TopUpSuccess as PortalTopUpSuccess;
 use App\Livewire\Portal\WalletTopUp as PortalWalletTopUp;
 use App\Models\Funnel;
 use App\Services\CompanyProfile;
@@ -362,6 +368,43 @@ Route::post('/guthaben/aufladen', [WalletTopupController::class, 'store'])
 
 /*
 |--------------------------------------------------------------------------
+| Zahlungsmittel hinterlegen (LP-POSTPAID-005)
+|--------------------------------------------------------------------------
+|
+| Drei Adressen fuer einen Vorgang, weil Stripe Elements dazwischen im Browser
+| laeuft: SetupIntent holen, nach der Eingabe bei Stripe bestaetigen, spaeter
+| entfernen. IBAN und Kartennummer gehen dabei direkt an Stripe und beruehren
+| diese Anwendung nie.
+|
+| Der Workspace steht im Rumpf und nicht im Pfad -- wie bei der Aufladung
+| daneben, aus demselben Grund: Das Formular gehoert zu einer Portalseite, die
+| ihren Mandanten schon hat.
+|
+*/
+
+Route::middleware('auth')->group(function (): void {
+    Route::post('/zahlungsmittel/einrichten', [PaymentMethodController::class, 'setupIntent'])
+        ->name('buyer.payment-methods.setup-intent');
+
+    Route::post('/zahlungsmittel/bestaetigen', [PaymentMethodController::class, 'confirm'])
+        ->name('buyer.payment-methods.confirm');
+
+    Route::delete('/zahlungsmittel/{paymentMethod}', [PaymentMethodController::class, 'destroy'])
+        ->name('buyer.payment-methods.destroy');
+
+    /*
+     * Der Beleg zu einem eingezogenen Postpaid-Betrag (LP-POSTPAID-015).
+     *
+     * Ohne Workspace im Pfad, weil der Beleg ueber das Wallet eindeutig einem
+     * Kaeufer gehoert -- geprueft wird die Mitgliedschaft in genau diesem
+     * Workspace, nicht der Workspace der aufrufenden Seite.
+     */
+    Route::get('/abrechnungen/{settlement}/beleg', SettlementInvoiceController::class)
+        ->name('buyer.settlements.invoice');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Portal fuer Kaeufer und Verkaeufer (Portal Phase 1)
 |--------------------------------------------------------------------------
 |
@@ -423,6 +466,11 @@ Route::middleware(['auth', 'verified', 'portal.tenant'])
         // die Komponente zeigt nur an.
         Route::get('/guthaben', PortalWalletTopUp::class)
             ->name('wallet');
+        // Rueckkehr vom Zahlungsanbieter. Die Seite bucht nichts -- sie sieht
+        // nach, ob der Zuhoerer CreditWalletAfterPayment die Gutschrift schon
+        // ins Journal geschrieben hat, und fragt so lange nach.
+        Route::get('/guthaben/erfolg', PortalTopUpSuccess::class)
+            ->name('wallet.success');
         Route::view('/transaktionen', 'portal.placeholder', ['title' => 'portal.pages.transactions'])
             ->name('transactions');
         Route::view('/kaeufer-profil', 'portal.placeholder', ['title' => 'portal.pages.buyer_profile'])
@@ -442,8 +490,28 @@ Route::middleware(['auth', 'verified', 'portal.tenant'])
         // an den Rueckruf meldet.
         Route::get('/rufnummer', PortalCallerIdVerification::class)
             ->name('caller-id');
-        Route::view('/bestellungen', 'portal.placeholder', ['title' => 'portal.pages.orders'])
+        // Bestellungen nach dem Entwurf bestellungen.html. Jede Bestellung
+        // ist eine Guthaben-Aufladung; was einzelne Leads gekostet haben,
+        // steht im Guthabenverlauf.
+        Route::get('/bestellungen', PortalOrders::class)
             ->name('orders');
+
+        /*
+         * Pay as you go im Portal (LP-POSTPAID-010).
+         *
+         * Zwei Adressen: die hinterlegten Zahlungsmittel und die Liste der
+         * Einzuege. Der Antrag selbst hat keine eigene Seite -- er steht als
+         * Abschnitt auf der Guthabenseite, weil dort die Frage aufkommt.
+         *
+         * Beide sind auch fuer einen Prepaid-Kaeufer erreichbar: Ein
+         * Zahlungsmittel muss hinterlegt sein, BEVOR beantragt werden kann,
+         * und die Abrechnungen eines zurueckgestuften Kaeufers bleiben
+         * einsehbar.
+         */
+        Route::get('/zahlungsmittel', PortalPaymentMethods::class)
+            ->name('payment-methods');
+        Route::get('/abrechnungen', PortalSettlements::class)
+            ->name('settlements');
 
         // Verkaeufer
         Route::view('/funnels', 'portal.placeholder', ['title' => 'portal.pages.funnels'])

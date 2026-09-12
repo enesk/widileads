@@ -49,8 +49,8 @@ class LeadPurchaseThroughAction implements LeadPurchaseAction
      * Der heute gueltige Preis dieses Leads in Cent -- das, was der Marktplatz
      * anzeigt und beim Kauf zurueckschickt.
      */
-    public function priceCentsOf(Lead $lead): int
+    public function priceCentsOf(Lead $lead, ?Tenant $buyer = null): int
     {
-        return $this->purchaseLead->currentPriceCentsOf($lead);
+        return $this->purchaseLead->currentPriceCentsOf($lead, $buyer);
     }
 }

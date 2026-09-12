@@ -27,6 +27,7 @@ use App\Http\Controllers\Twilio\CallerIdValidationController;
 use App\Http\Controllers\Twilio\CallLegStatusController;
 use App\Http\Controllers\Twilio\CallMachineDetectionController;
 use App\Http\Controllers\Twilio\CallStatusController;
+use App\Http\Controllers\Webhooks\StripePostpaidWebhookController;
 use App\Http\Middleware\EnsureAllowedFunnelOrigin;
 use App\Http\Middleware\EnsureIdempotentRequest;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,26 @@ Route::post('/payments-providers/stripe/webhook', [
     StripeController::class,
     'handleWebhook',
 ])->name('payments-providers.stripe.webhook');
+
+/*
+|--------------------------------------------------------------------------
+| Postpaid: Zahlungsmittel und Mandate (LP-POSTPAID-005)
+|--------------------------------------------------------------------------
+|
+| Eigener Stripe-Endpunkt neben dem Webhook oben. Jener entscheidet ueber
+| Abonnements und Bestellungen, dieser ueber die Zahlungsfaehigkeit eines
+| Postpaid-Kaeufers: abgehaengtes Zahlungsmittel, widerrufenes Mandat. Zwei
+| Zustaendigkeiten, zwei Endpunkte -- im Stripe-Dashboard getrennt
+| abschaltbar, ohne die Aufladungen mitzunehmen.
+|
+| Die Adresse ist oeffentlich erreichbar und traegt kein Geheimnis. Sie ist
+| ausschliesslich durch die Signaturpruefung geschuetzt: Ohne sie koennte
+| jeder ein Zahlungsmittel stilllegen und damit eine Rueckstufung ausloesen.
+|
+*/
+
+Route::post('/payments-providers/stripe/postpaid-webhook', StripePostpaidWebhookController::class)
+    ->name('payments-providers.stripe.postpaid-webhook');
 
 Route::post('/payments-providers/paddle/webhook', [
     PaddleController::class,

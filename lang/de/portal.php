@@ -250,4 +250,126 @@ return [
             'on' => ':date, :time',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pay as you go im Portal (LP-POSTPAID-010)
+    |--------------------------------------------------------------------------
+    |
+    | Antrag, Zahlungsmittel, offener Betrag und Abrechnungen. Die Texte des
+    | Verfahrens selbst -- Mandatswortlaut, Fehlermeldungen der Dienste,
+    | Eignungsgruende -- stehen weiterhin in marketplace.php und werden hier
+    | nicht zweitgeschrieben.
+    |
+    */
+
+    'postpaid' => [
+
+        'label' => 'Pay as you go',
+
+        'apply' => [
+            'heading' => 'Pay as you go',
+            'description' => 'Kaufe Leads ohne Vorauszahlung und zahle im Nachhinein. Wir ziehen deinen offenen Betrag automatisch ein.',
+            'points' => [
+                'Du kaufst gegen einen Kreditrahmen statt aus dem Guthaben.',
+                'Dein Rahmen liegt anfangs bei :limit.',
+                'Eingezogen wird jeden :weekday, spätestens ab :threshold offen.',
+                'Auf jeden Leadpreis kommt ein Aufschlag von :percent %.',
+            ],
+            'checklist_heading' => 'Das prüfen wir vorher',
+            'rule_met' => 'Erfüllt',
+            'rule_open' => 'Noch offen',
+            'rules' => [
+                'purchases' => 'Mindestens :required abgerechnete Leadkäufe – du hast :count.',
+                'account_age' => 'Konto mindestens :required Tage alt – deins ist :days Tage alt.',
+                'history' => 'Keine Zahlungsstörung in den letzten :days Tagen.',
+                'not_blocked' => 'Keine Kaufsperre auf deinem Konto.',
+                'payment_method' => 'Ein Zahlungsmittel ist hinterlegt.',
+            ],
+            'submit' => 'Pay as you go beantragen',
+            'payment_method_cta' => 'Zahlungsmittel hinterlegen',
+            'payment_method_hint' => 'Ohne hinterlegtes Zahlungsmittel können wir nichts einziehen.',
+            'not_eligible_hint' => 'Sobald alle Punkte erfüllt sind, kannst du den Antrag stellen.',
+            'pending_heading' => 'Antrag eingereicht',
+            'pending_text' => 'Wir haben deinen Antrag am :date erhalten und melden uns per E-Mail.',
+            'rejected_heading' => 'Abgelehnt',
+            'rejected_text' => 'Dein letzter Antrag wurde abgelehnt.',
+            'rejected_retry' => 'Du kannst in :days Tagen erneut beantragen.',
+            'rejected_retry_now' => 'Du kannst jetzt erneut beantragen.',
+            'submitted' => 'Dein Antrag ist eingegangen. Wir melden uns per E-Mail.',
+        ],
+
+        'balance' => [
+            'open_label' => 'Offener Betrag',
+            'remaining_label' => 'Noch verfügbar',
+            'remaining_value' => ':available von :limit',
+            'tooltip' => 'Der offene Betrag wird jeden :weekday bzw. ab :threshold automatisch eingezogen.',
+            'exhausted' => 'Dein Kreditrahmen ist erschöpft. Der offene Betrag wird beim nächsten Einzug ausgeglichen.',
+            'surcharge_hint' => 'inkl. :percent % Pay-as-you-go-Aufschlag',
+            'settlements_link' => 'Abrechnungen ansehen',
+        ],
+
+        'blocked' => [
+            'heading' => 'Dein Konto ist gesperrt.',
+            'text' => 'Offener Betrag: :amount',
+            'action' => 'Jetzt ausgleichen',
+        ],
+
+        'payment_methods' => [
+            'heading' => 'Zahlungsmittel',
+            'description' => 'Über dieses Mittel ziehen wir deinen offenen Betrag ein. IBAN und Kartennummer gibst du direkt beim Zahlungsanbieter ein.',
+            'empty_title' => 'Noch kein Zahlungsmittel',
+            'empty_description' => 'Hinterlege ein Zahlungsmittel, damit wir deinen offenen Betrag einziehen können.',
+            'add' => 'Zahlungsmittel hinzufügen',
+            'cancel' => 'Abbrechen',
+            'remove' => 'Entfernen',
+            'remove_confirm' => 'Dieses Zahlungsmittel wirklich entfernen?',
+            'removed' => 'Zahlungsmittel entfernt.',
+            'added' => 'Zahlungsmittel hinterlegt.',
+            'make_default' => 'Als Standard festlegen',
+            'default_set' => 'Standard geändert.',
+            'default_badge' => 'Standard',
+            'mandate_since' => 'Mandat seit :date',
+            'steps' => [
+                'type' => 'Art wählen',
+                'details' => 'Daten eingeben',
+                'mandate' => 'Mandat bestätigen',
+                'done' => 'Fertig',
+            ],
+            'step_of' => 'Schritt :step von :total',
+            'type_heading' => 'Womit möchtest du zahlen?',
+            'details_heading' => 'Deine Zahlungsdaten',
+            'details_hint' => 'Die Eingabe läuft direkt beim Zahlungsanbieter. Wir speichern nur die letzten vier Stellen.',
+            'mandate_heading' => 'SEPA-Lastschriftmandat',
+            'done_heading' => 'Zahlungsmittel hinterlegt',
+            'done_text' => 'Wir ziehen deinen offenen Betrag künftig über :method ein.',
+            'back' => 'Zurück',
+            'next' => 'Weiter',
+            'save' => 'Zahlungsmittel speichern',
+            'close' => 'Fertig',
+            'unavailable' => 'Die Zahlungsdaten-Eingabe konnte nicht geladen werden. Versuche es bitte später erneut.',
+        ],
+
+        'settlements' => [
+            'heading' => 'Abrechnungen',
+            'description' => 'Jeder Einzug deines offenen Betrags mit Datum, Betrag und Zahlungsmittel.',
+            'empty_title' => 'Noch keine Abrechnung',
+            'empty_description' => 'Sobald wir deinen offenen Betrag einziehen, steht der Vorgang hier – mit Beleg zum Herunterladen.',
+            'date' => 'Datum',
+            'amount' => 'Betrag',
+            'method' => 'Zahlungsmittel',
+            'method_unknown' => 'Nicht mehr hinterlegt',
+            'status' => 'Status',
+            'invoice' => 'Beleg',
+            'status_labels' => [
+                'pending' => 'Ausstehend',
+                'processing' => 'In Bearbeitung',
+                'retry_pending' => 'Erneuter Versuch am :date',
+                'retry_pending_short' => 'Erneuter Versuch',
+                'paid' => 'Bezahlt',
+                'failed' => 'Fehlgeschlagen',
+                'returned' => 'Zurückgebucht',
+            ],
+        ],
+    ],
 ];

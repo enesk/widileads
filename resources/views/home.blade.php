@@ -9,6 +9,7 @@
     </x-slot>
 
     @include('pages.home.hero')
+    @include('pages.home.payment-modes')
     @include('pages.home.requests')
     @include('pages.home.how-it-works')
     @include('pages.home.pricing')

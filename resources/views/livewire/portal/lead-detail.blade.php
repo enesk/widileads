@@ -197,7 +197,7 @@
 
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-zinc-500">{{ __('marketplace.purchased.portal.deadline.price') }}</span>
-                        <span class="font-medium text-zinc-900 tabular-nums">{{ $price }}</span>
+                        <span class="font-medium text-zinc-900 tabular-nums" @if ($surchargeHint !== null) title="{{ $surchargeHint }}" @endif>{{ $price }}</span>
                     </div>
                 </div>
 

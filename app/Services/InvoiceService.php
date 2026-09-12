@@ -185,7 +185,19 @@ class InvoiceService
         return $items;
     }
 
-    private function addAddressInfo(Tenant $tenant, array $customFields): array
+    /**
+     * Ergaenzt Anschrift und Steuernummer des Mandanten.
+     *
+     * Oeffentlich seit LP-POSTPAID-015: Der Beleg eines Postpaid-Einzugs
+     * (App\Services\Wallet\SettlementInvoiceService) haengt an keiner
+     * Transaktion und kann diesen Dienst deshalb nicht als Ganzes nutzen --
+     * die Adresszeilen sollen dort aber genauso aussehen wie auf einer
+     * Rechnung zu einer Bestellung.
+     *
+     * @param  array<string, string>  $customFields
+     * @return array<string, string>
+     */
+    public function addAddressInfo(Tenant $tenant, array $customFields): array
     {
         $address = $tenant->address()->first();
 

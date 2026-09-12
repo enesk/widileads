@@ -59,6 +59,9 @@ interface LeadPurchaseAction
      * Die Oberflaeche fragt ihn hier ab und schickt ihn beim Kauf als
      * price_shown_cents zurueck -- so faellt auf, wenn der Verkaeufer den Preis
      * inzwischen geaendert hat (LP-WALLET-007).
+     *
+     * Mit Kaeufer gerechnet enthaelt der Preis bei Pay as you go den Aufschlag
+     * (LP-POSTPAID-007) -- also den Betrag, den dieser Kaeufer wirklich traegt.
      */
-    public function priceCentsOf(Lead $lead): int;
+    public function priceCentsOf(Lead $lead, ?Tenant $buyer = null): int;
 }

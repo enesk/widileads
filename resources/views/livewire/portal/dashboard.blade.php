@@ -35,17 +35,28 @@
         </div>
     @endif
 
+    {{-- Bei Pay as you go tritt der offene Betrag samt Kreditrahmen an die
+         Stelle der Guthabenkarte: "Verfuegbar" allein verschwiege, dass am
+         naechsten Einzugstermin abgebucht wird (LP-POSTPAID-010). --}}
+    @if ($postpaid)
+        <div class="mt-6">
+            @livewire('portal.postpaid-balance')
+        </div>
+    @endif
+
     {{-- Vier Kennzahlen. Die offenen Anrufe tragen den Amber-Rand, sobald heute
          eine Frist endet -- das ist die Karte, die Geld kostet. --}}
     <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div class="card p-5 flex items-start gap-4 min-w-0">
-            <span class="size-10 rounded-xl bg-brand-50 text-brand flex items-center justify-center shrink-0"><x-app.icon name="wallet" /></span>
-            <div class="min-w-0">
-                <p class="text-sm text-zinc-500">{{ __('portal.dashboard.kpi.balance') }}</p>
-                <p class="text-2xl font-semibold text-zinc-900 tabular-nums whitespace-nowrap">{{ $balance }}</p>
-                <p class="text-sm text-zinc-500 truncate">{{ __('portal.dashboard.kpi.reserved', ['amount' => $reserved]) }}</p>
+        @unless ($postpaid)
+            <div class="card p-5 flex items-start gap-4 min-w-0">
+                <span class="size-10 rounded-xl bg-brand-50 text-brand flex items-center justify-center shrink-0"><x-app.icon name="wallet" /></span>
+                <div class="min-w-0">
+                    <p class="text-sm text-zinc-500">{{ __('portal.dashboard.kpi.balance') }}</p>
+                    <p class="text-2xl font-semibold text-zinc-900 tabular-nums whitespace-nowrap">{{ $balance }}</p>
+                    <p class="text-sm text-zinc-500 truncate">{{ __('portal.dashboard.kpi.reserved', ['amount' => $reserved]) }}</p>
+                </div>
             </div>
-        </div>
+        @endunless
 
         <div class="card p-5 flex items-start gap-4 min-w-0">
             <span class="size-10 rounded-xl bg-brand-50 text-brand flex items-center justify-center shrink-0"><x-app.icon name="leads" /></span>

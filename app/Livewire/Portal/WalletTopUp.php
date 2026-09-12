@@ -13,6 +13,7 @@ use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
@@ -38,6 +39,18 @@ class WalletTopUp extends Component
 {
     use InteractsWithPortalTenant;
 
+    /**
+     * Vorbelegter Betrag in ganzen Euro, aus der Adresse.
+     *
+     * Gesetzt wird er vom Band des gesperrten Kontos (LP-POSTPAID-010): Dort
+     * steht der offene Betrag, und der Knopf daneben soll den Kaeufer nicht
+     * bloss auf diese Seite bringen, sondern mit dem Betrag, der ihn
+     * entsperrt. Ein freier Betrag bleibt es trotzdem -- die Zahl steht im
+     * Eingabefeld und ist aenderbar.
+     */
+    #[Url(as: 'betrag', except: '')]
+    public string $prefill = '';
+
     public function render(): View
     {
         $tenant = $this->portalTenant();
@@ -56,6 +69,7 @@ class WalletTopUp extends Component
             'packages' => $this->packages(),
             'workspaces' => $this->workspaces(),
             'recentTopUps' => $this->recentTopUps($wallet),
+            'prefillEuro' => $this->prefillEuro(),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $tenant->uuid]),
             'transactionsUrl' => route('portal.transactions', ['tenant' => $tenant->uuid]),
             'ordersUrl' => route('portal.orders', ['tenant' => $tenant->uuid]),
@@ -65,6 +79,23 @@ class WalletTopUp extends Component
     public function money(int $cents): string
     {
         return Money::format($cents);
+    }
+
+    /**
+     * Der vorbelegte Betrag, auf die zulaessige Spanne gestutzt -- 0, wenn
+     * keiner mitgegeben wurde. Die Adresse kommt vom Browser und ist damit
+     * kein Beleg; geprueft wird beim Absenden ohnehin noch einmal im
+     * WalletTopupController.
+     */
+    private function prefillEuro(): int
+    {
+        if (! is_numeric($this->prefill)) {
+            return 0;
+        }
+
+        $euro = (int) $this->prefill;
+
+        return $euro < $this->minEuro() || $euro > $this->maxEuro() ? 0 : $euro;
     }
 
     /**

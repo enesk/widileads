@@ -30,18 +30,20 @@ class WalletLedgerMismatch extends Mailable implements ShouldQueue
     /**
      * @param  list<array{wallet_id: int, owner: string, balance_expected: int, balance_actual: int, reserved_expected: int, reserved_actual: int, repaired: bool}>  $mismatches
      * @param  array{expected: int, actual: int}|null  $reservationTotals  Abweichung der Reservierungssumme gegen die offenen Leadkaeufe
+     * @param  list<array{check: string, subject: string, detail: string}>  $findings  Verletzte Postpaid-Invarianten (LP-POSTPAID-013)
      */
     public function __construct(
         public array $mismatches,
         public ?array $reservationTotals = null,
         public int $walletsChecked = 0,
+        public array $findings = [],
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
             subject: __('marketplace.wallet.verify.mail.subject', [
-                'count' => count($this->mismatches) + ($this->reservationTotals === null ? 0 : 1),
+                'count' => count($this->mismatches) + count($this->findings) + ($this->reservationTotals === null ? 0 : 1),
             ]),
         );
     }

@@ -78,3 +78,34 @@ Schedule::command('wallet:verify')
     ->timezone('Europe/Berlin')
     ->withoutOverlapping()
     ->onOneServer();
+
+// LP-POSTPAID-008: Woechentlicher Einzug der offenen Postpaid-Betraege.
+// Wochentag und Uhrzeit stehen in config('wallet.postpaid.*'); Europe/Berlin,
+// weil der Termin dem Kaeufer als Wochentag angekuendigt wird und eine
+// Verschiebung durch die Sommerzeit ihn unnoetig verwirren wuerde.
+// onOneServer, weil zwei parallele Laeufe denselben offenen Betrag zweimal
+// einziehen wuerden.
+Schedule::command('wallet:settle')
+    ->weeklyOn(
+        (int) array_search(
+            strtolower((string) config('wallet.postpaid.settlement_weekday', 'monday')),
+            ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
+            true,
+        ),
+        (string) config('wallet.postpaid.settlement_time', '06:00'),
+    )
+    ->timezone('Europe/Berlin')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// LP-POSTPAID-008: Nachlauf, der nur belastet und keine neuen Forderungen
+// anlegt. Stuendlich, weil zwei Fristen ueber den Tag verteilt ablaufen: der
+// zweite Einzugsversuch nach einem Fehlschlag und das angekuendigte
+// Belastungsdatum einer Lastschrift (LP-POSTPAID-014). Eine am Montag
+// angekuendigte Lastschrift wird so am Dienstag belastet und nicht erst am
+// naechsten Wochentermin.
+Schedule::command('wallet:settle --charge-only')
+    ->hourly()
+    ->timezone('Europe/Berlin')
+    ->withoutOverlapping()
+    ->onOneServer();
