@@ -44,9 +44,12 @@ use Illuminate\Support\Facades\DB;
  * genau die Abweichung, die `wallet:verify` in seiner zweiten Klammer meldet.
  *
  * Zurueckholen laesst sich davon nichts. Der Lauf fragt deshalb nach und
- * bricht in einer Produktionsumgebung ab -- auch mit `--force`, wie die
- * gesperrten Migrationsbefehle (App\Console\DestructiveCommandGuard, FB-003).
- * Echtes Geld raeumt niemand per Befehl ab.
+ * bricht in einer Produktionsumgebung ab, wie die gesperrten
+ * Migrationsbefehle (App\Console\DestructiveCommandGuard, FB-003). Wer ihn
+ * dort dennoch braucht -- etwa auf einem Server, auf dem nur Testdaten stehen
+ * --, setzt WALLET_ALLOW_RESET=true in der Serverumgebung und tippt beim Lauf
+ * den Umgebungsnamen ein. `--force` allein oeffnet die Sperre nicht: Ein
+ * Skript soll das Journal einer Produktionsumgebung nie abraeumen koennen.
  */
 class ResetWalletLedger extends Command
 {
@@ -74,9 +77,7 @@ class ResetWalletLedger extends Command
             return self::SUCCESS;
         }
 
-        if (app()->environment('production')) {
-            $this->error('wallet:reset ist in der Produktionsumgebung gesperrt -- auch mit --force.');
-
+        if (app()->environment('production') && ! $this->productionIsUnlocked()) {
             return self::FAILURE;
         }
 
@@ -139,6 +140,35 @@ class ResetWalletLedger extends Command
         $this->comment('Gegenprobe: php artisan wallet:verify');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Freigabe in einer Produktionsumgebung.
+     *
+     * Zwei Bedingungen, die man nicht versehentlich erfuellt: der Schalter
+     * WALLET_ALLOW_RESET in der Serverumgebung und die Eingabe des
+     * Umgebungsnamens von Hand. `--force` allein reicht dort bewusst nicht --
+     * ein Skript soll das Journal einer Produktionsumgebung nie abraeumen
+     * koennen.
+     */
+    private function productionIsUnlocked(): bool
+    {
+        if (! (bool) config('wallet.allow_reset')) {
+            $this->error('wallet:reset ist in der Produktionsumgebung gesperrt.');
+            $this->line('Freigabe nur bewusst: WALLET_ALLOW_RESET=true in der Serverumgebung setzen, dann php artisan config:clear.');
+
+            return false;
+        }
+
+        $environment = (string) app()->environment();
+
+        if ($this->ask(sprintf('Produktionsumgebung. Zum Bestaetigen "%s" eingeben', $environment)) !== $environment) {
+            $this->comment('Abgebrochen. Es wurde nichts geaendert.');
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

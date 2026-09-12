@@ -79,6 +79,36 @@ class ResetWalletLedgerTest extends FeatureTest
         $this->assertSame(0, $wallet->credit_limit_cents);
     }
 
+    public function test_production_is_locked_without_the_release_switch(): void
+    {
+        [$buyer] = $this->aBuyerWithAReservedPurchase();
+
+        $this->app['env'] = 'production';
+        config(['wallet.allow_reset' => false]);
+
+        // Auch --force oeffnet die Sperre nicht.
+        $this->artisan('wallet:reset', ['--force' => true])
+            ->expectsOutputToContain('in der Produktionsumgebung gesperrt')
+            ->assertExitCode(1);
+
+        $this->assertSame(2, WalletTransaction::query()->count());
+        $this->assertSame(1500, Wallet::forBuyer($buyer)->reserved_cents);
+    }
+
+    public function test_production_runs_after_typing_the_environment_name(): void
+    {
+        $this->aBuyerWithAReservedPurchase();
+
+        $this->app['env'] = 'production';
+        config(['wallet.allow_reset' => true]);
+
+        $this->artisan('wallet:reset', ['--force' => true])
+            ->expectsQuestion('Produktionsumgebung. Zum Bestaetigen "production" eingeben', 'production')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, WalletTransaction::query()->count());
+    }
+
     /**
      * @return array{0: Tenant, 1: LeadPurchase}
      */

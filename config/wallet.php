@@ -91,6 +91,13 @@ return [
     // (config('funnel.marketplace.credits.unit_price') = 5,00 EUR).
     'legacy_credit_value_cents' => (int) env('WALLET_LEGACY_CREDIT_VALUE_CENTS', 500),
 
+    // Freigabe fuer `wallet:reset` in einer Produktionsumgebung. Vorgabe ist
+    // aus: Der Befehl loescht das gesamte Journal und setzt alle Salden auf 0.
+    // Wer ihn auf einem Server braucht -- etwa weil dort nur Testdaten stehen
+    // --, setzt WALLET_ALLOW_RESET=true in der Serverumgebung; zusaetzlich
+    // verlangt der Befehl dort die Eingabe des Umgebungsnamens.
+    'allow_reset' => (bool) env('WALLET_ALLOW_RESET', false),
+
     // Kennung des Plattform-Wallets. Das Wallet der Plattform gehoert keinem
     // Mandanten, sondern wird ueber diese feste Kennung gefunden -- dort
     // landen Provisionen und von dort gehen Auszahlungen und Erstattungen aus.
