@@ -1,0 +1,165 @@
+{
+  "funnel": {
+    "name": "Elektriker-Anfrage",
+    "slug": "elektrikerportal-anfrage",
+    "lead_price": null,
+    "contact_step_position": 3
+  },
+  "steps": [
+    {
+      "position": 1,
+      "title": "Was brauchst du?",
+      "description": null,
+      "questions": [
+        {
+          "field_key": "leistung",
+          "type": "single_choice",
+          "label": "Leistung",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "elektroinstallation", "label": "Elektroinstallation", "score": 0, "position": 1, "image_path": null },
+            { "value": "reparatur", "label": "Reparatur / Störung", "score": 0, "position": 2, "image_path": null },
+            { "value": "smart_home", "label": "Smart Home / KNX", "score": 0, "position": 3, "image_path": null },
+            { "value": "e_check", "label": "E-Check", "score": 0, "position": 4, "image_path": null },
+            { "value": "wallbox", "label": "Wallbox", "score": 0, "position": 5, "image_path": null },
+            { "value": "hausgeraet", "label": "Hausgerät", "score": 0, "position": 6, "image_path": null },
+            { "value": "sicherungskasten", "label": "Sicherungskasten", "score": 0, "position": 7, "image_path": null },
+            { "value": "sonstiges", "label": "Sonstiges", "score": 0, "position": 8, "image_path": null }
+          ]
+        },
+        {
+          "field_key": "beschreibung",
+          "type": "textarea",
+          "label": "Beschreib kurz dein Anliegen",
+          "help_text": "Je konkreter, desto besser kann der Betrieb einschätzen, was zu tun ist.",
+          "required": false,
+          "position": 2,
+          "validation": {},
+          "meta": { "placeholder": "z. B. Im Bad fliegt seit gestern die Sicherung, sobald der Föhn läuft." },
+          "options": []
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "title": "Wo und wann",
+      "description": null,
+      "questions": [
+        {
+          "field_key": "plz",
+          "type": "postal_code",
+          "label": "Postleitzahl des Einsatzorts",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": { "placeholder": "85376" },
+          "options": []
+        },
+        {
+          "field_key": "wann",
+          "type": "single_choice",
+          "label": "Wann soll es losgehen?",
+          "help_text": null,
+          "required": true,
+          "position": 2,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "notfall", "label": "Notfall – heute", "score": 10, "position": 1, "image_path": null },
+            { "value": "diese_woche", "label": "Diese Woche", "score": 6, "position": 2, "image_path": null },
+            { "value": "vier_wochen", "label": "In den nächsten 4 Wochen", "score": 3, "position": 3, "image_path": null },
+            { "value": "flexibel", "label": "Bin flexibel", "score": 1, "position": 4, "image_path": null }
+          ]
+        },
+        {
+          "field_key": "objekt",
+          "type": "single_choice",
+          "label": "Um welches Objekt geht es?",
+          "help_text": null,
+          "required": true,
+          "position": 3,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "wohnung", "label": "Wohnung", "score": 0, "position": 1, "image_path": null },
+            { "value": "haus", "label": "Haus", "score": 0, "position": 2, "image_path": null },
+            { "value": "gewerbe", "label": "Gewerbe", "score": 0, "position": 3, "image_path": null }
+          ]
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "title": "Kontakt",
+      "description": null,
+      "questions": [
+        {
+          "field_key": "name",
+          "type": "text",
+          "label": "Dein Name",
+          "help_text": null,
+          "required": true,
+          "position": 1,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "telefon",
+          "type": "phone",
+          "label": "Telefonnummer",
+          "help_text": "Der Betrieb ruft dich zurück – darum brauchen wir die Nummer.",
+          "required": true,
+          "position": 2,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "erreichbar",
+          "type": "multi_choice",
+          "label": "Wann erreicht man dich am besten?",
+          "help_text": null,
+          "required": false,
+          "position": 3,
+          "validation": {},
+          "meta": {},
+          "options": [
+            { "value": "vormittags", "label": "Vormittags", "score": 0, "position": 1, "image_path": null },
+            { "value": "nachmittags", "label": "Nachmittags", "score": 0, "position": 2, "image_path": null },
+            { "value": "ab_17_uhr", "label": "Ab 17 Uhr", "score": 0, "position": 3, "image_path": null }
+          ]
+        },
+        {
+          "field_key": "email",
+          "type": "email",
+          "label": "E-Mail",
+          "help_text": null,
+          "required": false,
+          "position": 4,
+          "validation": {},
+          "meta": {},
+          "options": []
+        },
+        {
+          "field_key": "weitere_betriebe",
+          "type": "consent",
+          "label": "Falls Elektro Polz keine Kapazität hat: bis zu zwei weitere Elektriker in meiner Nähe dürfen sich ebenfalls melden.",
+          "help_text": null,
+          "required": false,
+          "position": 5,
+          "validation": {},
+          "meta": {},
+          "options": []
+        }
+      ]
+    }
+  ],
+  "conditions": [],
+  "results": []
+}
