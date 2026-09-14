@@ -41,6 +41,17 @@
           "validation": {},
           "meta": { "placeholder": "z. B. Im Bad fliegt seit gestern die Sicherung, sobald der Föhn läuft." },
           "options": []
+        },
+        {
+          "field_key": "firmenprofil",
+          "type": "text",
+          "label": "Firmenprofil",
+          "help_text": "Wird vom Frontend gesetzt, nicht vom Endkunden: das Firmenprofil auf elektrikerportal.com, von dem aus die Anfrage kam.",
+          "required": false,
+          "position": 3,
+          "validation": {},
+          "meta": {},
+          "options": []
         }
       ]
     },
