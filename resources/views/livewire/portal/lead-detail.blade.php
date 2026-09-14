@@ -119,12 +119,7 @@
                 @if ($answers === [])
                     <p class="mt-3 text-zinc-500">{{ __('marketplace.purchased.portal.no_attributes') }}</p>
                 @else
-                    <dl class="mt-4 grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-6 gap-y-2 text-sm">
-                        @foreach ($answers as $label => $value)
-                            <dt class="text-zinc-500">{{ $label }}</dt>
-                            <dd class="text-zinc-900 font-medium">{{ $value }}</dd>
-                        @endforeach
-                    </dl>
+                    <x-app.attribute-list :items="$answers" :columns="2" class="mt-4" />
                 @endif
             </section>
 

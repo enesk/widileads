@@ -158,12 +158,7 @@
                                     {{ $lead['region'] }}
                                 </p>
 
-                                <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                                    @foreach ($lead['attributes'] as $label => $value)
-                                        <dt class="text-zinc-500">{{ $label }}</dt>
-                                        <dd class="text-zinc-900 font-medium">{{ $value }}</dd>
-                                    @endforeach
-                                </dl>
+                                <x-app.attribute-list :items="$lead['attributes']" />
 
                                 <div class="mt-auto flex items-center justify-between gap-3 pt-2 border-t border-zinc-200">
                                     <span class="text-sm text-zinc-500 flex items-center gap-1.5">

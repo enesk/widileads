@@ -225,7 +225,7 @@
                                 <div class="mt-1.5 flex items-center justify-between gap-3">
                                     <div class="flex gap-1 overflow-x-auto no-scrollbar min-w-0">
                                         @foreach ($lead['chips'] as $chip)
-                                            <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{{ $chip }}</span>
+                                            <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap truncate max-w-40 shrink-0" title="{{ $chip }}">{{ $chip }}</span>
                                         @endforeach
                                     </div>
 
@@ -295,12 +295,7 @@
                     </div>
 
                     @if ($sheet['attributes'] !== [])
-                        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-                            @foreach ($sheet['attributes'] as $attribute)
-                                <dt class="text-zinc-500">{{ $attribute['label'] }}</dt>
-                                <dd class="text-zinc-900 font-medium">{{ $attribute['value'] }}</dd>
-                            @endforeach
-                        </dl>
+                        <x-app.attribute-list :items="$sheet['attributes']" />
                     @endif
 
                     @if ($sheet['free_text'] !== null)

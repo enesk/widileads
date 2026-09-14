@@ -193,7 +193,7 @@
                                         @if ($row['chips'] !== [])
                                             <div class="mt-1.5 flex gap-1 overflow-x-auto no-scrollbar min-w-0">
                                                 @foreach ($row['chips'] as $chip)
-                                                    <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{{ $chip }}</span>
+                                                    <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap truncate max-w-40 shrink-0" title="{{ $chip }}">{{ $chip }}</span>
                                                 @endforeach
                                             </div>
                                         @endif
