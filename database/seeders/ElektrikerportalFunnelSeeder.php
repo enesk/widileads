@@ -47,13 +47,16 @@ class ElektrikerportalFunnelSeeder extends Seeder
 
     /**
      * Vergleich in der Freigabeliste ist exakt nach Schema und Host -- darum
-     * beide Schreibweisen.
+     * beide Schreibweisen. elektriker.test ist die lokale Entwicklungsseite
+     * (Herd), die sowohl ueber http als auch ueber https erreichbar ist.
      *
      * @var list<string>
      */
     private const ORIGINS = [
         'https://elektrikerportal.com',
         'https://www.elektrikerportal.com',
+        'https://elektriker.test',
+        'http://elektriker.test',
     ];
 
     public function __construct(
