@@ -295,6 +295,21 @@ return [
     ],
 
     'listing' => [
+        'contact_after_purchase_sentence' => 'You see the contact details after the purchase.',
+        'for_company' => 'for',
+        'postal_code_short' => 'Postcode',
+        'funnels' => [
+            'label' => 'Funnel',
+            'all' => 'All funnels',
+            'count' => '{0} No leads|{1} 1 lead|[2,*] :count leads',
+            'empty_title' => 'There are no leads for this funnel right now.',
+            'empty_text' => 'New leads appear here automatically – or have a look at "All funnels".',
+        ],
+        'view' => [
+            'label' => 'View',
+            'list' => 'List',
+            'by_funnel' => 'By funnel',
+        ],
         'fits_count' => '{0} No lead matches|{1} 1 lead matches|[2,*] :count leads match',
         'contact_after_purchase' => 'Contact after purchase',
         'purchase_short' => 'Buy',

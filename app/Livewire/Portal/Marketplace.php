@@ -13,6 +13,7 @@ use App\Marketplace\MarketplaceListing;
 use App\Marketplace\MatchableLead;
 use App\Models\BuyerProfile;
 use App\Models\Funnel;
+use App\Models\FunnelOrigin;
 use App\Models\Lead;
 use App\Models\Scopes\TenantScopes;
 use App\Models\User;
@@ -81,6 +82,22 @@ class Marketplace extends Component
     /** Ab dieser Laenge gilt eine Antwort als Freitext und steht als Zitat. */
     private const FREE_TEXT_MIN = 60;
 
+    /** Darstellung: eine Liste oder nach Funnel gruppiert. */
+    public const VIEW_LIST = 'liste';
+
+    public const VIEW_FUNNEL = 'funnel';
+
+    /**
+     * Das Antwortfeld, in dem der Funnel festhaelt, fuer welches Firmenprofil
+     * die Anfrage kam (elektrikerportal.com setzt es selbst, der Endkunde sieht
+     * es nicht). Es gehoert in die Unterzeile ("fuer Bollinger Elektrotechnik"),
+     * nicht zu den Merkmalen.
+     */
+    private const COMPANY_FIELD = 'firmenprofil';
+
+    #[Url(as: 'ansicht', except: self::VIEW_LIST)]
+    public string $view = self::VIEW_LIST;
+
     #[Url(as: 'sortierung', except: self::SORT_NEWEST)]
     public string $sort = self::SORT_NEWEST;
 
@@ -145,6 +162,9 @@ class Marketplace extends Component
 
     private ?string $visibleLeadsSort = null;
 
+    /** @var array<int, string>|null */
+    private ?array $funnelOrigins = null;
+
     /**
      * Laeuft nach allen boot-Haken, der Mandant steht also bereits.
      */
@@ -190,6 +210,22 @@ class Marketplace extends Component
         };
 
         $this->visible = self::PER_PAGE;
+    }
+
+    /**
+     * Die Funnel-Reiter: erste Ebene der Seite. Ein leerer Wert heisst "Alle
+     * Funnels". Intern ist das derselbe Filter wie vorher die Branche -- ein
+     * Funnel ist die Einheit, in der ein Betreiber ein Gewerk abfragt.
+     */
+    public function setFunnel(string $funnelId): void
+    {
+        $this->industry = $funnelId === '' ? '' : (string) (int) $funnelId;
+        $this->visible = self::PER_PAGE;
+    }
+
+    public function setView(string $view): void
+    {
+        $this->view = $view === self::VIEW_FUNNEL ? self::VIEW_FUNNEL : self::VIEW_LIST;
     }
 
     public function loadMore(): void
@@ -290,8 +326,18 @@ class Marketplace extends Component
 
         $availableCents = $this->availableCents();
 
+        $cards = $this->cards($pageLeads, $availableCents);
+        $funnelTabs = $this->funnelTabs();
+
         return view('livewire.portal.marketplace', [
-            'leads' => $this->cards($pageLeads, $availableCents),
+            'leads' => $cards,
+            'funnelTabs' => $funnelTabs,
+            // Gruppiert wird nur unter "Alle Funnels": Innerhalb eines Funnels
+            // gaebe es genau eine Gruppe, und die Ueberschrift wiederholte nur
+            // den gewaehlten Reiter.
+            'groups' => $this->view === self::VIEW_FUNNEL && $this->industry === ''
+                ? $this->groupByFunnel($cards, $funnelTabs)
+                : null,
             'resultCount' => $total,
             'balance' => Money::format($availableCents),
             'hasFunds' => $availableCents > 0,
@@ -513,7 +559,17 @@ class Marketplace extends Component
                     'is_new' => $lead->created_at?->greaterThan(now()->subDay()) ?? false,
                     'postal_code' => $presenter->postalCode(),
                     'attributes' => $this->qualificationAnswers($lead),
-                    'chips' => $this->chips($this->qualificationAnswers($lead)),
+                    'chips' => $this->chips(array_values(array_filter(
+                        $this->qualificationAnswers($lead),
+                        static fn (array $answer): bool => ($answer['key'] ?? '') !== self::COMPANY_FIELD,
+                    ))),
+                    'funnel_id' => (string) ($lead->funnel_id ?? ''),
+                    'funnel_name' => $lead->funnel instanceof Funnel
+                        ? $lead->funnel->name
+                        : (string) __('marketplace.listing.unknown_funnel'),
+                    'funnel_icon' => $this->funnelIcon($lead->funnel),
+                    'portal' => $this->portalHost($lead),
+                    'company' => $this->companyOf($lead),
                     'price' => Money::format($priceCents),
                     // Der angezeigte Preis geht beim Kauf zurueck an den Server:
                     // Hat der Verkaeufer ihn inzwischen geaendert, wird der Kauf
@@ -690,7 +746,10 @@ class Marketplace extends Component
 
     private function activeFilterCount(): int
     {
-        return count(array_filter([$this->industry, $this->region, $this->maxPrice], static fn (string $value): bool => $value !== ''));
+        // Der Funnel zaehlt nicht mit: Er steht oben als Reiter und ist damit
+        // schon sichtbar. Mitgezaehlt klappte das Filterfeld bei jedem Wechsel
+        // des Reiters auf.
+        return count(array_filter([$this->region, $this->maxPrice], static fn (string $value): bool => $value !== ''));
     }
 
     /**
@@ -790,6 +849,7 @@ class Marketplace extends Component
             $value = $answer->value;
 
             $answers[] = [
+                'key' => (string) $answer->field_key,
                 'label' => $labels[$answer->field_key] ?? $answer->field_key,
                 'value' => is_array($value)
                     ? implode(', ', array_map($readable, $value))
@@ -798,6 +858,188 @@ class Marketplace extends Component
         }
 
         return $answers;
+    }
+
+    /**
+     * Die Funnel-Reiter mit Zaehlern.
+     *
+     * Gezaehlt wird ueber Region und Hoechstpreis, aber nicht ueber den Funnel
+     * selbst -- sonst stuende neben jedem anderen Reiter eine Null, sobald
+     * einer gewaehlt ist. Sortiert nach Anzahl: Wo die meisten Leads warten,
+     * steht vorn.
+     *
+     * @return list<array{id: string, name: string, icon: string, count: int, active: bool}>
+     */
+    private function funnelTabs(): array
+    {
+        $leads = $this->visibleLeads();
+
+        if ($this->region !== '') {
+            $region = $this->region;
+            $leads = $leads->filter(fn (Lead $lead): bool => $this->postalGroupOf($lead) === $region);
+        }
+
+        if ($this->maxPrice !== '') {
+            $maxCents = (int) $this->maxPrice;
+            $purchase = app(LeadPurchaseAction::class);
+            $tenant = $this->portalTenant();
+            $leads = $leads->filter(static fn (Lead $lead): bool => $purchase->priceCentsOf($lead, $tenant) <= $maxCents);
+        }
+
+        $perFunnel = [];
+
+        foreach ($leads as $lead) {
+            if ($lead->funnel_id === null) {
+                continue;
+            }
+
+            $id = (string) $lead->funnel_id;
+            $perFunnel[$id] ??= [
+                'id' => $id,
+                'name' => $lead->funnel instanceof Funnel ? $lead->funnel->name : (string) __('marketplace.listing.unknown_funnel'),
+                'icon' => $this->funnelIcon($lead->funnel),
+                'count' => 0,
+                'active' => $this->industry === $id,
+            ];
+            $perFunnel[$id]['count']++;
+        }
+
+        uasort($perFunnel, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+        return [
+            [
+                'id' => '',
+                'name' => (string) __('marketplace.listing.funnels.all'),
+                'icon' => 'grid',
+                'count' => $leads->count(),
+                'active' => $this->industry === '',
+            ],
+            ...array_values($perFunnel),
+        ];
+    }
+
+    /**
+     * Die Karten nach Funnel, in der Reihenfolge der Reiter.
+     *
+     * @param  list<array<string, mixed>>  $cards
+     * @param  list<array{id: string, name: string, icon: string, count: int, active: bool}>  $tabs
+     * @return list<array{id: string, name: string, icon: string, count: int, cards: list<array<string, mixed>>}>
+     */
+    private function groupByFunnel(array $cards, array $tabs): array
+    {
+        $groups = [];
+
+        foreach ($tabs as $tab) {
+            if ($tab['id'] === '') {
+                continue;
+            }
+
+            $inGroup = array_values(array_filter($cards, static fn (array $card): bool => $card['funnel_id'] === $tab['id']));
+
+            if ($inGroup === []) {
+                continue;
+            }
+
+            $groups[] = [
+                'id' => $tab['id'],
+                'name' => $tab['name'],
+                'icon' => $tab['icon'],
+                // Die Zahl aller Leads dieses Funnels, nicht der geladenen
+                // Karten -- dieselbe Zahl wie im Reiter.
+                'count' => $tab['count'],
+                'cards' => $inGroup,
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Ein Symbol je Funnel.
+     *
+     * Ein eigenes Feld dafuer hat der Funnel nicht. Abgeleitet wird es aus Name
+     * und Kurzname -- Elektriker ein Blitz, Tiere eine Pfote, Sanitaer ein
+     * Schraubenschluessel. Alles andere bekommt ein neutrales Raster, statt ein
+     * falsches Gewerk zu behaupten.
+     */
+    private function funnelIcon(?Funnel $funnel): string
+    {
+        if (! $funnel instanceof Funnel) {
+            return 'grid';
+        }
+
+        $text = mb_strtolower($funnel->name.' '.$funnel->slug);
+
+        return match (true) {
+            str_contains($text, 'elektr') || str_contains($text, 'strom') => 'zap',
+            str_contains($text, 'pfote') || str_contains($text, 'tier') || str_contains($text, 'hund') || str_contains($text, 'katze') => 'paw',
+            str_contains($text, 'sanit') || str_contains($text, 'heiz') || str_contains($text, 'bad') => 'wrench',
+            default => 'grid',
+        };
+    }
+
+    /**
+     * Die Seite, auf der die Anfrage entstand, ohne Protokoll: elektrikerportal.com.
+     *
+     * Zuerst die Herkunft des Leads selbst, danach die erste freigegebene
+     * Herkunft des Funnels. Ohne beides steht nichts -- ein erfundener Name
+     * waere schlimmer als keiner.
+     */
+    private function portalHost(Lead $lead): ?string
+    {
+        $origin = $lead->embed_origin;
+
+        if (! is_string($origin) || $origin === '') {
+            $origin = $this->funnelOrigins()[(int) $lead->funnel_id] ?? null;
+        }
+
+        if (! is_string($origin) || $origin === '') {
+            return null;
+        }
+
+        $host = parse_url($origin, PHP_URL_HOST) ?: $origin;
+
+        return preg_replace('/^www\./', '', (string) $host);
+    }
+
+    /**
+     * Die erste freigegebene Herkunft je Funnel, einmal je Anfrage.
+     *
+     * @return array<int, string>
+     */
+    private function funnelOrigins(): array
+    {
+        if ($this->funnelOrigins !== null) {
+            return $this->funnelOrigins;
+        }
+
+        $ids = $this->visibleLeads()->pluck('funnel_id')->filter()->unique()->values()->all();
+
+        return $this->funnelOrigins = FunnelOrigin::query()
+            ->whereIn('funnel_id', $ids)
+            ->orderBy('id')
+            ->get()
+            ->groupBy('funnel_id')
+            ->map(static fn ($origins): string => (string) $origins->first()->origin)
+            ->all();
+    }
+
+    /**
+     * Fuer welches Firmenprofil die Anfrage kam -- oder null.
+     */
+    private function companyOf(Lead $lead): ?string
+    {
+        foreach ($lead->answers as $answer) {
+            if ($answer->field_key !== self::COMPANY_FIELD) {
+                continue;
+            }
+
+            $value = is_array($answer->value) ? implode(', ', $answer->value) : (string) $answer->value;
+
+            return trim($value) === '' ? null : trim($value);
+        }
+
+        return null;
     }
 
     private function profile(): ?BuyerProfile

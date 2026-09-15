@@ -297,6 +297,21 @@ return [
     ],
 
     'listing' => [
+        'contact_after_purchase_sentence' => 'Kontaktdaten siehst du nach dem Kauf.',
+        'for_company' => 'für',
+        'postal_code_short' => 'PLZ',
+        'funnels' => [
+            'label' => 'Funnel',
+            'all' => 'Alle Funnels',
+            'count' => '{0} Keine Leads|{1} 1 Lead|[2,*] :count Leads',
+            'empty_title' => 'Für diesen Funnel sind gerade keine Leads da.',
+            'empty_text' => 'Neue Leads erscheinen hier automatisch – oder schau bei „Alle Funnels" vorbei.',
+        ],
+        'view' => [
+            'label' => 'Darstellung',
+            'list' => 'Liste',
+            'by_funnel' => 'Nach Funnel',
+        ],
         'fits_count' => '{0} Kein Lead passt|{1} 1 Lead passt|[2,*] :count Leads passen',
         'contact_after_purchase' => 'Kontakt nach dem Kauf',
         'purchase_short' => 'Kaufen',
