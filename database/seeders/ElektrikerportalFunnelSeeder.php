@@ -7,9 +7,11 @@ namespace Database\Seeders;
 use App\Actions\PublishFunnel;
 use App\Constants\FunnelStatus;
 use App\Constants\TenantType;
+use App\Constants\WebhookEvent;
 use App\Models\Funnel;
 use App\Models\FunnelOrigin;
 use App\Models\FunnelTheme;
+use App\Models\FunnelWebhook;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\FunnelTemplateImporter;
@@ -35,6 +37,12 @@ use Illuminate\Database\Seeder;
  * zweites Mal angelegt; die Freigabeliste wird trotzdem abgeglichen und der
  * Token noch einmal ausgegeben, denn genau den braucht das Frontend.
  *
+ * Dazu der Webhook `lead.created` an das Portal: Das Portal ordnet die Anfrage
+ * ueber die Antwort `firmenprofil` dem Betrieb zu und erkennt Wiederholungen an
+ * der Lead-UUID. Das Secret entsteht beim Anlegen und wird genau dann einmal
+ * ausgegeben -- danach gibt es die Anwendung nicht mehr heraus
+ * (App\Models\FunnelWebhook). Es gehoert ins Portal, nicht ins Repository.
+ *
  * Offen (Ticket #17): Mandant und Leadpreis. Bis zur Klaerung liegt der Funnel
  * beim Betreiber-Mandanten, und die Vorlage traegt keinen eigenen Preis, sodass
  * die Vorgabe aus der Konfiguration greift.
@@ -59,6 +67,16 @@ class ElektrikerportalFunnelSeeder extends Seeder
         'http://elektriker.test',
     ];
 
+    /**
+     * Empfaenger von `lead.created` auf dem Portal.
+     */
+    private const PORTAL_WEBHOOK_URL = 'https://elektrikerportal.com/webhooks/leads';
+
+    /**
+     * Die lokale Entwicklungsseite. Nur in der Umgebung `local` angelegt.
+     */
+    private const LOCAL_WEBHOOK_URL = 'https://elektriker.test/webhooks/leads';
+
     public function __construct(
         private readonly FunnelTemplateImporter $templateImporter,
         private readonly PublishFunnel $publishFunnel,
@@ -82,6 +100,7 @@ class ElektrikerportalFunnelSeeder extends Seeder
 
         if ($existing !== null) {
             $this->allowOrigins($existing);
+            $this->subscribeWebhooks($existing);
             $this->report($existing, 'existiert bereits');
 
             return;
@@ -95,6 +114,7 @@ class ElektrikerportalFunnelSeeder extends Seeder
         FunnelTheme::query()->firstOrCreate(['funnel_id' => $funnel->getKey()]);
 
         $this->allowOrigins($funnel);
+        $this->subscribeWebhooks($funnel);
 
         $this->publishFunnel->handle($funnel, $this->publisherFor($tenant));
 
@@ -128,6 +148,56 @@ class ElektrikerportalFunnelSeeder extends Seeder
                 'origin' => $origin,
             ]);
         }
+    }
+
+    /**
+     * Legt die Webhooks an, die noch fehlen. Bestehende bleiben unberuehrt,
+     * sonst wuerde ein erneuter Lauf das Secret wechseln, das im Portal
+     * hinterlegt ist.
+     *
+     * Lokal geht der Webhook an das Live-Portal inaktiv an den Start: Lokale
+     * Testanfragen samt Kontaktdaten sollen dort nicht ankommen, und das
+     * lokale Secret kennt das Live-Portal ohnehin nicht.
+     */
+    private function subscribeWebhooks(Funnel $funnel): void
+    {
+        $isLocal = app()->environment('local');
+
+        $this->subscribe($funnel, self::PORTAL_WEBHOOK_URL, active: ! $isLocal);
+
+        if ($isLocal) {
+            $this->subscribe($funnel, self::LOCAL_WEBHOOK_URL, active: true);
+        }
+    }
+
+    private function subscribe(Funnel $funnel, string $url, bool $active): void
+    {
+        $exists = FunnelWebhook::query()
+            ->where('funnel_id', $funnel->getKey())
+            ->where('url', $url)
+            ->exists();
+
+        if ($exists) {
+            $this->command?->line(sprintf('Webhook %s besteht bereits, Secret unveraendert.', $url));
+
+            return;
+        }
+
+        $webhook = FunnelWebhook::query()->create([
+            'funnel_id' => $funnel->getKey(),
+            'url' => $url,
+            'secret' => FunnelWebhook::newSecret(),
+            'events' => [WebhookEvent::LEAD_CREATED->value],
+            'active' => $active,
+        ]);
+
+        // Einmalige Ausgabe auf der Konsole, nicht ins Log.
+        $this->command?->warn(sprintf(
+            'Webhook %s angelegt (%s). Secret, nur jetzt sichtbar: %s',
+            $url,
+            $active ? 'aktiv' : 'inaktiv',
+            $webhook->secret,
+        ));
     }
 
     private function report(Funnel $funnel, string $state): void

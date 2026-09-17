@@ -6,11 +6,10 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Constants\LeadState;
 use App\Funnel\Snapshots\FunnelSnapshot;
-use App\Funnel\Snapshots\QuestionSnapshot;
 use App\Models\Lead;
-use App\Models\LeadAnswer;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LeadAnswerPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -72,7 +71,7 @@ class LeadResource extends JsonResource
                 'term' => $lead->utm_term,
                 'content' => $lead->utm_content,
             ],
-            'answers' => $this->answers($lead),
+            'answers' => app(LeadAnswerPresenter::class)->answers($lead),
             'created_at' => $lead->created_at?->toIso8601String(),
             'contact_visibility' => $contact->masked ? 'masked' : 'full',
             // Eigene Achse (FB-085): Ein Kaeufer sieht die uebrigen Kontaktdaten
@@ -126,81 +125,6 @@ class LeadResource extends JsonResource
         }
 
         return null;
-    }
-
-    /**
-     * Die Qualifizierungsantworten -- ohne die reservierten Kontaktfelder.
-     *
-     * Sie erscheinen ausschliesslich unter `contact`, damit die Maskierung
-     * nicht ueber die Rohantworten zu umgehen ist.
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function answers(Lead $lead): array
-    {
-        $questions = $this->questionsByFieldKey($lead);
-
-        return $lead->answers
-            ->reject(static fn (LeadAnswer $answer): bool => $answer->isPersonal())
-            ->map(function (LeadAnswer $answer) use ($questions): array {
-                $question = $questions[$answer->field_key] ?? null;
-
-                return [
-                    'field_key' => $answer->field_key,
-                    'label' => $question instanceof QuestionSnapshot ? $question->label : $answer->field_key,
-                    'value' => $answer->value,
-                    'value_label' => $this->valueLabel($question, $answer->value),
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Die Fragen der Fassung, aus der dieser Lead stammt -- nach Feldschluessel.
-     *
-     * Gelesen wird der Snapshot, nicht die Live-Tabellen: Der Lead soll mit den
-     * Beschriftungen erscheinen, die der Endkunde gesehen hat.
-     *
-     * @return array<string, QuestionSnapshot>
-     */
-    private function questionsByFieldKey(Lead $lead): array
-    {
-        $snapshot = $lead->funnelVersion?->snapshot;
-
-        if (! is_array($snapshot)) {
-            return [];
-        }
-
-        $questions = [];
-
-        foreach (FunnelSnapshot::fromArray($snapshot)->questions() as $question) {
-            $questions[$question->fieldKey] = $question;
-        }
-
-        return $questions;
-    }
-
-    private function valueLabel(?QuestionSnapshot $question, mixed $value): ?string
-    {
-        if ($question === null || $question->options === [] || $value === null) {
-            return null;
-        }
-
-        $values = is_array($value) ? array_values($value) : [$value];
-        $labels = [];
-
-        foreach ($values as $given) {
-            foreach ($question->options as $option) {
-                if ($option->matches($given)) {
-                    $labels[] = $option->label;
-
-                    break;
-                }
-            }
-        }
-
-        return $labels === [] ? null : implode(', ', $labels);
     }
 
     /**

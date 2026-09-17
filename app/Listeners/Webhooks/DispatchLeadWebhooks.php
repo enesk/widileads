@@ -9,6 +9,7 @@ use App\Events\Lead\LeadCreated;
 use App\Events\Lead\LeadPurchased;
 use App\Events\Lead\LeadStateChanged;
 use App\Models\Lead;
+use App\Services\LeadAnswerPresenter;
 use App\Services\LeadContactResolver;
 use App\Services\WebhookDispatcher;
 
@@ -28,6 +29,7 @@ class DispatchLeadWebhooks
     public function __construct(
         private readonly WebhookDispatcher $dispatcher,
         private readonly LeadContactResolver $contacts,
+        private readonly LeadAnswerPresenter $answers,
     ) {}
 
     public function handleLeadCreated(LeadCreated $event): void
@@ -88,10 +90,16 @@ class DispatchLeadWebhooks
 
         return [
             'id' => $lead->getKey(),
+            // Die UUID ist die stabile Kennung nach aussen; Empfaenger wie die
+            // SUN-Portale erkennen daran Wiederholungen.
+            'uuid' => $lead->uuid,
             'state' => $lead->lead_state->value,
             'score' => $lead->score,
             'result_key' => $lead->result_key,
             'created_at' => $lead->created_at?->toIso8601String(),
+            // Dasselbe Format wie in der Lead-API. Empfaenger ordnen die
+            // Anfrage darueber zu, etwa ueber `firmenprofil` den Betrieb.
+            'answers' => $this->answers->answers($lead),
             'contact' => $contact->toArray(),
         ];
     }
