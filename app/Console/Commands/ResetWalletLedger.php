@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Constants\LeadContactStatus;
+use App\Constants\LeadState;
 use App\Constants\PaymentMode;
 use App\Constants\PurchaseStatus;
+use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\PayoutRequest;
 use App\Models\PostpaidApplication;
@@ -38,10 +41,15 @@ use Illuminate\Support\Facades\DB;
  *   Ausgangsstand bringen will, nimmt `--postpaid` dazu; dann fallen auch die
  *   Antraege weg.
  *
- * Leadkaeufe werden nicht geloescht -- die Belege samt Anrufversuchen und
- * Reklamationen bleiben erhalten. Kaeufe im Stand `reserved` werden aber auf
+ * Leadkaeufe bleiben ohne `--purchases` erhalten -- die Belege samt
+ * Anrufversuchen und Reklamationen. Kaeufe im Stand `reserved` werden aber auf
  * `released` gesetzt: Eine offene Reservierung ohne Deckung im Journal waere
  * genau die Abweichung, die `wallet:verify` in seiner zweiten Klammer meldet.
+ *
+ * `--purchases` geht einen Schritt weiter und loescht alle Kaufbelege, samt der
+ * daran haengenden Anrufversuche und Reklamationen. Die Leads selbst bleiben
+ * stehen, gehen aber in den Stand `verfuegbar` zurueck: Ein Lead im Stand
+ * `verkauft` ohne Kaufbeleg waere sonst fuer immer unverkaeuflich.
  *
  * Zurueckholen laesst sich davon nichts. Der Lauf fragt deshalb nach und
  * bricht in einer Produktionsumgebung ab, wie die gesperrten
@@ -54,6 +62,7 @@ use Illuminate\Support\Facades\DB;
 class ResetWalletLedger extends Command
 {
     protected $signature = 'wallet:reset
+        {--purchases : Kaufbelege loeschen und die Leads wieder als verfuegbar fuehren}
         {--postpaid : Zahlungsmodus, Kreditrahmen und Antraege ebenfalls zuruecksetzen}
         {--dry-run : Nur anzeigen, was geloescht wuerde}
         {--force : Rueckfrage ueberspringen}';
@@ -64,8 +73,9 @@ class ResetWalletLedger extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
         $withPostpaid = (bool) $this->option('postpaid');
+        $withPurchases = (bool) $this->option('purchases');
 
-        $counts = $this->counts($withPostpaid);
+        $counts = $this->counts($withPostpaid, $withPurchases);
 
         $this->table(['Was', 'Anzahl'], collect($counts)->map(
             fn (int $count, string $label): array => [$label, $count],
@@ -87,7 +97,7 @@ class ResetWalletLedger extends Command
             return self::FAILURE;
         }
 
-        DB::transaction(function () use ($withPostpaid): void {
+        DB::transaction(function () use ($withPostpaid, $withPurchases): void {
             // Abrechnungen und Auszahlungen zuerst: Sie sind Forderungen, die
             // sich aus dem Journal ergeben, und haetten ohne es keinen Bezug
             // mehr.
@@ -104,12 +114,16 @@ class ResetWalletLedger extends Command
             // implizit und wuerde die Klammer dieser Transaktion sprengen.
             DB::table('wallet_transactions')->delete();
 
-            LeadPurchase::query()
-                ->where('status', PurchaseStatus::RESERVED->value)
-                ->update([
-                    'status' => PurchaseStatus::RELEASED->value,
-                    'released_at' => now(),
-                ]);
+            if ($withPurchases) {
+                $this->deletePurchasesAndFreeLeads();
+            } else {
+                LeadPurchase::query()
+                    ->where('status', PurchaseStatus::RESERVED->value)
+                    ->update([
+                        'status' => PurchaseStatus::RELEASED->value,
+                        'released_at' => now(),
+                    ]);
+            }
 
             $reset = [
                 'balance_cents' => 0,
@@ -140,6 +154,54 @@ class ResetWalletLedger extends Command
         $this->comment('Gegenprobe: php artisan wallet:verify');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Loescht alle Kaufbelege und fuehrt die betroffenen Leads wieder als
+     * verfuegbar.
+     *
+     * Die Zustandsspalten werden hier ausnahmsweise direkt gesetzt und nicht
+     * ueber LeadStateService bzw. LeadResolver. Das ist Absicht: Ein Reset ist
+     * kein fachlicher Uebergang, er soll keine Ereignisse feuern und keine
+     * Buchung ausloesen -- sonst raeumte der Lauf auf und buchte im selben
+     * Atemzug neu.
+     *
+     * Unangetastet bleiben Leads in `neu`, `ungueltig` und `abgelaufen` sowie
+     * anonymisierte Leads: Sie waren nie verkaeuflich oder duerfen es nicht
+     * mehr werden.
+     */
+    private function deletePurchasesAndFreeLeads(): void
+    {
+        // Anrufversuche und Reklamationen haengen per Fremdschluessel am
+        // Kaufbeleg und gehen mit ihm (cascadeOnDelete).
+        LeadPurchase::query()->delete();
+
+        Lead::query()
+            ->withoutGlobalScopes()
+            ->whereNull('anonymized_at')
+            ->whereIn('lead_state', [
+                LeadState::RESERVIERT->value,
+                LeadState::VERKAUFT->value,
+                LeadState::ERREICHT->value,
+                LeadState::UNERREICHBAR->value,
+            ])
+            ->update([
+                'lead_state' => LeadState::VERFUEGBAR->value,
+                'reserved_by' => null,
+                'reserved_until' => null,
+                'settled_price' => null,
+                'settled_at' => null,
+                'delivered_at' => null,
+                'deadline_at' => null,
+                // Die Erreichbarkeit haengt an den Anrufversuchen, und die sind
+                // mit den Kaufbelegen weg. `open` ist ihr Ausgangswert, die
+                // Spalte ist nicht nullbar.
+                'contact_status' => LeadContactStatus::OPEN->value,
+                'resolved_at' => null,
+                'resolved_by' => null,
+                'phone_revealed_at' => null,
+                'reminder_sent_at' => null,
+            ]);
     }
 
     /**
@@ -176,7 +238,7 @@ class ResetWalletLedger extends Command
      *
      * @return array<string, int>
      */
-    private function counts(bool $withPostpaid): array
+    private function counts(bool $withPostpaid, bool $withPurchases = false): array
     {
         $counts = [
             'Buchungen (wallet_transactions)' => WalletTransaction::query()->count(),
@@ -187,6 +249,22 @@ class ResetWalletLedger extends Command
                 ->where('status', PurchaseStatus::RESERVED->value)
                 ->count(),
         ];
+
+        if ($withPurchases) {
+            unset($counts['Leadkaeufe reserved -> released']);
+
+            $counts['Kaufbelege zu loeschen (lead_purchases)'] = LeadPurchase::query()->count();
+            $counts['Leads wieder verfuegbar'] = Lead::query()
+                ->withoutGlobalScopes()
+                ->whereNull('anonymized_at')
+                ->whereIn('lead_state', [
+                    LeadState::RESERVIERT->value,
+                    LeadState::VERKAUFT->value,
+                    LeadState::ERREICHT->value,
+                    LeadState::UNERREICHBAR->value,
+                ])
+                ->count();
+        }
 
         if ($withPostpaid) {
             $counts['Postpaid-Antraege (postpaid_applications)'] = PostpaidApplication::query()->count();

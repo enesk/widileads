@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
+use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Constants\PaymentMode;
 use App\Constants\PurchaseStatus;
@@ -107,6 +108,26 @@ class ResetWalletLedgerTest extends FeatureTest
             ->assertExitCode(0);
 
         $this->assertSame(0, WalletTransaction::query()->count());
+    }
+
+    public function test_it_deletes_purchases_and_makes_the_leads_available_again(): void
+    {
+        [, $purchase] = $this->aBuyerWithAReservedPurchase();
+
+        $lead = $purchase->lead;
+        $lead->forceFill(['lead_state' => LeadState::VERKAUFT, 'delivered_at' => now()])->save();
+
+        $this->artisan('wallet:reset', ['--force' => true, '--purchases' => true])->assertExitCode(0);
+
+        $this->assertSame(0, LeadPurchase::query()->count());
+
+        $lead = $lead->fresh();
+        $this->assertSame(LeadState::VERFUEGBAR, $lead->lead_state);
+        $this->assertNull($lead->delivered_at);
+        $this->assertSame(LeadContactStatus::OPEN, $lead->contact_status);
+
+        // Der Lead selbst bleibt erhalten, nur sein Kauf ist weg.
+        $this->assertNotNull($lead);
     }
 
     /**
