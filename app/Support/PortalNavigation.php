@@ -60,7 +60,7 @@ final class PortalNavigation
                 'label' => __('portal.nav.group.billing'),
                 'items' => [
                     ['label' => __('portal.nav.orders'), 'icon' => 'package', 'route' => 'portal.orders'],
-                    ['label' => __('portal.nav.payments'), 'icon' => 'card', 'route' => 'portal.transactions'],
+                    ['label' => __('portal.nav.transactions'), 'icon' => 'card', 'route' => 'portal.transactions'],
                     ['label' => __('portal.postpaid.payment_methods.heading'), 'icon' => 'bank', 'route' => 'portal.payment-methods'],
                     ['label' => __('portal.postpaid.settlements.heading'), 'icon' => 'wallet', 'route' => 'portal.settlements'],
                 ],

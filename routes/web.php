@@ -26,9 +26,11 @@ use App\Livewire\Portal\LeadDetail as PortalLeadDetail;
 use App\Livewire\Portal\Marketplace as PortalMarketplace;
 use App\Livewire\Portal\Orders as PortalOrders;
 use App\Livewire\Portal\PaymentMethods as PortalPaymentMethods;
+use App\Livewire\Portal\Profile as PortalProfile;
 use App\Livewire\Portal\PurchasedLeads as PortalPurchasedLeads;
 use App\Livewire\Portal\Settlements as PortalSettlements;
 use App\Livewire\Portal\TopUpSuccess as PortalTopUpSuccess;
+use App\Livewire\Portal\Transactions as PortalTransactions;
 use App\Livewire\Portal\WalletTopUp as PortalWalletTopUp;
 use App\Models\Funnel;
 use App\Services\CompanyProfile;
@@ -471,8 +473,15 @@ Route::middleware(['auth', 'verified', 'portal.tenant'])
         // ins Journal geschrieben hat, und fragt so lange nach.
         Route::get('/guthaben/erfolg', PortalTopUpSuccess::class)
             ->name('wallet.success');
-        Route::view('/transaktionen', 'portal.placeholder', ['title' => 'portal.pages.transactions'])
+        // Das Journal des Kaeufer-Wallets: jede Bewegung mit Vorzeichen und
+        // Kontostand. Gebucht wird ausschliesslich im WalletService, diese
+        // Seite liest nur.
+        Route::get('/transaktionen', PortalTransactions::class)
             ->name('transactions');
+        // Das persoenliche Konto. Loest die Breezy-Seite des Dashboard-Panels
+        // ab, auf die das Kontomenue bisher zeigte.
+        Route::get('/profil', PortalProfile::class)
+            ->name('profile');
         Route::view('/kaeufer-profil', 'portal.placeholder', ['title' => 'portal.pages.buyer_profile'])
             ->name('buyer-profile');
 

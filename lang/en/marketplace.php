@@ -1041,6 +1041,25 @@ return [
                 'reserved_note' => 'A reservation does not change the balance: it blocks the amount until reachability is settled. Only the charge reduces the balance.',
                 'result_count' => '{0} No entries|{1} 1 entry|[2,*] :count entries',
 
+                /*
+                | The portal version of the page: three figures on top and rows
+                | grouped by month.
+                */
+                'portal' => [
+                    'stats' => [
+                        'available' => 'Available',
+                        'open' => 'Open amount',
+                        'reserved' => 'Reserved',
+                        'spent' => 'Spent',
+                    ],
+                    'balance_after' => 'Balance: :amount',
+                    'reserved_after' => 'Reserved: :amount',
+                    'empty_title' => 'No entries yet',
+                    'count_line' => ':count of :total entries',
+                    'load_more' => '{1} Load 1 more|[2,*] Load :count more',
+                    'orders_hint' => 'Your top-ups including invoices are listed under',
+                ],
+
                 'filter' => [
                     'type' => 'Type',
                     'period' => 'Period',

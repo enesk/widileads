@@ -52,6 +52,64 @@ return [
     'balance' => 'Guthaben',
     'top_up' => 'Aufladen',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Profil
+    |--------------------------------------------------------------------------
+    |
+    | Das persoenliche Konto. Die Rechnungsanschrift gehoert dem Workspace und
+    | steht deshalb in den Einstellungen, nicht hier.
+    |
+    */
+    'profile' => [
+        'heading' => 'Profil',
+        'description' => 'Dein Name, deine Anmeldedaten und die Sicherheit deines Kontos.',
+        'save' => 'Speichern',
+
+        'account' => [
+            'heading' => 'Konto',
+            'name' => 'Name',
+            'email' => 'E-Mail-Adresse',
+            'current_password' => 'Aktuelles Passwort',
+            'password_required' => 'Zum Ändern der E-Mail-Adresse brauchen wir dein aktuelles Passwort.',
+            'password_wrong' => 'Das Passwort stimmt nicht.',
+            'email_warning' => 'Die neue Adresse muss bestätigt werden. Wir schicken einen Link dorthin; bis du ihn anklickst, kommst du nicht ins Portal.',
+            'email_changed' => 'Adresse geändert. Bestätige sie über den Link in deinem Postfach.',
+            'unverified' => 'Deine Adresse ist noch nicht bestätigt.',
+            'resend' => 'Link erneut senden',
+            'verification_sent' => 'Bestätigungslink verschickt.',
+            'verification_throttled' => 'Der Link wurde eben erst verschickt. Bitte warte einen Moment.',
+        ],
+
+        'password' => [
+            'heading' => 'Passwort ändern',
+            'description' => 'Nach dem Ändern bleibst du angemeldet.',
+            'new' => 'Neues Passwort',
+            'confirm' => 'Neues Passwort wiederholen',
+            'hint' => 'Mindestens 8 Zeichen.',
+            'mismatch' => 'Die beiden Passwörter stimmen nicht überein.',
+            'submit' => 'Passwort ändern',
+            'saved' => 'Passwort geändert.',
+        ],
+
+        'two_factor' => [
+            'heading' => 'Zwei-Faktor-Anmeldung',
+            'active' => 'Aktiv. Beim Anmelden fragen wir zusätzlich nach einem Code.',
+            'inactive' => 'Nicht eingerichtet. Ein zweiter Faktor schützt dein Konto, wenn dein Passwort einmal bekannt wird.',
+            'manage' => 'Verwalten',
+            'setup' => 'Einrichten',
+        ],
+
+        'side' => [
+            'status' => 'Adresse',
+            'verified' => 'Bestätigt',
+            'unverified' => 'Offen',
+            'member_since' => 'Dabei seit',
+            'workspace' => 'Workspace',
+            'address_hint' => 'Die Rechnungsanschrift gehört zum Workspace und steht unter',
+        ],
+    ],
+
     'menu' => [
         'profile' => 'Profil',
         'settings' => 'Einstellungen',
@@ -74,6 +132,7 @@ return [
         'balance' => 'Guthaben',
         'orders' => 'Bestellungen',
         'payments' => 'Zahlungen',
+        'transactions' => 'Transaktionen',
         'soon' => 'Diese Seite wird gerade gebaut.',
         'group' => [
             'marketplace' => 'Marktplatz',

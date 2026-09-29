@@ -1084,6 +1084,26 @@ return [
                 'reserved_note' => 'Eine Reservierung ändert den Saldo nicht: Sie blockt den Betrag, bis die Erreichbarkeit feststeht. Erst die Abbuchung mindert den Saldo.',
                 'result_count' => '{0} Keine Buchung|{1} 1 Buchung|[2,*] :count Buchungen',
 
+                /*
+                | Die Portalfassung der Seite. Die Tabelle des Dashboards
+                | beantwortete nicht, woran man gerade ist -- deshalb drei
+                | Zahlen oben und Zeilen nach Monat.
+                */
+                'portal' => [
+                    'stats' => [
+                        'available' => 'Verfügbar',
+                        'open' => 'Offener Betrag',
+                        'reserved' => 'Reserviert',
+                        'spent' => 'Ausgegeben',
+                    ],
+                    'balance_after' => 'Saldo: :amount',
+                    'reserved_after' => 'Reserviert: :amount',
+                    'empty_title' => 'Noch keine Buchung',
+                    'count_line' => ':count von :total Buchungen',
+                    'load_more' => '{1} 1 weitere laden|[2,*] :count weitere laden',
+                    'orders_hint' => 'Deine Aufladungen mit Rechnung stehen unter',
+                ],
+
                 'filter' => [
                     'type' => 'Art',
                     'period' => 'Zeitraum',

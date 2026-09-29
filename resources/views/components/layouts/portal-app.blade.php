@@ -92,10 +92,9 @@
                 </a>
             @endif
 
-            {{-- Kontomenue (Ticket #6). Profil und Abmelden liegen weiter im
-                 Dashboard-Panel beziehungsweise an der bestehenden
-                 Abmelderoute -- das Portal bringt dafuer keine eigenen Seiten
-                 mit. --}}
+            {{-- Kontomenue (Ticket #6). Profil ist seit der Portalfassung eine
+                 eigene Portalseite; bis dahin fuehrte der Punkt zurueck ins
+                 Dashboard-Panel. Abmelden bleibt die bestehende Route. --}}
             <x-app.dropdown align="right" :label="__('portal.account')">
                 <x-slot:trigger class="size-10 rounded-full bg-brand text-white font-semibold flex items-center justify-center">
                     {{ mb_strtoupper(mb_substr($user?->name ?? '', 0, 1)) }}
@@ -107,7 +106,7 @@
                 </div>
 
                 @if ($tenant)
-                    <a href="{{ route('filament.dashboard.pages.my-profile', ['tenant' => $tenant->uuid]) }}" role="menuitem" class="flex items-center min-h-11 px-3 rounded-lg text-sm text-zinc-700 hover:bg-zinc-100">
+                    <a href="{{ route('portal.profile', ['tenant' => $tenant->uuid]) }}" role="menuitem" class="flex items-center min-h-11 px-3 rounded-lg text-sm text-zinc-700 hover:bg-zinc-100">
                         {{ __('portal.menu.profile') }}
                     </a>
 

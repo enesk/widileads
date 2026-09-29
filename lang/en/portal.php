@@ -35,6 +35,60 @@ return [
     'balance' => 'Balance',
     'top_up' => 'Top up',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    */
+    'profile' => [
+        'heading' => 'Profile',
+        'description' => 'Your name, your sign-in details and the security of your account.',
+        'save' => 'Save',
+
+        'account' => [
+            'heading' => 'Account',
+            'name' => 'Name',
+            'email' => 'Email address',
+            'current_password' => 'Current password',
+            'password_required' => 'We need your current password to change the email address.',
+            'password_wrong' => 'That password is not correct.',
+            'email_warning' => 'The new address has to be confirmed. We send a link there; until you follow it you cannot use the portal.',
+            'email_changed' => 'Address changed. Confirm it using the link in your inbox.',
+            'unverified' => 'Your address is not confirmed yet.',
+            'resend' => 'Send link again',
+            'verification_sent' => 'Confirmation link sent.',
+            'verification_throttled' => 'The link was just sent. Please wait a moment.',
+        ],
+
+        'password' => [
+            'heading' => 'Change password',
+            'description' => 'You stay signed in after changing it.',
+            'new' => 'New password',
+            'confirm' => 'Repeat new password',
+            'hint' => 'At least 8 characters.',
+            'mismatch' => 'The two passwords do not match.',
+            'submit' => 'Change password',
+            'saved' => 'Password changed.',
+        ],
+
+        'two_factor' => [
+            'heading' => 'Two-factor authentication',
+            'active' => 'Active. We ask for an additional code when you sign in.',
+            'inactive' => 'Not set up. A second factor protects your account if your password ever leaks.',
+            'manage' => 'Manage',
+            'setup' => 'Set up',
+        ],
+
+        'side' => [
+            'status' => 'Address',
+            'verified' => 'Confirmed',
+            'unverified' => 'Pending',
+            'member_since' => 'Member since',
+            'workspace' => 'Workspace',
+            'address_hint' => 'The billing address belongs to the workspace and lives under',
+        ],
+    ],
+
     'menu' => [
         'profile' => 'Profile',
         'settings' => 'Settings',
@@ -57,6 +111,7 @@ return [
         'balance' => 'Balance',
         'orders' => 'Orders',
         'payments' => 'Payments',
+        'transactions' => 'Transactions',
         'soon' => 'This page is still being built.',
         'group' => [
             'marketplace' => 'Marketplace',
