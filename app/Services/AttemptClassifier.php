@@ -12,6 +12,9 @@ use Illuminate\Support\Carbon;
 /**
  * Bewertung eines abgeschlossenen Anrufversuchs (FB-083).
  *
+ * Vier Ausgaenge: erreicht, Kurzkontakt (abgenommen, aber zu kurz), gueltiger
+ * Fehlversuch und verworfen.
+ *
  * Die einzige Stelle, an der `outcome` und `ignore_reason` berechnet werden.
  * Angesprochen wird sie vom Dial-Rueckruf, sobald das Ergebnis des Lead-Beins
  * vorliegt (FB-082, Ticket #8).
@@ -44,8 +47,8 @@ class AttemptClassifier
             return $this->ignore($attempt, self::IGNORE_LEAD_CLOSED);
         }
 
-        if ($this->wasAnswered($attempt)) {
-            return $this->apply($attempt, CallAttemptOutcome::ANSWERED, null);
+        if ($this->reachedHuman($attempt)) {
+            return $this->classifyContact($attempt);
         }
 
         if ($this->isTooSoon($attempt)) {
@@ -56,13 +59,13 @@ class AttemptClassifier
     }
 
     /**
-     * Der Lead ist erreicht, wenn das Gespraech zustande kam, ein Mensch
-     * abgenommen hat und es lang genug war.
+     * Ein Mensch hat abgenommen -- unabhaengig davon, wie lange gesprochen
+     * wurde.
      *
-     * Fehlt die Dauer, zaehlt sie als null: Ein Beleg, den wir nicht haben,
-     * darf nicht als Erfolg durchgehen.
+     * Ohne Dauer gilt der Kontakt als nicht zustande gekommen: Ein Beleg, den
+     * wir nicht haben, darf weder als Erfolg noch als Gespraech durchgehen.
      */
-    private function wasAnswered(CallAttempt $attempt): bool
+    private function reachedHuman(CallAttempt $attempt): bool
     {
         if ($attempt->dial_status !== 'completed') {
             return false;
@@ -72,7 +75,48 @@ class AttemptClassifier
             return false;
         }
 
-        return (int) ($attempt->duration_seconds ?? 0) >= (int) config('lead_calls.answered_min_seconds');
+        return (int) ($attempt->duration_seconds ?? 0) > 0;
+    }
+
+    /**
+     * Der Lead hat abgenommen -- erreicht oder nur zu kurz?
+     *
+     * Erreicht ist er, sobald die Mindestdauer steht. Dabei zaehlen frueher
+     * abgerissene Gespraeche desselben Kaeufers mit: Zweimal zwanzig Sekunden
+     * sind zusammen vierzig, und damit hat der Kaeufer den Lead nachweislich
+     * gesprochen. So entschieden von Enes am 29.09.2026.
+     *
+     * Reicht es noch nicht, ist es ein Kurzkontakt: Er zaehlt nicht gegen den
+     * Lead, kostet den Kaeufer keine Wartezeit und wird auf den naechsten
+     * Anruf angerechnet.
+     */
+    private function classifyContact(CallAttempt $attempt): CallAttempt
+    {
+        $required = (int) config('lead_calls.answered_min_seconds');
+        $seconds = (int) ($attempt->duration_seconds ?? 0);
+
+        if ($seconds >= $required || $seconds + $this->earlierContactSeconds($attempt) >= $required) {
+            return $this->apply($attempt, CallAttemptOutcome::ANSWERED, null);
+        }
+
+        return $this->apply($attempt, CallAttemptOutcome::SHORT_CONTACT, null);
+    }
+
+    /**
+     * Gespraechszeit, die dieser Kaeufer mit dem Lead bereits hatte.
+     *
+     * Gezaehlt wird ueber den Kaufbeleg und nicht ueber den Lead: Bei einem
+     * geteilten Lead (FB-055) darf sich ein Kaeufer nicht die abgerissenen
+     * Gespraeche eines anderen anrechnen lassen -- gesprochen hat er nicht.
+     */
+    private function earlierContactSeconds(CallAttempt $attempt): int
+    {
+        return (int) CallAttempt::query()
+            ->withoutGlobalScopes(TenantScopes::names())
+            ->where('lead_purchase_id', $attempt->lead_purchase_id)
+            ->whereKeyNot($attempt->getKey())
+            ->where('outcome', CallAttemptOutcome::SHORT_CONTACT)
+            ->sum('duration_seconds');
     }
 
     /**
@@ -81,7 +125,9 @@ class AttemptClassifier
      *
      * Gemessen wird von Beginn zu Beginn -- die Gespraechsdauer des
      * Vorgaengers darf den Abstand nicht verschieben. Verworfene Versuche
-     * halten die Uhr nicht an, sie zaehlen hier nicht mit.
+     * halten die Uhr nicht an, sie zaehlen hier nicht mit; ein Kurzkontakt
+     * ebenso wenig -- nach einem abgerissenen Gespraech darf der Kaeufer
+     * sofort wieder anrufen.
      */
     private function isTooSoon(CallAttempt $attempt): bool
     {

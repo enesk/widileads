@@ -128,6 +128,7 @@ return [
         'outcome' => [
             'answered' => 'Erreicht',
             'failed_valid' => 'Nicht erreicht',
+            'short_contact' => 'Gespräch zu kurz',
             'failed_ignored' => 'Zählt nicht',
         ],
 
@@ -177,6 +178,7 @@ return [
             'too_soon' => 'Zu kurz nach dem letzten Versuch',
             'lead_closed' => 'Lead war bereits entschieden',
             'buyer_no_answer' => 'Sie haben selbst nicht abgenommen',
+            'short_contact' => 'Gespräch zu kurz — Sie können sofort erneut anrufen',
             'twilio_error' => 'Der Anruf kam nicht zustande',
             'other' => 'Zählt nicht mit',
         ],

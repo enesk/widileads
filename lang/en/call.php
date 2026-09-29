@@ -121,6 +121,7 @@ return [
         'outcome' => [
             'answered' => 'Reached',
             'failed_valid' => 'Not reached',
+            'short_contact' => 'Call too short',
             'failed_ignored' => 'Does not count',
         ],
 
@@ -170,6 +171,7 @@ return [
             'too_soon' => 'Too soon after the previous attempt',
             'lead_closed' => 'The lead had already been decided',
             'buyer_no_answer' => 'You did not pick up yourself',
+            'short_contact' => 'Call too short — you can call again right away',
             'twilio_error' => 'The call was never established',
             'other' => 'Does not count',
         ],

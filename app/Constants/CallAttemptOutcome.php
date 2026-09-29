@@ -22,6 +22,17 @@ enum CallAttemptOutcome: string
     /** Erfolglos, zaehlt aber gegen die Zahl der noetigen Versuche. */
     case FAILED_VALID = 'failed_valid';
 
+    /**
+     * Ein Mensch hat abgenommen, das Gespraech war aber kuerzer als
+     * `answered_min_seconds` -- der Kontakt kam zustande, nur zu kurz.
+     *
+     * Zaehlt weder als erreicht noch gegen den Lead: Wer abnimmt, ist
+     * erreichbar, und ein abgerissenes Gespraech darf den Kaeufer weder
+     * Versuche noch Wartezeit kosten. Die Dauer bleibt als Beleg stehen und
+     * wird auf den naechsten Kontakt angerechnet.
+     */
+    case SHORT_CONTACT = 'short_contact';
+
     /** Erfolglos und zaehlt nicht (siehe `ignore_reason`). */
     case FAILED_IGNORED = 'failed_ignored';
 
@@ -30,7 +41,7 @@ enum CallAttemptOutcome: string
      */
     public function counts(): bool
     {
-        return $this !== self::FAILED_IGNORED;
+        return $this === self::ANSWERED || $this === self::FAILED_VALID;
     }
 
     public function label(): string

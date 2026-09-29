@@ -367,7 +367,9 @@ class LeadCallPanel extends Component
      */
     private function ignoreLabel(CallAttempt $attempt): string
     {
-        $key = 'call.panel.ignored.'.(string) $attempt->ignore_reason;
+        // Ohne Grund steht die Bewertung selbst dafuer, warum der Versuch
+        // nicht zaehlt -- so beim Kurzkontakt.
+        $key = 'call.panel.ignored.'.(string) ($attempt->ignore_reason ?? $attempt->outcome?->value);
 
         return __($key) === $key ? __('call.panel.ignored.other') : __($key);
     }
