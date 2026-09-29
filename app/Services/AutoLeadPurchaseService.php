@@ -30,9 +30,36 @@ use Illuminate\Support\Facades\Log;
  * (LeadNotPurchasableException) -- weitermachen mit dem naechsten. Das Guthaben
  * ist alle (InsufficientFundsException) -- fuer diesen Kaeufer aufhoeren, die
  * uebrigen laufen weiter.
+ *
+ * Jeder Lauf schreibt nebenher mit, was aus jedem Kaufprofil geworden ist
+ * (report()). "Null Leads gekauft" hat mehrere Gruende -- kein Treffer,
+ * Tageslimit, kein Guthaben -- und ohne diese Notiz ist von aussen keiner
+ * davon zu unterscheiden.
  */
 class AutoLeadPurchaseService
 {
+    /** Der Kaeufer ist nicht freigeschaltet. */
+    public const REASON_NOT_APPROVED = 'not_approved';
+
+    /** Das Tageslimit ist ausgeschoepft. */
+    public const REASON_DAILY_LIMIT = 'daily_limit';
+
+    /** Kein Lead passt auf die Kaufkriterien. */
+    public const REASON_NO_MATCH = 'no_match';
+
+    /** Das Guthaben reicht nicht. */
+    public const REASON_NO_FUNDS = 'no_funds';
+
+    /** Gekauft -- oder im Probelauf: waere gekauft worden. */
+    public const REASON_BOUGHT = 'bought';
+
+    /**
+     * Was aus jedem Kaufprofil des letzten Laufs geworden ist.
+     *
+     * @var list<array{profile_id: int, tenant: string, matched: int, bought: int, reason: string}>
+     */
+    private array $report = [];
+
     public function __construct(
         private readonly MarketplaceListing $listing,
         private readonly PurchaseLead $purchaseLead,
@@ -43,8 +70,10 @@ class AutoLeadPurchaseService
      *
      * @return int Zahl der gekauften Leads
      */
-    public function run(): int
+    public function run(bool $dryRun = false): int
     {
+        $this->report = [];
+
         $bought = 0;
 
         $profiles = BuyerProfile::query()
@@ -56,37 +85,72 @@ class AutoLeadPurchaseService
             ->get();
 
         foreach ($profiles as $profile) {
-            $bought += $this->runFor($profile);
+            $bought += $this->runFor($profile, $dryRun);
         }
 
         return $bought;
     }
 
     /**
-     * Kauft fuer ein einzelnes Kaufprofil.
+     * Der Bericht zum letzten Lauf, ein Eintrag je Kaufprofil.
+     *
+     * @return list<array{profile_id: int, tenant: string, matched: int, bought: int, reason: string}>
      */
-    private function runFor(BuyerProfile $profile): int
+    public function report(): array
+    {
+        return $this->report;
+    }
+
+    /**
+     * Kauft fuer ein einzelnes Kaufprofil.
+     *
+     * Im Probelauf wird nur gezaehlt, was gekauft wuerde -- kein Lead wird
+     * reserviert und kein Geld bewegt.
+     */
+    private function runFor(BuyerProfile $profile, bool $dryRun = false): int
     {
         $buyer = $profile->tenant;
 
         if (! $buyer instanceof Tenant || ! $buyer->isApprovedBuyer()) {
+            $this->note($profile, $buyer, 0, 0, self::REASON_NOT_APPROVED);
+
             return 0;
         }
 
         $remaining = $this->remainingToday($profile, $buyer);
 
         if ($remaining <= 0) {
+            $this->note($profile, $buyer, 0, 0, self::REASON_DAILY_LIMIT);
+
+            return 0;
+        }
+
+        $matches = $this->listing->for($buyer, $profile);
+        $matched = $matches->count();
+
+        if ($matched === 0) {
+            $this->note($profile, $buyer, 0, 0, self::REASON_NO_MATCH);
+
             return 0;
         }
 
         $bought = 0;
+        $reason = self::REASON_BOUGHT;
 
-        foreach ($this->listing->for($buyer, $profile) as $lead) {
+        foreach ($matches as $lead) {
             if ($bought >= $remaining) {
+                $reason = self::REASON_DAILY_LIMIT;
+
                 break;
             }
 
             if (! $lead instanceof Lead) {
+                continue;
+            }
+
+            if ($dryRun) {
+                $bought++;
+
                 continue;
             }
 
@@ -106,11 +170,29 @@ class AutoLeadPurchaseService
                     'bought' => $bought,
                 ]);
 
+                $reason = self::REASON_NO_FUNDS;
+
                 break;
             }
         }
 
+        $this->note($profile, $buyer, $matched, $bought, $reason);
+
         return $bought;
+    }
+
+    /**
+     * Haelt fest, was aus einem Kaufprofil geworden ist.
+     */
+    private function note(BuyerProfile $profile, ?Tenant $buyer, int $matched, int $bought, string $reason): void
+    {
+        $this->report[] = [
+            'profile_id' => (int) $profile->getKey(),
+            'tenant' => $buyer instanceof Tenant ? (string) $buyer->name : '-',
+            'matched' => $matched,
+            'bought' => $bought,
+            'reason' => $reason,
+        ];
     }
 
     /**

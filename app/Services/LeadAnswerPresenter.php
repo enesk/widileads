@@ -25,6 +25,12 @@ class LeadAnswerPresenter
      */
     public function answers(Lead $lead): array
     {
+        // Angesprochen wird der Dienst auch mitten in einer Schleife ueber
+        // viele Leads (Autokauf, Webhook-Zustellung). Beides ausdruecklich
+        // nachladen, sonst holt Eloquent es je Lead einzeln -- und der
+        // Waechter aus FB-041 laesst das zu Recht nicht durchgehen.
+        $lead->loadMissing(['answers', 'funnelVersion']);
+
         $questions = $this->questionsByFieldKey($lead);
 
         return $lead->answers
