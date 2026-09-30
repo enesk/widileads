@@ -303,9 +303,49 @@
                     </div>
                 </dl>
 
-                <a href="{{ $complaintUrl }}" class="block text-sm text-brand hover:underline mt-4">
-                    {{ __('marketplace.purchased.portal.facts.complaint') }}
-                </a>
+                {{-- Reklamation (FB-058). Entschieden wird nichts hier: Der
+                     Antrag geht an die Pruefliste, der LeadComplaintService
+                     prueft Frist und Zulaessigkeit. --}}
+                @if ($complaintFiled)
+                    <p class="mt-4 text-sm text-zinc-500">{{ $complaintFiled }}</p>
+                @elseif ($canComplain)
+                    @if ($showComplaint)
+                        <form wire:submit="fileComplaint" class="mt-4 space-y-3">
+                            <p class="text-sm text-zinc-500">{{ __('marketplace.complaint.help') }}</p>
+
+                            <x-app.select name="complaintState" wire:model="complaintState"
+                                          :label="__('marketplace.complaint.fields.requested_state')" :sr-only="false">
+                                @foreach ($complaintStates as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </x-app.select>
+
+                            <div>
+                                <label for="complaint-reason" class="block text-sm text-zinc-500">
+                                    {{ __('marketplace.complaint.fields.reason') }}
+                                </label>
+                                <textarea id="complaint-reason" wire:model="complaintReason" rows="4"
+                                          placeholder="{{ __('marketplace.complaint.reason_placeholder') }}"
+                                          class="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-brand focus:outline-none"></textarea>
+                                @error('complaintReason')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="flex gap-2">
+                                <x-app.button type="submit">{{ __('marketplace.complaint.submit') }}</x-app.button>
+                                <x-app.button type="button" variant="ghost" wire:click="$set('showComplaint', false)">
+                                    {{ __('marketplace.complaint.cancel') }}
+                                </x-app.button>
+                            </div>
+                        </form>
+                    @else
+                        <button type="button" wire:click="$set('showComplaint', true)"
+                                class="block text-sm text-brand hover:underline mt-4">
+                            {{ __('marketplace.purchased.portal.facts.complaint') }}
+                        </button>
+                    @endif
+                @endif
             </section>
 
         </aside>

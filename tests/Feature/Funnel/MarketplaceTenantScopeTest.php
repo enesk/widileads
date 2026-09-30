@@ -52,7 +52,11 @@ class MarketplaceTenantScopeTest extends FeatureTest
         // Panel und registriert den panel-eigenen Mandanten-Scope -- setzt man
         // Panel und Mandant nur von Hand, entsteht er nie, und der Test liefe
         // gegen eine Lage, die es im Browser nicht gibt.
-        $this->get(BuyerProfilePage::getUrl(panel: 'dashboard', tenant: $tenant))->assertSuccessful();
+        //
+        // Die Seite selbst antwortet seit dem Umzug des Nutzerbereichs mit
+        // einer Weiterleitung ins Portal. Das Panel bootet trotzdem: Die
+        // Weiterleitung liegt am Ende der Panel-Middleware.
+        $this->get(BuyerProfilePage::getUrl(panel: 'dashboard', tenant: $tenant))->assertRedirect();
 
         Filament::setCurrentPanel(Filament::getPanel('dashboard'));
         Filament::setTenant($tenant);

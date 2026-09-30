@@ -69,7 +69,7 @@ class Ordered extends Mailable implements ShouldQueue
             return null;
         }
 
-        return route('filament.dashboard.pages.marketplace', ['tenant' => $tenant]);
+        return route('portal.marketplace', ['tenant' => $tenant->uuid]);
     }
 
     /**

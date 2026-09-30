@@ -7,15 +7,17 @@ use App\Models\User;
 
 class UserDashboardService
 {
+    /**
+     * Wohin ein angemeldeter Nutzer gehoert.
+     *
+     * Seit dem Umzug des Nutzerbereichs ist das immer das Portal und nicht
+     * mehr das Filament-Panel unter /dashboard. Die Methode bleibt bestehen,
+     * weil an ihr die Anmeldung, die Einladungen und die Route /dashboard
+     * haengen -- sie zeigt nur woanders hin.
+     */
     public function getUserDashboardUrl(User $user): string
     {
-        $tenant = $this->defaultTenantOf($user);
-
-        if ($tenant !== null) {
-            return route('filament.dashboard.pages.dashboard', ['tenant' => $tenant]);
-        }
-
-        return route('home');
+        return $this->getUserPortalUrl($user);
     }
 
     /**

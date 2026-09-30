@@ -12,7 +12,7 @@
 
     @php
         $marketplaceUrl = ($order !== null && ($tenant ?? null) !== null)
-            ? route('filament.dashboard.pages.marketplace', ['tenant' => $tenant])
+            ? route('portal.marketplace', ['tenant' => $tenant->uuid])
             : route('home');
 
         // Angezeigt wird Geld, gerechnet wird in Cent: Die Betraege kommen als

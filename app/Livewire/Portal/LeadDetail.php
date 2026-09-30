@@ -7,7 +7,8 @@ namespace App\Livewire\Portal;
 use App\Constants\BuyerLeadStatus;
 use App\Constants\CallAttemptOutcome;
 use App\Constants\CallAttemptStatus;
-use App\Filament\Dashboard\Pages\PurchasedLeadDetail;
+use App\Constants\LeadState;
+use App\Exceptions\ComplaintNotAllowedException;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Livewire\Portal\Concerns\InteractsWithPortalTenant;
 use App\Livewire\Portal\Concerns\ShowsToasts;
@@ -20,6 +21,7 @@ use App\Presenters\LeadPresenter;
 use App\Services\CallerIdService;
 use App\Services\CallNotPossible;
 use App\Services\CallService;
+use App\Services\LeadComplaintService;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
 use App\Support\PostpaidTerms;
@@ -70,6 +72,15 @@ class LeadDetail extends Component
     /** Rueckmeldung des letzten Anrufversuchs, als Band ueber der Seite. */
     public ?string $notice = null;
 
+    /** Ist das Reklamationsformular aufgeklappt? */
+    public bool $showComplaint = false;
+
+    /** Der Zustand, den der Kaeufer beantragt. */
+    public string $complaintState = '';
+
+    /** Seine Begruendung -- ohne sie laesst sich der Antrag nicht pruefen. */
+    public string $complaintReason = '';
+
     /**
      * Bis zu diesem Zeitpunkt fragt die Ansicht waehrend eines Anrufs nach.
      * Dieselbe Begrenzung wie in der Filament-Fassung: Ein Anruf braucht
@@ -92,6 +103,7 @@ class LeadDetail extends Component
 
         $this->notes = (string) ($record->buyer_notes ?? '');
         $this->status = $record->buyer_status?->value ?? BuyerLeadStatus::OPEN->value;
+        $this->complaintState = LeadState::UNERREICHBAR->value;
 
         if ($this->runningAttempt() !== null) {
             $this->openPollWindow();
@@ -148,10 +160,96 @@ class LeadDetail extends Component
                 : null,
             'priceStatus' => __('marketplace.purchased.detail.price_status.'.$purchase->status->value),
             'statusOptions' => BuyerLeadStatus::options(),
-            'complaintUrl' => $this->complaintUrl(),
+            'canComplain' => $this->canComplain(),
+            'complaintStates' => $this->complaintStates(),
+            // Liegt schon eine vor, steht ihr Stand da statt des Formulars.
+            'complaintFiled' => $purchase->complaint === null ? null : __('marketplace.complaint.filed', [
+                'state' => $purchase->complaint->requested_state->label(),
+                'status' => $purchase->complaint->status->label(),
+            ]),
             'purchasedRelative' => $this->relativeTime($purchase->purchased_at),
             'backUrl' => route('portal.leads', ['tenant' => $this->portalTenant()->uuid]),
         ]);
+    }
+
+    /**
+     * Reklamiert den Kauf (FB-058).
+     *
+     * Die Seite entscheidet nichts: Zulaessigkeit, Frist und Guthaben pruefen
+     * ausschliesslich der LeadComplaintService und die Pruefliste. Frueher
+     * fuehrte von hier ein Verweis ins Dashboard-Panel -- den gibt es nicht
+     * mehr, der Nutzerbereich ist das Portal.
+     */
+    public function fileComplaint(): void
+    {
+        $this->validate([
+            'complaintReason' => ['required', 'string', 'min:10'],
+        ], attributes: [
+            'complaintReason' => __('marketplace.complaint.fields.reason'),
+        ]);
+
+        $state = LeadState::tryFrom($this->complaintState) ?? LeadState::UNERREICHBAR;
+
+        try {
+            $complaint = app(LeadComplaintService::class)->file(
+                $this->purchase(),
+                $this->portalTenant(),
+                $state,
+                $this->complaintReason,
+            );
+        } catch (ComplaintNotAllowedException $exception) {
+            $this->toastError($exception->getMessage());
+
+            return;
+        }
+
+        $this->purchase()->refresh();
+
+        $this->showComplaint = false;
+        $this->complaintReason = '';
+
+        $this->toast(__('marketplace.complaint.filed', [
+            'state' => $complaint->requested_state->label(),
+            'status' => $complaint->status->label(),
+        ]));
+    }
+
+    /**
+     * Darf dieser Kauf ueberhaupt noch reklamiert werden?
+     *
+     * Reine Vorschau fuer die Oberflaeche -- verbindlich entscheidet der
+     * LeadComplaintService, und zwar dieselben drei Fragen: schon reklamiert,
+     * Lead schon abgeschlossen, Frist abgelaufen.
+     */
+    public function canComplain(): bool
+    {
+        $purchase = $this->purchase();
+
+        if ($purchase->complaint !== null) {
+            return false;
+        }
+
+        if ($purchase->lead?->lead_state !== LeadState::VERKAUFT) {
+            return false;
+        }
+
+        $deadline = $purchase->purchased_at?->copy()->addDays((int) config('funnel.call.deadline_days'));
+
+        return $deadline === null || $deadline->isFuture();
+    }
+
+    /**
+     * Reklamiert werden kann nur "unerreichbar" oder "ungueltig" -- jeder
+     * andere Zustand waere kein Reklamationsgrund.
+     *
+     * @return array<string, string>
+     */
+    public function complaintStates(): array
+    {
+        return [
+            LeadState::UNERREICHBAR->value => LeadState::UNERREICHBAR->label(),
+            LeadState::UNGUELTIG->value => LeadState::UNGUELTIG->label(),
+        ];
     }
 
     /**
@@ -521,20 +619,6 @@ class LeadDetail extends Component
         $key = 'call.panel.ignored.'.(string) ($attempt->ignore_reason ?? $attempt->outcome?->value);
 
         return __($key) === $key ? __('call.panel.ignored.other') : __($key);
-    }
-
-    /**
-     * Die Reklamation liegt weiterhin im Dashboard-Panel: Das Formular ist der
-     * naechste Baustein des Portals, bis dahin fuehrt der Verweis an die Stelle,
-     * an der es sie schon gibt.
-     */
-    private function complaintUrl(): string
-    {
-        return PurchasedLeadDetail::getUrl(
-            ['purchase' => $this->purchase()->getKey()],
-            panel: 'dashboard',
-            tenant: $this->portalTenant(),
-        );
     }
 
     /** "gekauft gestern, 11:05" -- dieselben Bausteine wie in "Meine Leads". */

@@ -50,6 +50,9 @@ class PanelSmokeTest extends FeatureTest
             TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS,
         ]));
 
+        // Ein Verkaeufer bleibt vorerst im Panel: Seine Portalseiten sind
+        // noch Platzhalter, und die Portal-Startseite ist dem Kaeufer
+        // vorbehalten.
         $this->get('/dashboard/'.$tenant->uuid)->assertOk();
     }
 
@@ -67,6 +70,10 @@ class PanelSmokeTest extends FeatureTest
             TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS,
         ]));
 
-        $this->get('/dashboard/'.$tenant->refresh()->uuid)->assertOk();
+        $uuid = $tenant->refresh()->uuid;
+
+        $this->get('/dashboard/'.$uuid)->assertRedirect(route('portal.overview', ['tenant' => $uuid]));
+
+        $this->get(route('portal.overview', ['tenant' => $uuid]))->assertOk();
     }
 }

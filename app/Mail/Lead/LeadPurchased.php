@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Mail\Lead;
 
-use App\Filament\Dashboard\Pages\PurchasedLeadDetail;
 use App\Models\Lead;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
@@ -63,11 +62,10 @@ class LeadPurchased extends Mailable implements ShouldQueue
             return null;
         }
 
-        return PurchasedLeadDetail::getUrl(
-            ['purchase' => $this->purchase->getKey()],
-            panel: 'dashboard',
-            tenant: $buyer,
-        );
+        return route('portal.leads.show', [
+            'tenant' => $buyer->uuid,
+            'purchase' => $this->purchase->getKey(),
+        ]);
     }
 
     public function content(): Content

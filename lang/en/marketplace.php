@@ -664,6 +664,7 @@ return [
         'help' => 'Request that this lead counts as unreachable or invalid. A member of staff reviews the request; if it is accepted, the price is refunded to your balance.',
         'reason_placeholder' => 'What happened? For example: called three times on different days, nobody reachable.',
         'submit' => 'Submit request',
+        'cancel' => 'Cancel',
         'filed' => 'Complaint submitted (:state) -- status: :status.',
 
         'status' => [

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Mail\Wallet;
 
-use App\Filament\Dashboard\Pages\WalletTopUp;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WalletTransaction;
@@ -54,7 +53,7 @@ class WalletTopupConfirmedMail extends Mailable implements ShouldQueue
                 // Der Verlauf haengt am Kaeufer-Workspace der Buchung und nicht
                 // am gerade aktiven Mandanten: In der Queue gibt es keinen
                 // Panel-Kontext.
-                'historyUrl' => WalletTopUp::getUrl(panel: 'dashboard', tenant: $this->tenant),
+                'historyUrl' => route('portal.transactions', ['tenant' => $this->tenant->uuid]),
             ],
         );
     }

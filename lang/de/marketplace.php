@@ -673,6 +673,7 @@ return [
         'help' => 'Beantrage, dass dieser Lead als unerreichbar oder ungültig gilt. Ein Mitarbeiter prüft den Antrag; wird er anerkannt, bekommst du dein Guthaben zurück.',
         'reason_placeholder' => 'Was ist passiert? Zum Beispiel: dreimal an verschiedenen Tagen angerufen, niemand erreichbar.',
         'submit' => 'Antrag absenden',
+        'cancel' => 'Abbrechen',
         'filed' => 'Reklamation eingereicht (:state) - Stand: :status.',
 
         'status' => [

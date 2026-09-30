@@ -55,6 +55,24 @@ use Illuminate\Support\Carbon;
  */
 class Wallet extends Model
 {
+    /**
+     * Vorgaben der Zaehlspalten, gleich den Vorgaben der Datenbank.
+     *
+     * Sie stehen hier, damit ein frisch ueber firstOrCreate() angelegtes
+     * Wallet sie auch im Arbeitsspeicher traegt: Der erste Aufruf einer
+     * Portalseite legt das Wallet an und liest im selben Zug Saldo und
+     * Reservierung -- ohne die Vorgaben waeren beide null statt 0.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'balance_cents' => 0,
+        'reserved_cents' => 0,
+        'credit_limit_cents' => 0,
+        'purchase_blocked' => false,
+        'payment_mode' => PaymentMode::PREPAID->value,
+    ];
+
     protected $fillable = [
         'owner_type',
         'owner_id',

@@ -54,7 +54,7 @@ class CreateWorkspace extends Component implements HasForms
             ->success()
             ->send();
 
-        $this->redirect(route('filament.dashboard.pages.dashboard', ['tenant' => $tenant->uuid]));
+        $this->redirect(route('portal.overview', ['tenant' => $tenant->uuid]));
     }
 
     public function render()

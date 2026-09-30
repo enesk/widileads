@@ -7,6 +7,7 @@ use App\Constants\TenancyPermissionConstants;
 use App\Filament\Dashboard\Pages\CreateWorkspace;
 use App\Filament\Dashboard\Pages\TenantSettings;
 use App\Filament\Dashboard\Pages\TwoFactorAuth\TwoFactorAuth;
+use App\Http\Middleware\RedirectDashboardToPortal;
 use App\Http\Middleware\UpdateUserLastSeenAt;
 use App\Livewire\AddressForm;
 use App\Models\Tenant;
@@ -129,6 +130,9 @@ class DashboardPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 UpdateUserLastSeenAt::class,
+                // Der Nutzerbereich ist das Portal. Was es dort fertig gibt,
+                // wird hier gar nicht erst gerendert.
+                RedirectDashboardToPortal::class,
             ])
             ->renderHook('panels::head.start', function () {
                 return view('components.layouts.partials.analytics');
