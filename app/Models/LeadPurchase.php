@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $lead_id
  * @property int $buyer_tenant_id
+ * @property int|null $purchased_by_user_id Handelnder Nutzer; null beim Autokauf
  * @property int $seller_tenant_id
  * @property int $price_cents
  * @property string $commission_percent Provisionssatz, festgeschrieben zum Kaufzeitpunkt
@@ -76,6 +77,7 @@ class LeadPurchase extends Model
     protected $fillable = [
         'lead_id',
         'buyer_tenant_id',
+        'purchased_by_user_id',
         'seller_tenant_id',
         'price_cents',
         'commission_percent',
@@ -160,6 +162,20 @@ class LeadPurchase extends Model
     }
 
     /**
+     * Der Nutzer, der den Kauf ausgeloest hat -- null beim Autokauf.
+     *
+     * Ohne Mandanten-Scope waere hier nichts zu gewinnen: Benutzer gehoeren
+     * keinem Mandanten, die Mitgliedschaft liegt im Pivot. Die Trennung haengt
+     * wie beim Kaeufer am Kaufbeleg selbst.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function purchasedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'purchased_by_user_id');
+    }
+
+    /**
      * Kaeufe eines Mandanten.
      *
      * Bewusst kein BelongsToTenant: Ein Kaufbeleg gehoert dem Kaeufer, der
@@ -172,6 +188,23 @@ class LeadPurchase extends Model
     public function scopeOfBuyer(Builder $query, Tenant $buyer): void
     {
         $query->where('buyer_tenant_id', $buyer->getKey());
+    }
+
+    /**
+     * Kaeufe eines einzelnen Nutzers -- die Grundlage von "Meine Leads".
+     *
+     * Bewusst ohne Mandantenbedingung: Wer nur die eigenen Kaeufe sehen will,
+     * setzt ihn zusaetzlich zu `ofBuyer`. Die Mandantentrennung bleibt damit
+     * dort, wo sie schon ist, statt an zwei Stellen halb zu gelten.
+     *
+     * Autokaeufe tragen keinen Nutzer und tauchen deshalb bei niemandem auf --
+     * das ist so gewollt: Sie hat niemand ausgeloest.
+     *
+     * @param  Builder<$this>  $query
+     */
+    public function scopeOfUser(Builder $query, User $user): void
+    {
+        $query->where('purchased_by_user_id', $user->getKey());
     }
 
     /**
@@ -194,6 +227,7 @@ class LeadPurchase extends Model
             'buyer_feedback' => BuyerLeadFeedback::class,
             'buyer_feedback_at' => 'datetime',
             'buyer_status' => BuyerLeadStatus::class,
+            'purchased_by_user_id' => 'integer',
         ];
     }
 }

@@ -69,4 +69,14 @@ class TenancyPermissionConstants
      * Erlaubt das Anlegen und Bearbeiten von Funnels im Builder (FB-015).
      */
     public const PERMISSION_MANAGE_FUNNELS = 'tenancy: manage funnels';
+
+    /**
+     * Erlaubt den Blick auf alle Leadkaeufe des Mandanten -- auch auf die der
+     * Kollegen ("Team Leads").
+     *
+     * Ohne dieses Recht sieht ein Mitglied ausschliesslich seine eigenen
+     * Kaeufe. Die Kaeufer-Rolle bekommt es bewusst nicht: Wer im Team arbeitet,
+     * soll nicht von selbst den ganzen Mandanten einsehen.
+     */
+    public const PERMISSION_VIEW_TEAM_LEADS = 'tenancy: view team leads';
 }

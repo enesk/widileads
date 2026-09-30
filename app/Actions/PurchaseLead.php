@@ -167,7 +167,7 @@ class PurchaseLead
             // Kaeufer-Wallet. Reicht das verfuegbare Guthaben nicht, wirft der
             // Dienst eine InsufficientFundsException -- dann faellt die
             // gesamte Transaktion zurueck, samt Kaufbeleg.
-            $purchase = $this->purchases->reserve($locked, $buyer);
+            $purchase = $this->purchases->reserve($locked, $buyer, $actor);
 
             // Mit dem ersten Kauf ist der Lead ausgeliefert -- ab hier laeuft
             // die Frist der Erreichbarkeitspruefung (FB-084, Ticket #11). Bei

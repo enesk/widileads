@@ -68,10 +68,16 @@ class PurchaseService
      * nicht, faellt beides weg -- ein Kaufbeleg ohne Deckung waere ein
      * verschenkter Lead.
      *
+     * Der handelnde Nutzer wird mitgeschrieben. Er fehlt beim Autokauf
+     * (FB-056) -- dort entscheidet das Kaufprofil und kein Mensch; ein
+     * zugeschriebener Nutzer waere dort eine Behauptung.
+     *
+     * @param  User|null  $actor  Nutzer, der den Kauf ausgeloest hat; null beim Autokauf
+     *
      * @throws InsufficientFundsException wenn das freie Guthaben des Kaeufers nicht reicht
      * @throws InvalidPurchaseTransitionException wenn dieser Kaeufer den Lead schon abgerechnet hat
      */
-    public function reserve(Lead $lead, Tenant $buyer): LeadPurchase
+    public function reserve(Lead $lead, Tenant $buyer, ?User $actor = null): LeadPurchase
     {
         $existing = LeadPurchase::query()
             ->where('lead_id', $lead->getKey())
@@ -88,7 +94,7 @@ class PurchaseService
         $commissionPercent = $this->commissionPercentFor($seller);
         $commissionCents = self::commissionCents($priceCents, $commissionPercent);
 
-        return DB::transaction(function () use ($lead, $buyer, $seller, $priceCents, $commissionPercent, $commissionCents): LeadPurchase {
+        return DB::transaction(function () use ($lead, $buyer, $actor, $seller, $priceCents, $commissionPercent, $commissionCents): LeadPurchase {
             $buyerWallet = Wallet::forBuyer($buyer);
             $paymentMode = $buyerWallet->payment_mode;
             $surchargeCents = $paymentMode->hasSurcharge()
@@ -98,6 +104,7 @@ class PurchaseService
             $purchase = LeadPurchase::query()->create([
                 'lead_id' => $lead->getKey(),
                 'buyer_tenant_id' => $buyer->getKey(),
+                'purchased_by_user_id' => $actor?->getKey(),
                 'seller_tenant_id' => $seller->getKey(),
                 'price_cents' => $priceCents,
                 'commission_percent' => $commissionPercent,
