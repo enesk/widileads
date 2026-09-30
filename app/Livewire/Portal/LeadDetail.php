@@ -126,6 +126,12 @@ class LeadDetail extends Component
             'email' => $presenter->email(),
             'phone' => $presenter->phone(),
             'phoneMasked' => $presenter->isPhoneMasked(),
+            // Ist die Nummer frei, waehlt der Kaeufer selbst: Ein Anruf ueber
+            // die Bridge kostet Twilio-Gebuehren und aendert nichts mehr --
+            // die Erreichbarkeit steht mit der Freigabe bereits fest (FB-085).
+            'phoneLink' => $presenter->isPhoneMasked()
+                ? null
+                : 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone()),
             'postalCode' => $presenter->postalCode(),
             'funnelName' => $lead->funnel?->name ?? __('marketplace.listing.unknown_funnel'),
             'requestText' => $this->requestText(),

@@ -8,6 +8,12 @@
     Diese Ansicht entscheidet nichts. Sie rechnet nicht und ruft keinen Dienst
     auf: Frist, Zaehler, Preis und Kontaktdaten liegen fertig vor, Letztere so,
     wie der LeadPresenter sie geliefert hat.
+
+    Anrufen oder Nummer: Solange die Rufnummer verdeckt ist, geht der Anruf
+    ueber die Bridge -- anders kaeme der Kaeufer nicht an den Lead. Ist sie
+    freigegeben, steht hier ein tel:-Verweis und kein Knopf mehr: Die
+    Erreichbarkeit ist mit der Freigabe entschieden, ein weiterer Anruf ueber
+    das Portal wuerde nur Gebuehren kosten.
 --}}
 <div @if ($this->shouldPoll()) wire:poll.5s="refreshStatus" @endif>
 
@@ -53,10 +59,20 @@
                 {{ __('marketplace.purchased.portal.email_action') }}
             </a>
 
-            <button type="button" class="btn-primary" wire:click="startCall" @disabled(! $canCall) @if (! $canCall) title="{{ $blockedReason }}" @endif>
-                <x-app.icon name="phone" />
-                {{ __('marketplace.purchased.portal.deadline.call') }}
-            </button>
+            {{-- Ist die Nummer frei, waehlt der Kaeufer selbst. Ein Anruf
+                 ueber die Bridge kostet Gebuehren und aendert nichts mehr:
+                 Mit der Freigabe steht die Erreichbarkeit fest. --}}
+            @if ($phoneLink !== null)
+                <a href="{{ $phoneLink }}" class="btn-primary">
+                    <x-app.icon name="phone" />
+                    <span class="tabular-nums">{{ $phone }}</span>
+                </a>
+            @else
+                <button type="button" class="btn-primary" wire:click="startCall" @disabled(! $canCall) @if (! $canCall) title="{{ $blockedReason }}" @endif>
+                    <x-app.icon name="phone" />
+                    {{ __('marketplace.purchased.portal.deadline.call') }}
+                </button>
+            @endif
         </div>
     </div>
 
@@ -73,13 +89,15 @@
                             <x-app.icon name="lock" class="size-4 shrink-0" />
                             {{ __('leads.contact.phone') }}
                         </p>
-                        <p @class([
-                            'mt-1 text-lg font-semibold tabular-nums',
-                            'text-zinc-400' => $phoneMasked,
-                            'text-zinc-900' => ! $phoneMasked,
-                        ])>{{ $phone }}</p>
+                        @if ($phoneLink !== null)
+                            <a href="{{ $phoneLink }}" class="mt-1 block text-lg font-semibold tabular-nums text-zinc-900 hover:underline">{{ $phone }}</a>
+                        @else
+                            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-400">{{ $phone }}</p>
+                        @endif
                         <p class="mt-1 text-xs text-zinc-500">
-                            {{ __('marketplace.purchased.portal.phone_hint_masked') }}
+                            {{ $phoneLink !== null
+                                ? __('marketplace.purchased.portal.phone_hint_released')
+                                : __('marketplace.purchased.portal.phone_hint_masked') }}
                         </p>
                     </div>
 
@@ -215,10 +233,17 @@
                     <p class="mt-3 text-sm text-zinc-500">{{ $blockedReason }}</p>
                 @endif
 
-                <button type="button" class="btn-primary w-full mt-4" wire:click="startCall" @disabled(! $canCall)>
-                    <x-app.icon name="phone" />
-                    {{ __('marketplace.purchased.portal.deadline.call') }}
-                </button>
+                @if ($phoneLink !== null)
+                    <a href="{{ $phoneLink }}" class="btn-secondary w-full mt-4">
+                        <x-app.icon name="phone" />
+                        <span class="tabular-nums">{{ $phone }}</span>
+                    </a>
+                @else
+                    <button type="button" class="btn-primary w-full mt-4" wire:click="startCall" @disabled(! $canCall)>
+                        <x-app.icon name="phone" />
+                        {{ __('marketplace.purchased.portal.deadline.call') }}
+                    </button>
+                @endif
 
                 {{-- Fuehrt zu den beiden Regeln unter dem Versuchsverlauf --
                      eine eigene Hilfeseite gibt es noch nicht. --}}
