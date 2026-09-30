@@ -25,11 +25,7 @@
 
 @php
     $tenant = $tenant ?? request()->route('tenant');
-    // Waehrend der Rufnummernsperre gibt es genau eine erreichbare Seite. Eine
-    // Navigation davor waere eine Liste von Verweisen, die alle hierher
-    // zurueckspringen (App\Support\PortalCallerIdLock).
-    $callerIdLocked = \App\Support\PortalCallerIdLock::locks(auth()->user(), $tenant);
-    $navigation = $tenant && ! $callerIdLocked ? \App\Support\PortalNavigation::forTenant($tenant) : [];
+    $navigation = $tenant ? \App\Support\PortalNavigation::forTenant($tenant) : [];
     $role = $tenant?->isBuyer() ? __('portal.workspace.buyer') : __('portal.workspace.seller');
     $wallet = $tenant?->wallet;
     $user = auth()->user();
@@ -66,7 +62,7 @@
 <header class="sticky top-0 z-40 bg-white border-b border-zinc-200">
     <div class="flex items-center justify-between h-16 px-4 md:px-6">
         <div class="flex items-center gap-3">
-            <button type="button" @class(['lg:hidden btn-ghost px-3', 'hidden' => $callerIdLocked]) aria-label="{{ __('portal.open_menu') }}" aria-expanded="false" aria-controls="drawer" data-menu-toggle="drawer">
+            <button type="button" class="lg:hidden btn-ghost px-3" aria-label="{{ __('portal.open_menu') }}" aria-expanded="false" aria-controls="drawer" data-menu-toggle="drawer">
                 <x-app.icon name="menu" />
             </button>
 
@@ -79,7 +75,7 @@
         </div>
 
         <div class="flex items-center gap-3">
-            @if ($wallet && $tenant && ! $callerIdLocked)
+            @if ($wallet && $tenant)
                 {{--
                     Bei Pay as you go ist "verfuegbar" die falsche Zahl im Kopf:
                     Der Kaeufer schuldet etwas, und genau das gehoert hierher
@@ -109,7 +105,7 @@
                     <p class="text-xs text-zinc-500 truncate">{{ $user?->email }}</p>
                 </div>
 
-                @if ($tenant && ! $callerIdLocked)
+                @if ($tenant)
                     <a href="{{ route('portal.profile', ['tenant' => $tenant->uuid]) }}" role="menuitem" class="flex items-center min-h-11 px-3 rounded-lg text-sm text-zinc-700 hover:bg-zinc-100">
                         {{ __('portal.menu.profile') }}
                     </a>
@@ -130,7 +126,7 @@
     </div>
 </header>
 
-@if ($tenant && ! $callerIdLocked)
+@if ($tenant)
     {{-- Schublade fuer schmale Bildschirme. Die Flaeche dahinter traegt
          denselben Schalter wie der Knopf im Kopf und schliesst sie damit. --}}
     <div id="drawer" class="hidden lg:hidden fixed inset-0 z-50">
@@ -141,8 +137,8 @@
     </div>
 @endif
 
-<div @class(['lg:grid lg:grid-cols-[18rem_1fr]' => ! $callerIdLocked])>
-    @if ($tenant && ! $callerIdLocked)
+<div class="lg:grid lg:grid-cols-[18rem_1fr]">
+    @if ($tenant)
         <aside class="hidden lg:block sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto bg-white border-r border-zinc-200">
             <x-app.sidebar :navigation="$navigation" :tenant="$tenant" :role="$role" />
         </aside>
