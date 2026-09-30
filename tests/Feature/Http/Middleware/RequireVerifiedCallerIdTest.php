@@ -60,21 +60,20 @@ class RequireVerifiedCallerIdTest extends FeatureTest
             ->assertSuccessful();
     }
 
-    public function test_an_operator_workspace_is_not_locked(): void
+    /**
+     * Ein Workspace vom Typ `operator` ist nicht dasselbe wie ein Verkaeufer:
+     * Wer sich ueber /register anmeldet, bekommt genau diesen Typ, auch als
+     * Kaeufer. Die Sperre darf sich deshalb nicht am Typ festmachen.
+     */
+    public function test_a_workspace_from_the_plain_registration_is_locked_too(): void
     {
         $tenant = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
         $user = User::factory()->create();
         $tenant->users()->attach($user);
 
-        // Ob die Uebersicht ihn hereinlaesst, entscheidet sie selbst -- ein
-        // Betreiber sieht den Kaeuferbereich nicht. Hier zaehlt nur, dass ihn
-        // nicht diese Sperre auf die Bestaetigungsseite schickt.
-        $response = $this->actingAs($user)->get(route('portal.overview', ['tenant' => $tenant->uuid]));
-
-        $this->assertNotSame(
-            route('portal.caller-id', ['tenant' => $tenant->uuid]),
-            $response->headers->get('Location'),
-        );
+        $this->actingAs($user)
+            ->get(route('portal.overview', ['tenant' => $tenant->uuid]))
+            ->assertRedirect(route('portal.caller-id', ['tenant' => $tenant->uuid]));
     }
 
     public function test_the_lock_can_be_switched_off(): void

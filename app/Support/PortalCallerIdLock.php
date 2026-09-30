@@ -23,9 +23,13 @@ use App\Services\CallerIdService;
  * auseinander, stuende eine Navigation voller Verweise da, die alle auf
  * dieselbe Seite zurueckspringen.
  *
- * **Die Sperre gilt nur fuer Kaeufer-Mandanten.** Ein Betreiber-Workspace
- * verkauft Leads und ruft niemanden an; fuer ihn gaebe es nichts zu
- * bestaetigen, und die Sperre waere eine Tuer ohne Schluessel.
+ * **Die Sperre gilt fuer jeden Workspace des Portals.** Sie war zuerst auf
+ * Mandanten vom Typ `buyer` beschraenkt -- und lief damit ins Leere: Wer sich
+ * ueber `/register` anmeldet, bekommt einen Workspace vom Typ `operator`
+ * (TenantCreationService::createTenant hat OPERATOR als Vorgabe), auch wenn er
+ * als Kaeufer gekommen ist. Ein Kaeufer-Mandant entsteht allein ueber die
+ * Kaeuferregistrierung unter /kaeufer/registrierung. Der Typ taugt deshalb
+ * nicht als Unterscheidung; die Sperre fragt ihn nicht mehr.
  *
  * **Die Bestaetigung haengt am Benutzer, nicht am Workspace** (siehe
  * CallerIdService::forUser). Wer sie in einem Workspace erledigt hat, ist in
@@ -48,10 +52,6 @@ final class PortalCallerIdLock
         }
 
         if (! $user instanceof User || ! $tenant instanceof Tenant) {
-            return false;
-        }
-
-        if (! $tenant->isBuyer()) {
             return false;
         }
 
