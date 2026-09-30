@@ -104,7 +104,7 @@ class Transactions extends Component
             'remaining' => max(0, $total - $rows->count()),
             'nextBatch' => min(self::PER_PAGE, max(0, $total - $rows->count())),
             'reservedNote' => __('marketplace.wallet.buyer.history.reserved_note'),
-            'surchargeHint' => PostpaidTerms::isPostpaid($wallet) ? PostpaidTerms::surchargeHint() : null,
+            'surchargeHint' => PostpaidTerms::isPostpaid($wallet) ? PostpaidTerms::surchargeHint($wallet) : null,
             'topUpUrl' => route('portal.wallet', ['tenant' => $tenant->uuid]),
             'ordersUrl' => route('portal.orders', ['tenant' => $tenant->uuid]),
         ])->title(__('marketplace.wallet.buyer.history.heading'));

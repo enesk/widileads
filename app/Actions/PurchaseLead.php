@@ -63,13 +63,13 @@ class PurchaseLead
     ) {}
 
     /**
-     * Gemerkter Zahlungsmodus je Kaeufer-Mandant. Der Marktplatz erfragt den
+     * Gemerktes Kauf-Wallet je Kaeufer-Mandant. Der Marktplatz erfragt den
      * Preis fuer jeden Lead der Liste einzeln; ohne das Merken waere das eine
      * Wallet-Abfrage je Zeile.
      *
-     * @var array<int, bool>
+     * @var array<int, Wallet>
      */
-    private array $buysOnCredit = [];
+    private array $buyerWallets = [];
 
     /**
      * Ohne handelnden Benutzer gekauft wird beim Autokauf (FB-056) -- dort
@@ -297,21 +297,33 @@ class PurchaseLead
             ? (int) $seller->lead_price_cents
             : (int) config('wallet.default_lead_price_cents');
 
-        if ($buyer === null || ! $this->buysOnCredit($buyer)) {
+        if ($buyer === null) {
             return $priceCents;
         }
 
-        return $priceCents + PurchaseService::surchargeCents($priceCents, $this->purchases->surchargePercent());
+        $wallet = $this->buyerWallet($buyer);
+
+        if (! $wallet->isPostpaid()) {
+            return $priceCents;
+        }
+
+        return $priceCents + PurchaseService::surchargeCents(
+            $priceCents,
+            $this->purchases->surchargePercent($wallet),
+        );
     }
 
     /**
-     * Kauft dieser Mandant gegen Kreditrahmen?
+     * Das Kauf-Wallet des Mandanten -- je Aufruf nur einmal geholt.
+     *
+     * An ihm haengen Zahlungsmodus und Aufschlagsatz, und gefragt wird in
+     * Schleifen ueber ganze Marktplatzseiten.
      */
-    private function buysOnCredit(Tenant $buyer): bool
+    private function buyerWallet(Tenant $buyer): Wallet
     {
         $key = (int) $buyer->getKey();
 
-        return $this->buysOnCredit[$key] ??= Wallet::forBuyer($buyer)->isPostpaid();
+        return $this->buyerWallets[$key] ??= Wallet::forBuyer($buyer);
     }
 
     /**

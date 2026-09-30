@@ -1092,6 +1092,8 @@ return [
                 'blocked_no' => 'Open',
                 'no_payment_method' => 'No payment method',
                 'reenable_note' => 'Re-enabled by the operator after a downgrade.',
+                'surcharge_own' => ':percent % (individual agreement)',
+                'surcharge_default' => ':percent % (platform default)',
 
                 'payment_mode' => [
                     'prepaid' => 'Prepaid',
@@ -1102,6 +1104,8 @@ return [
                     'payment_mode' => 'Payment mode',
                     'credit_limit' => 'Credit limit',
                     'credit_limit_cents' => 'Credit limit in cents',
+                    'surcharge' => 'Surcharge',
+                    'surcharge_percent' => 'Surcharge in percent',
                     'open_amount' => 'Open amount',
                     'open_total' => 'Total receivables',
                     'blocked' => 'Blocked',
@@ -1112,6 +1116,7 @@ return [
 
                 'hints' => [
                     'credit_limit_cents' => 'Amount the balance may go negative by. 30000 is 300.00 €.',
+                    'surcharge_percent' => 'Leave empty for the platform default (:percent %). 0 means this buyer pays no surcharge.',
                     'downgrade_reason' => 'The reason drives the fee, the purchase block and the wording of the email to the buyer.',
                     'fee_cents' => 'Prefilled with the fee of the selected reason. 0 charges none.',
                 ],
@@ -1120,6 +1125,9 @@ return [
                     'change_credit_limit' => 'Change credit limit',
                     'change_credit_limit_description' => 'The limit is a permission, not a balance – nothing is posted. Lowering it stops further purchases; the open amount remains.',
                     'credit_limit_changed' => 'Credit limit changed',
+                    'change_surcharge' => 'Change surcharge',
+                    'change_surcharge_description' => 'Applies to future purchases only – every purchase records the rate on its receipt. Empty restores the platform default, 0 exempts this buyer.',
+                    'surcharge_changed' => 'Surcharge changed',
                     'settle_now' => 'Collect now',
                     'settle_now_description' => 'Collects today\'s open amount without waiting for the weekly run. SEPA is announced first and only charged after the notice period.',
                     'settled' => 'Collection started',

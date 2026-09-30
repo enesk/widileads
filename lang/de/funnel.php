@@ -69,6 +69,7 @@ return [
             'postpaid_approved' => 'Pay as you go freigegeben',
             'postpaid_rejected' => 'Pay as you go abgelehnt',
             'postpaid_credit_limit_changed' => 'Kreditrahmen geändert',
+            'postpaid_surcharge_changed' => 'Aufschlag geändert',
             'postpaid_downgraded' => 'Pay as you go beendet',
         ],
 

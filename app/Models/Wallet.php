@@ -42,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @property int $reserved_cents
  * @property PaymentMode $payment_mode
  * @property int $credit_limit_cents
+ * @property string|null $surcharge_percent Abweichender Pay-as-you-go-Aufschlag; null = config('wallet.postpaid.surcharge_percent')
  * @property bool $purchase_blocked
  * @property Carbon|null $postpaid_enabled_at
  * @property int|null $postpaid_enabled_by
@@ -62,6 +63,7 @@ class Wallet extends Model
         'reserved_cents',
         'payment_mode',
         'credit_limit_cents',
+        'surcharge_percent',
         'purchase_blocked',
         'postpaid_enabled_at',
         'postpaid_enabled_by',
@@ -170,6 +172,21 @@ class Wallet extends Model
     public function isPostpaid(): bool
     {
         return $this->payment_mode === PaymentMode::POSTPAID;
+    }
+
+    /**
+     * Der Aufschlagsatz, der fuer dieses Wallet gilt.
+     *
+     * Der Wert am Wallet geht vor, sonst gilt die Vorgabe der Plattform. Eine
+     * ausdrueckliche 0 ist eine Entscheidung und keine Luecke: Dieser Kaeufer
+     * zahlt keinen Aufschlag. Dasselbe Muster wie der Provisionssatz am
+     * Verkaeufer-Mandanten.
+     */
+    public function effectiveSurchargePercent(): float
+    {
+        return $this->surcharge_percent !== null
+            ? (float) $this->surcharge_percent
+            : (float) config('wallet.postpaid.surcharge_percent');
     }
 
     /**

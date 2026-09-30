@@ -31,6 +31,7 @@ class ViewWallet extends ViewRecord
         return [
             WalletResource::settleNowAction(),
             WalletResource::changeCreditLimitAction(),
+            WalletResource::changeSurchargeAction(),
             WalletResource::reenablePostpaidAction(),
             WalletResource::downgradeAction(),
             WalletResource::adjustAction(),

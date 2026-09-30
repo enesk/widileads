@@ -361,6 +361,55 @@ class PostpaidService
     }
 
     /**
+     * Setzt einen abweichenden Aufschlag fuer dieses Wallet -- oder hebt ihn
+     * wieder auf.
+     *
+     * null heisst: Es gilt wieder die Vorgabe der Plattform aus
+     * config('wallet.postpaid.surcharge_percent'). Eine ausdrueckliche 0 ist
+     * etwas anderes, naemlich die Vereinbarung, dass dieser Kaeufer Pay as you
+     * go ohne Aufschlag bekommt.
+     *
+     * Gebucht wird nichts, und rueckwirkend gilt der Satz nicht: Er wird beim
+     * Reservieren als `lead_purchases.surcharge_cents` festgeschrieben, laufende
+     * Kaeufe behalten also ihren Betrag. Nachvollziehbar bleibt die Aenderung
+     * ueber das Audit-Log, mit altem und neuem Wert.
+     *
+     * @throws PostpaidNotAllowedException wenn das Wallet kein Kauf-Wallet ist oder der Satz ausserhalb von 0 bis 100 liegt
+     */
+    public function updateSurchargePercent(Wallet $wallet, ?float $percent, User $admin): Wallet
+    {
+        $this->guardBuyerWallet($wallet);
+
+        if ($percent !== null && ($percent < 0 || $percent > 100)) {
+            throw PostpaidNotAllowedException::invalidSurchargePercent($percent);
+        }
+
+        $previous = $wallet->surcharge_percent;
+        $next = $percent === null ? null : number_format($percent, 2, '.', '');
+
+        if ($previous === $next) {
+            return $wallet;
+        }
+
+        $wallet->forceFill(['surcharge_percent' => $next])->save();
+
+        $this->audit->log(
+            action: AuditAction::POSTPAID_SURCHARGE_CHANGED,
+            subject: $wallet,
+            payload: [
+                'wallet_id' => (int) $wallet->getKey(),
+                'previous_surcharge_percent' => $previous,
+                'surcharge_percent' => $next,
+                'default_surcharge_percent' => (float) config('wallet.postpaid.surcharge_percent'),
+            ],
+            tenant: $wallet->owner,
+            user: $admin,
+        );
+
+        return $wallet;
+    }
+
+    /**
      * Schaltet Pay as you go nach einer Rueckstufung wieder frei
      * (LP-POSTPAID-012).
      *

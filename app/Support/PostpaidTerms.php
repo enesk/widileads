@@ -43,19 +43,25 @@ final class PostpaidTerms
 
     /**
      * Der Aufschlagsatz als Zahl, etwa 7.5.
+     *
+     * Mit Wallet gilt dessen abweichender Satz, falls einer vereinbart ist.
+     * Der Kaeufer soll im Portal die Zahl sehen, die ihm berechnet wird, und
+     * nicht die Vorgabe der Plattform.
      */
-    public static function surchargePercent(): float
+    public static function surchargePercent(?Wallet $wallet = null): float
     {
-        return (float) config('wallet.postpaid.surcharge_percent');
+        return $wallet instanceof Wallet
+            ? $wallet->effectiveSurchargePercent()
+            : (float) config('wallet.postpaid.surcharge_percent');
     }
 
     /**
      * Der Aufschlagsatz, wie er im Text steht: "7,5" und nicht "7.5". Ganze
      * Saetze bleiben ohne Nachkommastelle.
      */
-    public static function surchargePercentLabel(): string
+    public static function surchargePercentLabel(?Wallet $wallet = null): string
     {
-        $percent = self::surchargePercent();
+        $percent = self::surchargePercent($wallet);
 
         return rtrim(rtrim(number_format($percent, 2, ',', '.'), '0'), ',');
     }
@@ -63,10 +69,22 @@ final class PostpaidTerms
     /**
      * Der Hinweis am Preis: "inkl. 7,5 % Pay-as-you-go-Aufschlag".
      */
-    public static function surchargeHint(): string
+    public static function surchargeHint(?Wallet $wallet = null): string
     {
         return (string) __('portal.postpaid.balance.surcharge_hint', [
-            'percent' => self::surchargePercentLabel(),
+            'percent' => self::surchargePercentLabel($wallet),
+        ]);
+    }
+
+    /**
+     * Derselbe Hinweis zu einem Satz, der bereits feststeht -- etwa dem aus
+     * einem Kaufbeleg. Ein bezahlter Preis darf sich nicht aendern, nur weil
+     * der Satz des Kaeufers inzwischen ein anderer ist.
+     */
+    public static function surchargeHintForPercent(float $percent): string
+    {
+        return (string) __('portal.postpaid.balance.surcharge_hint', [
+            'percent' => rtrim(rtrim(number_format($percent, 2, ',', '.'), '0'), ','),
         ]);
     }
 

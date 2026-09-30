@@ -93,7 +93,7 @@ class PostpaidApplication extends Component
                 'limit' => Money::format(PostpaidTerms::defaultCreditLimitCents()),
                 'weekday' => PostpaidTerms::settlementWeekday(),
                 'threshold' => Money::format(PostpaidTerms::thresholdCents()),
-                'percent' => PostpaidTerms::surchargePercentLabel(),
+                'percent' => PostpaidTerms::surchargePercentLabel($wallet),
             ]),
             'rules' => $this->rules($eligibility->snapshot, $hasPaymentMethod),
             'pending' => $pending,

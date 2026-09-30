@@ -133,6 +133,16 @@ class PostpaidNotAllowedException extends RuntimeException
     }
 
     /**
+     * Ein negativer Aufschlag waere ein Rabatt fuers Anschreibenlassen. Nach
+     * oben bleibt der Satz begrenzt, damit ein verrutschtes Komma nicht den
+     * Leadpreis vervielfacht.
+     */
+    public static function invalidSurchargePercent(float $percent): self
+    {
+        return new self(sprintf('Der Aufschlag muss zwischen 0 und 100 Prozent liegen, angegeben waren %s.', $percent));
+    }
+
+    /**
      * Statuscode fuer einen Endpunkt, der diese Ausnahme abfaengt.
      */
     public function status(): int

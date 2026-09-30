@@ -72,6 +72,9 @@ enum AuditAction: string
     /** Kreditrahmen eines Postpaid-Wallets geaendert -- wird von LP-POSTPAID-006 aufgerufen. */
     case POSTPAID_CREDIT_LIMIT_CHANGED = 'postpaid.credit_limit_changed';
 
+    /** Abweichender Aufschlag eines Postpaid-Wallets gesetzt oder aufgehoben. */
+    case POSTPAID_SURCHARGE_CHANGED = 'postpaid.surcharge_changed';
+
     /**
      * Pay as you go nach einer Zahlungsstoerung beendet -- wird von
      * LP-POSTPAID-009 aufgerufen. Der Eintrag traegt Grund, Gebuehr und den

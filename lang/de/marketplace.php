@@ -1141,6 +1141,8 @@ return [
                 'blocked_no' => 'Frei',
                 'no_payment_method' => 'Kein Zahlungsmittel',
                 'reenable_note' => 'Vom Betreiber nach einer Rückstufung wieder freigeschaltet.',
+                'surcharge_own' => ':percent % (eigene Vereinbarung)',
+                'surcharge_default' => ':percent % (Vorgabe der Plattform)',
 
                 'payment_mode' => [
                     'prepaid' => 'Vorauszahlung',
@@ -1151,6 +1153,8 @@ return [
                     'payment_mode' => 'Zahlungsmodus',
                     'credit_limit' => 'Kreditrahmen',
                     'credit_limit_cents' => 'Kreditrahmen in Cent',
+                    'surcharge' => 'Aufschlag',
+                    'surcharge_percent' => 'Aufschlag in Prozent',
                     'open_amount' => 'Offener Betrag',
                     'open_total' => 'Offene Forderungen gesamt',
                     'blocked' => 'Gesperrt',
@@ -1161,6 +1165,7 @@ return [
 
                 'hints' => [
                     'credit_limit_cents' => 'Betrag, um den der Saldo ins Minus laufen darf. 30000 sind 300,00 €.',
+                    'surcharge_percent' => 'Leer lassen für die Vorgabe der Plattform (:percent %). 0 bedeutet: dieser Käufer zahlt keinen Aufschlag.',
                     'downgrade_reason' => 'Am Grund hängen Gebühr, Kaufsperre und der Text der E-Mail an den Käufer.',
                     'fee_cents' => 'Vorbelegt ist die Gebühr des gewählten Grundes. 0 erhebt ausdrücklich keine.',
                 ],
@@ -1169,6 +1174,9 @@ return [
                     'change_credit_limit' => 'Kreditrahmen ändern',
                     'change_credit_limit_description' => 'Der Rahmen ist eine Erlaubnis, kein Guthaben – es wird nichts gebucht. Ein gesenkter Rahmen stoppt weitere Käufe, der bereits offene Betrag bleibt bestehen.',
                     'credit_limit_changed' => 'Kreditrahmen geändert',
+                    'change_surcharge' => 'Aufschlag ändern',
+                    'change_surcharge_description' => 'Gilt nur für künftige Käufe – bei jedem Kauf wird der Satz im Beleg festgeschrieben. Leer setzt den Käufer zurück auf die Vorgabe der Plattform, 0 befreit ihn vom Aufschlag.',
+                    'surcharge_changed' => 'Aufschlag geändert',
                     'settle_now' => 'Jetzt einziehen',
                     'settle_now_description' => 'Zieht den heute offenen Betrag ein, ohne den Wochentermin abzuwarten. Bei SEPA wird zuerst angekündigt und erst nach Ablauf der Frist belastet.',
                     'settled' => 'Einzug angestoßen',

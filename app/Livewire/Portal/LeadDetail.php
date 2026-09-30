@@ -139,7 +139,13 @@ class LeadDetail extends Component
                 (int) $purchase->price_cents + (int) $purchase->surcharge_cents,
                 $purchase->currency,
             ),
-            'surchargeHint' => $purchase->surcharge_cents > 0 ? PostpaidTerms::surchargeHint() : null,
+            // Der Satz kommt aus dem Beleg selbst, nicht aus der heutigen
+            // Vereinbarung: Was bezahlt wurde, steht fest.
+            'surchargeHint' => $purchase->surcharge_cents > 0 && $purchase->price_cents > 0
+                ? PostpaidTerms::surchargeHintForPercent(
+                    (int) $purchase->surcharge_cents / (int) $purchase->price_cents * 100,
+                )
+                : null,
             'priceStatus' => __('marketplace.purchased.detail.price_status.'.$purchase->status->value),
             'statusOptions' => BuyerLeadStatus::options(),
             'complaintUrl' => $this->complaintUrl(),

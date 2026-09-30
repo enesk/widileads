@@ -92,7 +92,7 @@ class PurchaseService
             $buyerWallet = Wallet::forBuyer($buyer);
             $paymentMode = $buyerWallet->payment_mode;
             $surchargeCents = $paymentMode->hasSurcharge()
-                ? self::surchargeCents($priceCents, $this->surchargePercent())
+                ? self::surchargeCents($priceCents, $this->surchargePercent($buyerWallet))
                 : 0;
 
             $purchase = LeadPurchase::query()->create([
@@ -353,11 +353,17 @@ class PurchaseService
     }
 
     /**
-     * Wirksamer Aufschlagsatz der Plattform in Prozent.
+     * Wirksamer Aufschlagsatz in Prozent.
+     *
+     * Mit Wallet gerechnet gilt dessen Override, sonst die Vorgabe der
+     * Plattform -- fuer einzelne Kaeufer laesst sich damit ein abweichender
+     * Satz oder gar keiner vereinbaren, ohne den Vorgabewert anzufassen.
      */
-    public function surchargePercent(): float
+    public function surchargePercent(?Wallet $wallet = null): float
     {
-        return (float) config('wallet.postpaid.surcharge_percent');
+        return $wallet instanceof Wallet
+            ? $wallet->effectiveSurchargePercent()
+            : (float) config('wallet.postpaid.surcharge_percent');
     }
 
     /**

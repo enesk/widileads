@@ -97,7 +97,7 @@ class Settlements extends Component
 
     public function surchargeHint(): string
     {
-        return PostpaidTerms::surchargeHint();
+        return PostpaidTerms::surchargeHint(Wallet::forBuyer($this->portalTenant()));
     }
 
     /**

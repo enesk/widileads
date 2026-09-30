@@ -116,6 +116,18 @@ class WalletResource extends Resource
                     TextEntry::make('credit_limit_cents')
                         ->label(__('marketplace.wallet.admin.postpaid.fields.credit_limit'))
                         ->formatStateUsing(fn (int $state): string => self::money($state)),
+                    TextEntry::make('surcharge_percent')
+                        ->label(__('marketplace.wallet.admin.postpaid.fields.surcharge'))
+                        // Der Satz, der wirklich gilt -- und dazu, ob er
+                        // vereinbart oder nur geerbt ist.
+                        ->state(fn (Wallet $record): string => $record->surcharge_percent !== null
+                            ? __('marketplace.wallet.admin.postpaid.surcharge_own', [
+                                'percent' => self::percent($record->effectiveSurchargePercent()),
+                            ])
+                            : __('marketplace.wallet.admin.postpaid.surcharge_default', [
+                                'percent' => self::percent($record->effectiveSurchargePercent()),
+                            ]))
+                        ->color(fn (Wallet $record): string => $record->surcharge_percent !== null ? 'info' : 'gray'),
                     TextEntry::make('open_amount_cents')
                         ->label(__('marketplace.wallet.admin.postpaid.fields.open_amount'))
                         ->state(fn (Wallet $record): string => self::money($record->open_amount_cents))
@@ -324,6 +336,46 @@ class WalletResource extends Resource
     }
 
     /**
+     * Abweichenden Pay-as-you-go-Aufschlag setzen oder aufheben.
+     *
+     * Leer heisst: Es gilt wieder die Vorgabe der Plattform. Eine 0 ist etwas
+     * anderes, naemlich Pay as you go ohne Aufschlag fuer diesen Kaeufer.
+     * Gilt erst fuer kuenftige Kaeufe -- der Satz wird beim Kauf im Beleg
+     * festgeschrieben.
+     */
+    public static function changeSurchargeAction(): Action
+    {
+        return Action::make('changeSurcharge')
+            ->label(__('marketplace.wallet.admin.postpaid.actions.change_surcharge'))
+            ->icon(Heroicon::OutlinedReceiptPercent)
+            ->color('warning')
+            ->modalDescription(__('marketplace.wallet.admin.postpaid.actions.change_surcharge_description'))
+            ->schema([
+                TextInput::make('surcharge_percent')
+                    ->label(__('marketplace.wallet.admin.postpaid.fields.surcharge_percent'))
+                    ->helperText(__('marketplace.wallet.admin.postpaid.hints.surcharge_percent', [
+                        'percent' => self::percent((float) config('wallet.postpaid.surcharge_percent')),
+                    ]))
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->step(0.01)
+                    ->default(fn (Wallet $record): ?string => $record->surcharge_percent),
+            ])
+            ->visible(fn (Wallet $record): bool => $record->owner_type === WalletOwnerType::BUYER)
+            ->action(function (array $data, Wallet $record): void {
+                $given = $data['surcharge_percent'] ?? null;
+
+                app(PostpaidService::class)->updateSurchargePercent(
+                    $record,
+                    $given === null || $given === '' ? null : (float) $given,
+                    self::actingAdmin(),
+                );
+            })
+            ->successNotificationTitle(__('marketplace.wallet.admin.postpaid.actions.surcharge_changed'));
+    }
+
+    /**
      * Offenen Betrag sofort einziehen (LP-POSTPAID-012).
      *
      * Sichtbar nur, wenn es etwas einzuziehen gibt und kein Einzug laeuft: Ein
@@ -417,6 +469,15 @@ class WalletResource extends Resource
             ->action(fn (array $data, Wallet $record) => app(PostpaidService::class)
                 ->reenable($record, self::actingAdmin(), (int) $data['credit_limit_cents']))
             ->successNotificationTitle(__('marketplace.wallet.admin.postpaid.actions.reenabled'));
+    }
+
+    /**
+     * Ein Prozentsatz in deutscher Schreibweise, ohne ueberfluessige Nullen:
+     * "7,5" statt "7.50".
+     */
+    public static function percent(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, ',', '.'), '0'), ',');
     }
 
     public static function paymentModeLabel(PaymentMode $mode): string

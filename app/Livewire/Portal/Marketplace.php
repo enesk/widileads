@@ -343,7 +343,9 @@ class Marketplace extends Component
             'hasFunds' => $availableCents > 0,
             // Bei Pay as you go traegt jeder Preis den Aufschlag; der Hinweis
             // sagt, warum er hoeher ist als der Preis des Verkaeufers.
-            'surchargeHint' => PostpaidTerms::isPostpaid($this->wallet()) ? PostpaidTerms::surchargeHint() : null,
+            'surchargeHint' => PostpaidTerms::isPostpaid($this->wallet())
+                ? PostpaidTerms::surchargeHint($this->wallet())
+                : null,
             'postpaid' => PostpaidTerms::isPostpaid($this->wallet()),
             // Eine Kaufsperre schliesst jeden Kauf aus, unabhaengig vom
             // Guthaben (App\Exceptions\PurchaseBlockedException). Der Knopf
