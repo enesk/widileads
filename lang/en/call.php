@@ -30,6 +30,8 @@ return [
         'provider_failed' => 'The verification could not be requested. Please try again later.',
 
         'portal' => [
+            'locked_title' => 'One more step before you start',
+            'locked_text' => 'Confirm your phone number first. Without it we cannot connect you to the people asking – until then the portal stays closed.',
             'back' => 'Phone numbers',
             'heading' => 'Confirm your phone number',
             'description' => 'We connect you to the enquirer over this number. We call you once to confirm it.',

@@ -315,6 +315,16 @@ return [
             // gelesen wird. Gespeichert wird immer E.164.
             'region' => (string) env('FUNNEL_CALL_CALLER_ID_REGION', 'DE'),
 
+            // Muss ein Kaeufer seine Nummer bestaetigt haben, bevor er das
+            // Portal benutzen darf? Ohne sie kann er einen gekauften Lead
+            // nicht anrufen, und ohne Anruf wird der Lead weder abgerechnet
+            // noch freigegeben.
+            //
+            // Der Schalter gehoert auf false, solange das Twilio-Konto ein
+            // Trial-Konto ist: Bestaetigungsanrufe sind dort gesperrt, kein
+            // Kaeufer kaeme an der Sperre vorbei.
+            'required_for_portal' => (bool) env('FUNNEL_CALL_CALLER_ID_REQUIRED', true),
+
         ],
 
     ],

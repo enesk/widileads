@@ -10,6 +10,7 @@ use App\Models\CallerId;
 use App\Models\User;
 use App\Services\CallerIdService;
 use App\Services\Twilio\CallerIdValidationFailed;
+use App\Support\PortalCallerIdLock;
 use Illuminate\Contracts\View\View;
 use InvalidArgumentException;
 use Livewire\Attributes\Layout;
@@ -102,6 +103,10 @@ class CallerIdVerification extends Component
 
         return view('livewire.portal.caller-id-verification', [
             'callerId' => $callerId,
+            // Solange die Sperre greift, ist diese Seite die einzige
+            // erreichbare: Dann traegt sie die Erklaerung und keinen Weg
+            // zurueck (App\Support\PortalCallerIdLock).
+            'locked' => PortalCallerIdLock::locks($this->portalUser(), $this->portalTenant()),
             'displayNumber' => $this->displayNumber($callerId),
             'expectedCode' => $callerId?->status === CallerIdStatus::PENDING ? $callerId->validation_code : null,
             'verified' => $this->verifiedNumbers(),

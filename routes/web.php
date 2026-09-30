@@ -436,7 +436,7 @@ Route::get('/portal', function (UserDashboardService $dashboardService) {
     return redirect($dashboardService->getUserPortalUrl(Auth::user()));
 })->name('portal.home')->middleware(['auth', 'verified']);
 
-Route::middleware(['auth', 'verified', 'portal.tenant'])
+Route::middleware(['auth', 'verified', 'portal.tenant', 'portal.verified-number'])
     ->prefix('portal/{tenant:uuid}')
     ->name('portal.')
     ->group(function () {

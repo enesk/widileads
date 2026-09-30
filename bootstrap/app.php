@@ -4,6 +4,7 @@ use App\Exceptions\ApiProblem;
 use App\Http\Middleware\BlockedUser;
 use App\Http\Middleware\EnsureMarketplaceAccess;
 use App\Http\Middleware\EnsureTenantType;
+use App\Http\Middleware\RequireVerifiedCallerId;
 use App\Http\Middleware\ResolvePortalTenant;
 use App\Http\Middleware\ResolveTenantFromToken;
 use App\Http\Middleware\Sitemapped;
@@ -84,6 +85,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'marketplace.access' => EnsureMarketplaceAccess::class,
             'tenant.from-token' => ResolveTenantFromToken::class,
             'portal.tenant' => ResolvePortalTenant::class,
+            'portal.verified-number' => RequireVerifiedCallerId::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
             'role' => RoleMiddleware::class,

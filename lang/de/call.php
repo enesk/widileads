@@ -41,6 +41,11 @@ return [
             'heading' => 'Rufnummer bestätigen',
             'description' => 'Über diese Nummer verbinden wir dich mit den Anfragenden. Wir rufen dich einmal an, um sie zu bestätigen.',
 
+            // Band ueber dem Ablauf, solange die Sperre greift: Sie ist die
+            // Erklaerung dafuer, dass es hier keine Navigation gibt.
+            'locked_title' => 'Noch ein Schritt, dann geht es los',
+            'locked_text' => 'Bestätige zuerst deine Rufnummer. Ohne sie können wir dich nicht mit den Anfragenden verbinden – deshalb ist das Portal bis dahin geschlossen.',
+
             'steps' => [
                 'enter' => 'Nummer eingeben',
                 'calling' => 'Anruf annehmen',

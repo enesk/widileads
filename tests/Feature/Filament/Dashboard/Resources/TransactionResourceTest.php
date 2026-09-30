@@ -6,6 +6,7 @@ use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
 use App\Filament\Dashboard\Resources\Transactions\TransactionResource;
 use App\Models\BuyerRegistration;
+use App\Models\CallerId;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Feature\FeatureTest;
 
@@ -29,6 +30,13 @@ class TransactionResourceTest extends FeatureTest
         // Die Liste ist ins Portal umgezogen; das Panel leitet nur noch dorthin.
         $this->get(TransactionResource::getUrl('index', [], true, 'dashboard', tenant: $tenant))
             ->assertRedirect(route('portal.transactions', ['tenant' => $tenant->uuid]));
+
+        // Ohne bestaetigte Rufnummer haelt das Portal jeden Kaeufer auf der
+        // Bestaetigungsseite fest (RequireVerifiedCallerId).
+        CallerId::factory()->verified()->create([
+            'tenant_id' => $tenant->getKey(),
+            'user_id' => $user->getKey(),
+        ]);
 
         $this->get(route('portal.transactions', ['tenant' => $tenant->uuid]))->assertSuccessful();
     }

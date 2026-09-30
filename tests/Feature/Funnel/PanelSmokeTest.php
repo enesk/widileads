@@ -5,6 +5,7 @@ namespace Tests\Feature\Funnel;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
 use App\Models\BuyerRegistration;
+use App\Models\CallerId;
 use Tests\Feature\FeatureTest;
 
 /**
@@ -66,9 +67,18 @@ class PanelSmokeTest extends FeatureTest
         // Eintraege nicht rendern, um die es hier geht (FB-050).
         BuyerRegistration::factory()->approved()->create(['tenant_id' => $tenant->id]);
 
-        $this->actingAs($this->createUser($tenant, [
+        $user = $this->createUser($tenant, [
             TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS,
-        ]));
+        ]);
+
+        // Ohne bestaetigte Rufnummer haelt das Portal jeden Kaeufer auf der
+        // Bestaetigungsseite fest (RequireVerifiedCallerId).
+        CallerId::factory()->verified()->create([
+            'tenant_id' => $tenant->getKey(),
+            'user_id' => $user->getKey(),
+        ]);
+
+        $this->actingAs($user);
 
         $uuid = $tenant->refresh()->uuid;
 
