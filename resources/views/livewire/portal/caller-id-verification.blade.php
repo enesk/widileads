@@ -132,15 +132,31 @@
 
             {{-- Abweichung zum Entwurf, ohne die der Ablauf nicht funktioniert:
                  Gebaut ist die Outgoing-Caller-ID-Pruefung, dort wird der Code
-                 hier angezeigt und am Telefon eingetippt -- nicht andersherum. --}}
+                 hier angezeigt und am Telefon eingetippt -- nicht andersherum.
+
+                 Er ist deshalb das Wichtigste auf diesem Bildschirm: Wer ihn
+                 mit dem Hoerer am Ohr sucht, hat keine Zeit, eine Zeile Text
+                 zu lesen. Eine Ziffer je Kaestchen, wie man sie eintippt. --}}
             @if ($expectedCode !== null)
-                <p class="mt-3 text-sm text-zinc-700 tabular-nums">
-                    {{ __('call.caller_id.portal.calling_code', ['code' => $expectedCode]) }}
-                </p>
+                <div class="mt-6">
+                    <p class="text-sm font-medium text-zinc-500">{{ __('call.caller_id.portal.calling_code_label') }}</p>
+
+                    {{-- Die Ziffern einzeln sind fuer einen Screenreader
+                         "4 8 3 9 2 1" und damit schwer zu merken; er bekommt
+                         deshalb den Code als einen Satz. --}}
+                    <span class="sr-only">{{ __('call.caller_id.portal.calling_code', ['code' => $expectedCode]) }}</span>
+
+                    <div class="mt-2 flex justify-center gap-2 sm:gap-3">
+                        @foreach (str_split((string) $expectedCode) as $digit)
+                            <span class="flex size-12 sm:size-14 items-center justify-center rounded-xl border border-brand-100 bg-brand-50 text-2xl sm:text-3xl font-bold tabular-nums text-brand-700" aria-hidden="true">{{ $digit }}</span>
+                        @endforeach
+                    </div>
+
+                    <p class="mt-3 text-sm text-zinc-600">{{ __('call.caller_id.portal.calling_code_hint') }}</p>
+                </div>
             @endif
 
-            <div class="mt-8 flex flex-col sm:flex-row justify-center gap-2">
-                <button type="button" class="btn-secondary" wire:click="goToCode">{{ __('call.caller_id.portal.have_code') }}</button>
+            <div class="mt-8 flex justify-center">
                 <button type="button" class="btn-ghost" wire:click="goToEnter">{{ __('call.caller_id.portal.other_number') }}</button>
             </div>
             <p class="mt-4 text-xs text-zinc-500">{{ __('call.caller_id.portal.no_call') }}</p>

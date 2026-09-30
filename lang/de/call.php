@@ -66,8 +66,11 @@ return [
             'calling_heading' => 'Dein Telefon klingelt gleich',
             'calling_text' => 'Wir rufen :number an. Nimm ab und hör dir den Code an.',
             'calling_spinner' => 'Anruf wird aufgebaut …',
+            // Nur noch fuer Screenreader: Sichtbar steht der Code gross in
+            // einzelnen Kaestchen.
             'calling_code' => 'Erwarteter Code: :code',
-            'have_code' => 'Ich habe den Code',
+            'calling_code_label' => 'Dein Code',
+            'calling_code_hint' => 'Tippe ihn am Telefon ein, sobald die Ansage danach fragt.',
             'other_number' => 'Andere Nummer',
             'no_call' => 'Kein Anruf nach 60 Sekunden? Dann kannst du es erneut versuchen.',
 

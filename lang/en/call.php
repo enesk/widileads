@@ -57,7 +57,8 @@ return [
             'calling_text' => 'We are calling :number. Pick up and listen to the code.',
             'calling_spinner' => 'Connecting the call …',
             'calling_code' => 'Expected code: :code',
-            'have_code' => 'I have the code',
+            'calling_code_label' => 'Your code',
+            'calling_code_hint' => 'Type it on your phone as soon as the announcement asks for it.',
             'other_number' => 'Different number',
             'no_call' => 'No call after 60 seconds? Then you can try again.',
 
