@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Routing\Exceptions\UrlGenerationException;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
@@ -35,16 +37,22 @@ final class PortalNavigation
      * bereits Routen, stehen im Entwurf aber nicht in der Navigation. Sie
      * kommen in Phase 3 des Epics dazu.
      *
+     * Ein Punkt mit `gate` erscheint nur, wenn der angemeldete Nutzer das Gate
+     * bestehen kann ("Team Leads", Ticket #3). Ein sichtbarer Punkt, der in
+     * ein 403 fuehrt, ist schlechter als kein Punkt: Er verspricht eine Seite,
+     * die es fuer diesen Nutzer nicht gibt.
+     *
      * @return list<array{label: ?string, items: list<array{label: string, icon: string, route: string, url: ?string}>}>
      */
-    public static function forTenant(Tenant $tenant): array
+    public static function forTenant(Tenant $tenant, ?User $user = null): array
     {
-        return self::resolve($tenant, [
+        return self::resolve($tenant, $user, [
             [
                 'label' => null,
                 'items' => [
                     ['label' => __('portal.nav.dashboard'), 'icon' => 'home', 'route' => 'portal.overview'],
                     ['label' => __('portal.nav.my_leads'), 'icon' => 'leads', 'route' => 'portal.leads'],
+                    ['label' => __('portal.nav.team_leads'), 'icon' => 'users', 'route' => 'portal.team-leads', 'gate' => 'lead-purchases.view-team'],
                 ],
             ],
             [
@@ -102,25 +110,59 @@ final class PortalNavigation
     }
 
     /**
-     * Ergaenzt jeden Punkt um seine Adresse -- null, wenn sie nicht baubar ist.
+     * Ergaenzt jeden Punkt um seine Adresse -- null, wenn sie nicht baubar ist
+     * -- und laesst die Punkte weg, die dieser Nutzer nicht sehen darf.
      *
      * Ein Punkt ohne Ziel bleibt sichtbar, statt die ganze Seite mitzureissen.
      * Er wird aber protokolliert: Genau dieser stille Ausfall hat den
      * Marktplatz unbemerkt unerreichbar gemacht (Ticket #7).
      *
-     * @param  list<array{label: ?string, items: list<array{label: string, icon: string, route: string}>}>  $sections
+     * Eine leere Gruppe faellt mit weg: Eine Ueberschrift ohne Punkte darunter
+     * waere ein Rest.
+     *
+     * @param  list<array{label: ?string, items: list<array{label: string, icon: string, route: string, gate?: string}>}>  $sections
      * @return list<array{label: ?string, items: list<array{label: string, icon: string, route: string, url: ?string}>}>
      */
-    private static function resolve(Tenant $tenant, array $sections): array
+    private static function resolve(Tenant $tenant, ?User $user, array $sections): array
     {
-        return array_map(static function (array $section) use ($tenant): array {
-            $section['items'] = array_map(
-                static fn (array $item): array => $item + ['url' => self::url($item['route'], $tenant)],
+        $sections = array_map(static function (array $section) use ($tenant, $user): array {
+            $items = array_filter(
                 $section['items'],
+                static fn (array $item): bool => self::allowed($item, $tenant, $user),
             );
+
+            $section['items'] = array_values(array_map(
+                static fn (array $item): array => $item + ['url' => self::url($item['route'], $tenant)],
+                $items,
+            ));
 
             return $section;
         }, $sections);
+
+        return array_values(array_filter(
+            $sections,
+            static fn (array $section): bool => $section['items'] !== [],
+        ));
+    }
+
+    /**
+     * Darf dieser Nutzer den Punkt sehen?
+     *
+     * Ohne `gate` ja -- das ist der Normalfall. Mit `gate` entscheidet dasselbe
+     * Gate, das auch die Route prueft, damit Menuepunkt und Seite nie
+     * auseinanderlaufen.
+     *
+     * @param  array{label: string, icon: string, route: string, gate?: string}  $item
+     */
+    private static function allowed(array $item, Tenant $tenant, ?User $user): bool
+    {
+        $gate = $item['gate'] ?? null;
+
+        if ($gate === null) {
+            return true;
+        }
+
+        return $user instanceof User && Gate::forUser($user)->allows($gate, $tenant);
     }
 
     /**

@@ -430,6 +430,64 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'team_leads' => [
+        'heading' => 'Team Leads',
+        'subtitle' => 'Alle Leadkäufe in :workspace. Kontaktdaten bleiben beim Käufer.',
+        'export' => 'Als CSV herunterladen',
+        'shown' => 'Zeige :count von :total',
+        'masked_hint' => 'Kontakt beim Käufer',
+        'contact_note' => 'Rufnummer und E-Mail sieht nur, wer den Lead gekauft hat. Soll jemand anderes übernehmen, lässt der Käufer den Lead übergeben.',
+        'stats' => [
+            'count' => 'Käufe im Zeitraum',
+            'spent' => 'Ausgaben im Zeitraum',
+            'top_buyer' => 'Aktivster Käufer',
+        ],
+        'columns' => [
+            'date' => 'Kaufdatum',
+            'lead' => 'Lead',
+            'buyer' => 'Käufer',
+            'price' => 'Preis',
+        ],
+        'buyer' => [
+            'automatic' => 'Automatisch',
+            'self' => '(Sie)',
+        ],
+        'filter' => [
+            'buyer' => 'Käufer',
+            'buyer_all' => 'Alle Käufer',
+            'status' => 'Status',
+            'period_label' => 'Zeitraum',
+            'period' => [
+                '7' => 'Letzte 7 Tage',
+                '30' => 'Letzte 30 Tage',
+                '90' => 'Letzte 90 Tage',
+                'month' => 'Dieser Monat',
+                'last_month' => 'Letzter Monat',
+                'all' => 'Alles',
+            ],
+        ],
+        'empty' => [
+            'filtered' => [
+                'title' => 'Im gewählten Zeitraum wurde nichts gekauft.',
+                'text' => 'Weite den Zeitraum aus oder setze die Filter zurück.',
+                'action' => 'Filter zurücksetzen',
+            ],
+            'never' => [
+                'title' => 'Noch keine Leadkäufe.',
+                'text' => 'Sobald jemand aus dem Team einen Lead kauft, steht er hier.',
+            ],
+        ],
+        'csv' => [
+            'purchased_at' => 'Kaufdatum',
+            'name' => 'Name',
+            'funnel' => 'Branche',
+            'postal_code' => 'PLZ',
+            'status' => 'Status',
+            'price' => 'Preis',
+            'buyer' => 'Käufer',
+        ],
+    ],
+
     'purchased' => [
 
         'result_count' => '{0} Keine gekauften Leads|{1} 1 gekaufter Lead|[2,*] :count gekaufte Leads',
@@ -585,6 +643,8 @@ return [
             'email_action' => 'E-Mail schreiben',
             'email_hint' => 'E-Mails zählen nicht als Erreichbarkeit. Für die Abrechnung zählt nur das Telefongespräch.',
             'phone_hint_masked' => 'Bis zur Abrechnung verdeckt. Du rufst über „Jetzt anrufen“ an, der Lead sieht dabei unsere Portalnummer.',
+            'phone_hint_released' => 'Freigegeben. Du wählst die Nummer jetzt selbst – über das Portal läuft kein Anruf mehr.',
+            'phone_action' => 'Anrufen',
             'meta' => 'Aus :funnel · gekauft am :date',
 
             'deadline' => [

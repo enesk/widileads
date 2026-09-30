@@ -105,6 +105,7 @@ return [
         'label' => 'Main navigation',
         'dashboard' => 'Dashboard',
         'my_leads' => 'My leads',
+        'team_leads' => 'Team leads',
         'marketplace' => 'Marketplace',
         'buying_criteria' => 'Buying criteria',
         'caller_id' => 'Caller ID',

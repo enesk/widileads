@@ -126,6 +126,7 @@ return [
         'label' => 'Hauptnavigation',
         'dashboard' => 'Dashboard',
         'my_leads' => 'Meine Leads',
+        'team_leads' => 'Team Leads',
         'marketplace' => 'Marktplatz',
         'buying_criteria' => 'Kaufkriterien',
         'caller_id' => 'Rufnummer',

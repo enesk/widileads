@@ -425,6 +425,64 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'team_leads' => [
+        'heading' => 'Team leads',
+        'subtitle' => 'Every lead purchase in :workspace. Contact details stay with the buyer.',
+        'export' => 'Download as CSV',
+        'shown' => 'Showing :count of :total',
+        'masked_hint' => 'Contact with the buyer',
+        'contact_note' => 'Only the person who bought the lead can see the phone number and email address. If someone else should take over, the buyer hands the lead over.',
+        'stats' => [
+            'count' => 'Purchases in period',
+            'spent' => 'Spend in period',
+            'top_buyer' => 'Most active buyer',
+        ],
+        'columns' => [
+            'date' => 'Purchased',
+            'lead' => 'Lead',
+            'buyer' => 'Buyer',
+            'price' => 'Price',
+        ],
+        'buyer' => [
+            'automatic' => 'Automatic',
+            'self' => '(you)',
+        ],
+        'filter' => [
+            'buyer' => 'Buyer',
+            'buyer_all' => 'All buyers',
+            'status' => 'Status',
+            'period_label' => 'Period',
+            'period' => [
+                '7' => 'Last 7 days',
+                '30' => 'Last 30 days',
+                '90' => 'Last 90 days',
+                'month' => 'This month',
+                'last_month' => 'Last month',
+                'all' => 'All time',
+            ],
+        ],
+        'empty' => [
+            'filtered' => [
+                'title' => 'Nothing was bought in the selected period.',
+                'text' => 'Widen the period or reset the filters.',
+                'action' => 'Reset filters',
+            ],
+            'never' => [
+                'title' => 'No lead purchases yet.',
+                'text' => 'As soon as someone on the team buys a lead, it shows up here.',
+            ],
+        ],
+        'csv' => [
+            'purchased_at' => 'Purchased at',
+            'name' => 'Name',
+            'funnel' => 'Industry',
+            'postal_code' => 'Postal code',
+            'status' => 'Status',
+            'price' => 'Price',
+            'buyer' => 'Buyer',
+        ],
+    ],
+
     'purchased' => [
 
         'result_count' => '{0} No purchased leads|{1} 1 purchased lead|[2,*] :count purchased leads',
@@ -576,6 +634,8 @@ return [
             'email_action' => 'Write an email',
             'email_hint' => 'Emails do not count as reachability. Only a phone conversation counts for billing.',
             'phone_hint_masked' => 'Hidden until billing. Use "Call now", the lead sees our portal number.',
+            'phone_hint_released' => 'Released. You dial the number yourself now – no more calls through the portal.',
+            'phone_action' => 'Call',
             'meta' => 'From :funnel · purchased on :date',
 
             'deadline' => [

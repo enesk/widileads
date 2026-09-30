@@ -78,6 +78,25 @@ class LeadContactResolver
     }
 
     /**
+     * Kontaktdaten fuer die Teamsicht (Ticket #3).
+     *
+     * "Team Leads" zeigt die Kaeufe des ganzen Mandanten -- auch die der
+     * Kollegen. Sehen darf das nur, wer das Recht `view team leads` hat
+     * (LeadPurchasePolicy::viewTeam), und selbst dann bleiben Rufnummer und
+     * E-Mail verdeckt: Wer den Kontakt braucht, geht ueber den Kollegen, der
+     * gekauft hat.
+     *
+     * Die Methode kennt deshalb bewusst keinen Betrachter. Es gibt keinen
+     * Nutzer, fuer den sie Klartext liefert -- damit kann die Entscheidung
+     * "welche Fassung" hier nicht falsch ausfallen. Wer zugreifen darf,
+     * entscheidet die Policy vor dem Aufruf, nicht dieser Dienst.
+     */
+    public function forTeamView(Lead $lead): LeadContact
+    {
+        return LeadContact::fromLead($lead)->maskedForTeam();
+    }
+
+    /**
      * Die Rufnummernsperre des Kaeufers (FB-085).
      *
      * Ein Kauf allein gibt die Rufnummer nicht frei. Angerufen wird ueber die

@@ -262,6 +262,18 @@ class Lead extends Model
     }
 
     /**
+     * Kontaktdaten fuer die Teamsicht (Ticket #3).
+     *
+     * Name und Postleitzahl im Klartext, Rufnummer und E-Mail verdeckt. Ohne
+     * Betrachter: Diese Fassung ist fuer jeden dieselbe, auch fuer einen
+     * Admin.
+     */
+    public function contactForTeamView(): LeadContact
+    {
+        return app(LeadContactResolver::class)->forTeamView($this);
+    }
+
+    /**
      * Die Rufnummer in der Fassung, die ein Kaeufer vor der Abrechnung sieht
      * (FB-085): `+49 171 ***** 67`.
      *

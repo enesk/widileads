@@ -106,6 +106,37 @@ final class LeadContact
     }
 
     /**
+     * Die Fassung fuer die Teamsicht (Ticket #3).
+     *
+     * "Team Leads" zeigt einem Mandanten-Admin, was seine Kollegen gekauft
+     * haben -- und ausdruecklich nicht, wen sie gekauft haben. Deshalb liegt
+     * diese Fassung zwischen den beiden anderen: Name und Postleitzahl stehen
+     * im Klartext, denn ohne sie kann niemand beim Kollegen nachfragen, und
+     * der Mandant hat den Lead bezahlt. Rufnummer und E-Mail sind verdeckt.
+     *
+     * Die Rufnummer wird wie fuer den Kaeufer vor der Abrechnung gekuerzt
+     * (`+49 171 ***** 67`): Die letzten zwei Ziffern lassen einen Eintrag im
+     * Telefonprotokoll zuordnen, waehlen kann man die Nummer nicht.
+     *
+     * Wer den Kontakt braucht, geht ueber den Kollegen, der gekauft hat --
+     * auch als Admin. Deshalb entsteht hier keine Fassung mit einem Weg
+     * zurueck zum Klartext.
+     */
+    public function maskedForTeam(): self
+    {
+        return new self(
+            firstName: $this->firstName,
+            lastName: $this->lastName,
+            name: $this->name,
+            email: self::maskEmail($this->email),
+            phone: self::maskPhoneToLastDigits($this->phone),
+            postalCode: $this->postalCode,
+            masked: true,
+            phoneMasked: true,
+        );
+    }
+
+    /**
      * Dieselben Daten, aber mit einer eigens gesetzten Rufnummer (FB-085).
      *
      * Gedacht fuer den einen Fall, in dem Rufnummer und uebrige Kontaktdaten

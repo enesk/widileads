@@ -29,6 +29,7 @@ use App\Livewire\Portal\PaymentMethods as PortalPaymentMethods;
 use App\Livewire\Portal\Profile as PortalProfile;
 use App\Livewire\Portal\PurchasedLeads as PortalPurchasedLeads;
 use App\Livewire\Portal\Settlements as PortalSettlements;
+use App\Livewire\Portal\TeamLeads as PortalTeamLeads;
 use App\Livewire\Portal\TopUpSuccess as PortalTopUpSuccess;
 use App\Livewire\Portal\Transactions as PortalTransactions;
 use App\Livewire\Portal\WalletTopUp as PortalWalletTopUp;
@@ -456,6 +457,12 @@ Route::middleware(['auth', 'verified', 'portal.tenant', 'portal.verified-number'
         // Mandantenkontext bei Folgeanfragen selbst wieder her.
         Route::get('/leads', PortalPurchasedLeads::class)
             ->name('leads');
+        // "Team Leads": alle Kaeufe des Mandanten mit dem Kaeufer je Zeile
+        // (Ticket #3). Zugang nur mit dem Recht `view team leads`, geprueft in
+        // der Komponente -- nicht in der Middleware, weil auch jede
+        // Livewire-Folgeanfrage durch dieselbe Pruefung muss.
+        Route::get('/team-leads', PortalTeamLeads::class)
+            ->name('team-leads');
         // Dritte fertige Portalseite: der gekaufte Lead nach dem Entwurf
         // lead-detail.html. Der Parameter bleibt der Schluessel des
         // Kaufbelegs; geladen und gegen den Kaeufer geprueft wird in der

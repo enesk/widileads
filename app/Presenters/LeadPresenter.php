@@ -21,11 +21,31 @@ class LeadPresenter
 {
     private readonly LeadContact $contact;
 
+    /**
+     * @param  bool  $teamView  Die Fassung fuer "Team Leads" (Ticket #3):
+     *                          Rufnummer und E-Mail bleiben verdeckt, ganz
+     *                          unabhaengig vom Betrachter. Bewusst ein
+     *                          Schalter und keine fertige LeadContact von
+     *                          aussen -- sonst waere der Presenter die Stelle,
+     *                          an der jemand Klartext hineinreicht.
+     */
     public function __construct(
         public readonly Lead $lead,
         private readonly ?User $viewer,
+        bool $teamView = false,
     ) {
-        $this->contact = $lead->contactFor($viewer);
+        $this->contact = $teamView ? $lead->contactForTeamView() : $lead->contactFor($viewer);
+    }
+
+    /**
+     * Der Lead in der Teamsicht (Ticket #3).
+     *
+     * Ohne Betrachter, weil es keinen gibt, fuer den diese Fassung anders
+     * ausfaellt.
+     */
+    public static function forTeamView(Lead $lead): self
+    {
+        return new self($lead, null, teamView: true);
     }
 
     public function contact(): LeadContact

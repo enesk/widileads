@@ -25,10 +25,12 @@
 
 @php
     $tenant = $tenant ?? request()->route('tenant');
-    $navigation = $tenant ? \App\Support\PortalNavigation::forTenant($tenant) : [];
+    $user = auth()->user();
+    // Der Nutzer geht mit: Punkte mit Recht (Team Leads) erscheinen nur fuer
+    // den, der sie auch oeffnen darf.
+    $navigation = $tenant ? \App\Support\PortalNavigation::forTenant($tenant, $user) : [];
     $role = $tenant?->isBuyer() ? __('portal.workspace.buyer') : __('portal.workspace.seller');
     $wallet = $tenant?->wallet;
-    $user = auth()->user();
 @endphp
 
 <!doctype html>
