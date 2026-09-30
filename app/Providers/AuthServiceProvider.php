@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Policies\LeadPurchasePolicy;
 use App\Policies\RolePolicy;
 use App\Services\TenantTypeService;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -31,6 +32,7 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerTenantTypeGates();
         $this->registerLeadGates();
+        $this->registerLeadPurchaseGates();
 
         VerifyEmail::toMailUsing(function ($notifiable, $url) {
             return (new \App\Mail\User\VerifyEmail($url))
@@ -66,6 +68,25 @@ class AuthServiceProvider extends ServiceProvider
             $service = app(TenantTypeService::class);
 
             return $service->canAccessMarketplace($tenant ?? $service->currentTenant());
+        });
+    }
+
+    /**
+     * Der Blick auf die Kaeufe des ganzen Mandanten (Ticket #2).
+     *
+     * Die Seite "Team Leads" fragt nicht nach einem einzelnen Beleg, sondern
+     * nach dem Mandanten -- dafuer gibt es kein Modell, also ein Gate. Es
+     * antwortet gleich der LeadPurchasePolicy::viewTeam(); beide lesen
+     * dasselbe Recht, damit Seite und Einzelbeleg nie auseinanderlaufen.
+     * Ohne uebergebenen Mandanten gilt der aktive.
+     */
+    private function registerLeadPurchaseGates(): void
+    {
+        Gate::define('lead-purchases.view-team', function (User $user, ?Tenant $tenant = null): bool {
+            return app(LeadPurchasePolicy::class)->viewTeam(
+                $user,
+                $tenant ?? app(TenantTypeService::class)->currentTenant(),
+            );
         });
     }
 

@@ -214,9 +214,14 @@ class SendLeadDeadlineReminders extends Command
     }
 
     /**
-     * Empfaenger ist die im Kaeuferprofil hinterlegte Adresse; ohne Angabe der
-     * erste Benutzer des Workspaces -- dieselbe Reihenfolge wie bei der
-     * Kaufbestaetigung (FB-054).
+     * Empfaenger ist der Kaeufer des Belegs (Ticket #2); ohne ihn die im
+     * Kaeuferprofil hinterlegte Adresse und zuletzt der erste Benutzer des
+     * Workspaces -- dieselbe Reihenfolge wie bei der Kaufbestaetigung (FB-054).
+     *
+     * Der handelnde Nutzer steht vorn, seit "Meine Leads" nach Person trennt:
+     * Eine Erinnerung an einen Kollegen, der den Lead gar nicht sieht, fuehrt
+     * ins Leere. Beim Autokauf gibt es keinen -- dann bleibt es beim Workspace,
+     * und das ist richtig, der Kauf gehoert ihm als Ganzem.
      */
     private function addressFor(LeadPurchase $purchase): ?string
     {
@@ -224,6 +229,12 @@ class SendLeadDeadlineReminders extends Command
 
         if (! $buyer instanceof Tenant) {
             return null;
+        }
+
+        $purchaser = $purchase->purchasedBy;
+
+        if ($purchaser instanceof User && $purchaser->email !== '') {
+            return $purchaser->email;
         }
 
         $address = $buyer->buyerProfile?->notify_email;

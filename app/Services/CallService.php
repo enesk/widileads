@@ -14,6 +14,7 @@ use App\Services\Twilio\OutboundCallClient;
 use App\Services\Twilio\OutboundCallFailed;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Gate;
 use Throwable;
 use Twilio\TwiML\VoiceResponse;
 
@@ -79,6 +80,14 @@ class CallService
     {
         if ((int) $purchase->buyer_tenant_id !== (int) $tenant->getKey()) {
             throw CallNotPossible::because('call.attempt.errors.foreign_purchase');
+        }
+
+        // Der Mandant allein reicht seit Ticket #2 nicht: Angerufen wird am
+        // eigenen Kauf. Der Kauf eines Kollegen ist mit dem Recht "Team Leads"
+        // lesbar, aber nicht anzurufen -- und weil der Anruf ueber diesen
+        // Dienst laeuft, steht die Pruefung hier und nicht in der Oberflaeche.
+        if (! Gate::forUser($user)->allows('act', $purchase)) {
+            throw CallNotPossible::because('call.attempt.errors.other_user');
         }
 
         $platformNumber = $this->platformNumber();

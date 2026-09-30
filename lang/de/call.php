@@ -141,6 +141,7 @@ return [
             'caller_id_missing' => 'Bestätigen Sie zuerst Ihre eigene Rufnummer.',
             'lead_number_missing' => 'Zu diesem Lead liegt keine Rufnummer vor.',
             'foreign_purchase' => 'Dieser Kauf gehört zu einem anderen Workspace.',
+            'other_user' => 'Diesen Lead hat ein Kollege gekauft – anrufen darf ihn nur er.',
             'not_configured' => 'Die Telefonanbindung ist noch nicht eingerichtet.',
             'lead_resolved' => 'Die Erreichbarkeit dieses Leads ist bereits entschieden.',
             'too_soon' => 'Nächster gültiger Versuch erst ab :time Uhr möglich.',

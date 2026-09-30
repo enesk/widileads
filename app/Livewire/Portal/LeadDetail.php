@@ -28,6 +28,7 @@ use App\Support\PostpaidTerms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -188,6 +189,8 @@ class LeadDetail extends Component
      */
     public function fileComplaint(): void
     {
+        $this->authorizeAction();
+
         $this->validate([
             'complaintReason' => ['required', 'string', 'min:10'],
         ], attributes: [
@@ -266,6 +269,8 @@ class LeadDetail extends Component
      */
     public function updatedNotes(): void
     {
+        $this->authorizeAction();
+
         $this->purchase()->update(['buyer_notes' => $this->notes === '' ? null : $this->notes]);
 
         $this->toast(__('portal.toast.note_saved'));
@@ -273,6 +278,8 @@ class LeadDetail extends Component
 
     public function updatedStatus(string $value): void
     {
+        $this->authorizeAction();
+
         $status = BuyerLeadStatus::tryFrom($value);
 
         $this->purchase()->update(['buyer_status' => $status]);
@@ -291,6 +298,8 @@ class LeadDetail extends Component
      */
     public function startCall(CallService $calls): void
     {
+        $this->authorizeAction();
+
         $user = $this->portalUser();
 
         if (! $user instanceof User) {
@@ -367,7 +376,26 @@ class LeadDetail extends Component
 
         abort_unless($purchase instanceof LeadPurchase, 404);
 
+        // Der Mandant allein reicht seit Ticket #2 nicht mehr: Der Kauf eines
+        // Kollegen ist nur mit dem Recht "Team Leads" zu sehen, und auch dann
+        // nur zu lesen. Die Seite ist ueber die Adresse erreichbar -- ohne
+        // diese Pruefung waere die Trennung blosse Anzeige.
+        abort_unless(Gate::allows('view', $purchase), 403);
+
         return $this->loaded = $purchase;
+    }
+
+    /**
+     * Handeln darf nur, wem der Kauf gehoert (Ticket #2).
+     *
+     * Gelesen werden darf mit dem Recht "Team Leads" auch der Kauf eines
+     * Kollegen -- angefasst nicht. Livewire-Methoden sind vom Browser aus
+     * einzeln aufrufbar; die Pruefung gehoert deshalb in jede von ihnen und
+     * nicht in die Ansicht.
+     */
+    private function authorizeAction(): void
+    {
+        abort_unless(Gate::allows('act', $this->purchase()), 403);
     }
 
     /**

@@ -942,7 +942,26 @@ class PurchasedLeads extends Component
                 'lead.funnel' => static fn (Relation $funnel) => $funnel->withoutGlobalScopes(TenantScopes::names()),
                 'lead.funnelVersion' => static fn (Relation $version) => $version->withoutGlobalScopes(TenantScopes::names()),
             ])
-            ->ofBuyer($this->portalTenant());
+            ->ofBuyer($this->portalTenant())
+            // Und nur die eigenen Kaeufe (Ticket #2). Beides zusammen: Der
+            // Mandant trennt die Workspaces, der Nutzer die Kollegen. Ein
+            // Autokauf traegt keinen Nutzer und steht deshalb bei niemandem
+            // in "Meine Leads" -- erreichbar bleibt er ueber die Frist-Mail
+            // und ueber "Team Leads".
+            ->ofUser($this->portalUserOrFail());
+    }
+
+    /**
+     * Der angemeldete Nutzer. Ohne ihn gibt es keine eigenen Kaeufe, und eine
+     * Liste ohne Einschraenkung waere die Liste des ganzen Mandanten.
+     */
+    private function portalUserOrFail(): User
+    {
+        $user = $this->portalUser();
+
+        abort_unless($user instanceof User, 403);
+
+        return $user;
     }
 
     /**

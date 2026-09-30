@@ -131,6 +131,7 @@ return [
             'caller_id_missing' => 'Verify your own phone number first.',
             'lead_number_missing' => 'This lead has no phone number.',
             'foreign_purchase' => 'This purchase belongs to a different workspace.',
+            'other_user' => 'A colleague bought this lead – only they may call it.',
             'not_configured' => 'The phone integration is not set up yet.',
             'lead_resolved' => 'The reachability of this lead has already been decided.',
             'too_soon' => 'The next valid attempt is possible from :time.',
