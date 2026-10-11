@@ -10,14 +10,28 @@ class UserDashboardService
     /**
      * Wohin ein angemeldeter Nutzer gehoert.
      *
-     * Seit dem Umzug des Nutzerbereichs ist das immer das Portal und nicht
-     * mehr das Filament-Panel unter /dashboard. Die Methode bleibt bestehen,
-     * weil an ihr die Anmeldung, die Einladungen und die Route /dashboard
-     * haengen -- sie zeigt nur woanders hin.
+     * Seit dem Umzug des Nutzerbereichs ist das fuer Kaeufer das Portal. Fuer
+     * einen Betreiber bleibt es das Filament-Panel unter /dashboard: Das
+     * Portal ist der Kaeuferbereich, seine Seiten verlangen den Marktplatz
+     * (Gate `marketplace.access`) und wuerden einen Verkaeufer gleich nach der
+     * Anmeldung in ein 403 laufen lassen. Die Verkaeuferseiten des Portals
+     * sind noch Platzhalter -- sobald sie stehen, faellt diese Weiche weg.
+     *
+     * An der Methode haengen Anmeldung, Einladungen und die Route /dashboard.
      */
     public function getUserDashboardUrl(User $user): string
     {
-        return $this->getUserPortalUrl($user);
+        $tenant = $this->defaultTenantOf($user);
+
+        if ($tenant === null) {
+            return route('home');
+        }
+
+        if (app(TenantTypeService::class)->canAccessMarketplace($tenant)) {
+            return route('portal.overview', ['tenant' => $tenant->uuid]);
+        }
+
+        return route('filament.dashboard.pages.dashboard', ['tenant' => $tenant->uuid]);
     }
 
     /**
