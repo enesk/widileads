@@ -8,10 +8,12 @@ use App\Constants\LeadContactStatus;
 use App\Constants\LeadResolutionReason;
 use App\Constants\LeadState;
 use App\Dto\LeadContact;
+use App\Dto\PhoneRelease;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Scopes\TenantScopes;
 use App\Services\LeadContactResolver;
 use App\Services\LeadPurchaseLookup;
+use App\Services\PhoneReleaseRule;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -262,6 +264,18 @@ class Lead extends Model
     }
 
     /**
+     * Der Freigabestand der Rufnummer aus Sicht eines Betrachters (Ticket #5).
+     *
+     * null, wenn der Betrachter den Lead nicht gekauft hat -- fuer ihn gibt es
+     * keinen Stand. Wer den Kaeufer-Mandanten schon kennt, nimmt
+     * phoneRelease().
+     */
+    public function phoneReleaseForViewer(?User $viewer): ?PhoneRelease
+    {
+        return app(LeadContactResolver::class)->phoneReleaseFor($this, $viewer);
+    }
+
+    /**
      * Kontaktdaten fuer die Teamsicht (Ticket #3).
      *
      * Name und Postleitzahl im Klartext, Rufnummer und E-Mail verdeckt. Ohne
@@ -287,33 +301,35 @@ class Lead extends Model
     }
 
     /**
-     * Ist die Rufnummer fuer den Kaeufer freigegeben? (FB-085)
+     * Der Stand der Rufnummernfreigabe fuer diesen Kaeufer (FB-085, Ticket #5).
      *
-     * Genau ein Fall gibt sie frei: Die Erreichbarkeitspruefung ist mit
-     * `billable` zu Ende gegangen, der Lead wird also abgerechnet. Bei
-     * `unreachable` bleibt sie dauerhaft verdeckt -- der Kaeufer bekommt eine
-     * Gutschrift und keine Nummer.
+     * Die Frage haengt am Kaeufer und nicht am Lead: Freigegeben wird auch
+     * ueber die Anrufversuche, und die gehoeren dem einzelnen Kaeufer. Die
+     * Regel selbst steht in PhoneReleaseRule -- diese Methode ist nur der
+     * bequeme Zugang vom Lead aus und entscheidet nichts.
      */
-    public function isPhoneReleased(): bool
+    public function phoneRelease(Tenant $buyer): PhoneRelease
     {
-        return $this->contact_status === LeadContactStatus::BILLABLE;
+        return app(PhoneReleaseRule::class)->for($this, $buyer);
     }
 
     /**
      * Die volle Rufnummer fuer einen Kaeufer -- oder null (FB-085).
      *
-     * Zwei Bedingungen, beide zwingend: Der Lead ist abgerechnet
-     * (`contact_status = billable`) und der fragende Mandant hat ihn gekauft.
-     * Fehlt eine davon, kommt null zurueck; die verdeckte Fassung holt sich der
-     * Aufrufer ueber maskedPhone().
+     * Zwei Bedingungen, beide zwingend: Die Freigabe greift fuer diesen
+     * Kaeufer (PhoneReleaseRule) und der fragende Mandant hat den Lead
+     * gekauft. Fehlt eine davon, kommt null zurueck; die verdeckte Fassung
+     * holt sich der Aufrufer ueber maskedPhone().
      *
      * Beim ersten erfolgreichen Abruf wird `phone_revealed_at` gesetzt. Der
      * Zeitstempel ist der Beleg dafuer, wann der Kaeufer die Nummer bekommen
-     * hat -- er wird nie ueberschrieben.
+     * hat -- er wird nie ueberschrieben. Beleg heisst Protokoll: Er haelt die
+     * Nummer nicht offen, wenn die Freigabe spaeter durch die Gutschrift
+     * zurueckgenommen wird (Ticket #5).
      */
     public function revealedPhone(Tenant $buyer): ?string
     {
-        if (! $this->isPhoneReleased()) {
+        if (! $this->phoneRelease($buyer)->released) {
             return null;
         }
 

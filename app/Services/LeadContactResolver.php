@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Dto\LeadContact;
+use App\Dto\PhoneRelease;
 use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
@@ -97,13 +98,13 @@ class LeadContactResolver
     }
 
     /**
-     * Die Rufnummernsperre des Kaeufers (FB-085).
+     * Die Rufnummernsperre des Kaeufers (FB-085, Ticket #5).
      *
      * Ein Kauf allein gibt die Rufnummer nicht frei. Angerufen wird ueber die
-     * Bridge, die die Nummer serverseitig waehlt; der Kaeufer selbst bekommt
-     * sie erst, wenn die Erreichbarkeitspruefung mit `billable` geendet hat --
-     * also wenn der Lead abgerechnet wird. Bei `unreachable` bleibt sie
-     * dauerhaft verdeckt: Dafuer gibt es eine Gutschrift und keine Nummer.
+     * Bridge, die die Nummer serverseitig waehlt; wann der Kaeufer sie selbst
+     * bekommt, entscheidet ausschliesslich PhoneReleaseRule -- ueber
+     * `Lead::revealedPhone()`. Dieser Dienst fragt nur und maskiert, er
+     * rechnet nichts nach.
      *
      * Fuer den Betreiber gilt das nicht: Ihm gehoeren die Daten, er hat sie
      * selbst erhoben.
@@ -117,6 +118,30 @@ class LeadContactResolver
         }
 
         return $contact->withPhone($lead->maskedPhone(), phoneMasked: true);
+    }
+
+    /**
+     * Der Freigabestand fuer einen Betrachter -- oder null, wenn er den Lead
+     * gar nicht gekauft hat (Ticket #5).
+     *
+     * Das Portal zeigt neben der verdeckten Nummer an, wie viele Versuche noch
+     * fehlen (Ticket #6). Es bekommt diesen Stand hier, aus derselben Regel,
+     * die ueber die Maskierung entscheidet -- nicht aus einer eigenen Zaehlung.
+     *
+     * null heisst: Es gibt fuer diesen Betrachter keinen Freigabestand. Dem
+     * Betreiber gehoert der Lead, er sieht die Nummer ohnehin; einem Fremden
+     * sind die Kontaktdaten ganz verdeckt, und wie viele Versuche ein anderer
+     * hinter sich hat, ist nicht seine Sache.
+     */
+    public function phoneReleaseFor(Lead $lead, ?User $viewer): ?PhoneRelease
+    {
+        $buyer = $this->purchasingTenantOf($lead, $viewer);
+
+        if (! $buyer instanceof Tenant) {
+            return null;
+        }
+
+        return $lead->phoneRelease($buyer);
     }
 
     /**

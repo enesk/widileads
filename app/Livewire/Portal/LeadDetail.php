@@ -8,6 +8,7 @@ use App\Constants\BuyerLeadStatus;
 use App\Constants\CallAttemptOutcome;
 use App\Constants\CallAttemptStatus;
 use App\Constants\LeadState;
+use App\Dto\PhoneRelease;
 use App\Exceptions\ComplaintNotAllowedException;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Livewire\Portal\Concerns\InteractsWithPortalTenant;
@@ -22,6 +23,7 @@ use App\Services\CallerIdService;
 use App\Services\CallNotPossible;
 use App\Services\CallService;
 use App\Services\LeadComplaintService;
+use App\Services\PhoneReleaseRule;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
 use App\Support\PostpaidTerms;
@@ -118,7 +120,7 @@ class LeadDetail extends Component
         $presenter = $this->presenter();
         $deadline = $lead->deadline_at?->timezone(config('app.timezone'));
         $nextAllowedAt = $this->nextAllowedAt();
-        $remaining = max(0, $this->requiredAttempts() - $this->failedCount());
+        $release = $this->phoneRelease();
 
         return view('livewire.portal.lead-detail', [
             'purchase' => $purchase,
@@ -138,9 +140,12 @@ class LeadDetail extends Component
             'requestText' => $this->requestText(),
             'answers' => $this->answers(),
             'attempts' => $this->attempts(),
-            'failed' => $this->failedCount(),
-            'required' => $this->requiredAttempts(),
-            'remaining' => $remaining,
+            // Eine Zaehlung im ganzen Portal: die der Rufnummernfreigabe
+            // (Ticket #5). Vorher stand hier die Schwelle zur Gutschrift, die
+            // dieselbe 3 trug, aber anders zaehlte.
+            'failed' => $release->countedAttempts,
+            'required' => $release->requiredAttempts,
+            'remaining' => $release->remainingAttempts(),
             'deadline' => $deadline,
             'deadlineToday' => $deadline !== null && $deadline->isToday(),
             'deadlinePassed' => $deadline !== null && $deadline->isPast(),
@@ -518,17 +523,16 @@ class LeadDetail extends Component
         ]);
     }
 
-    /** Gueltige Fehlversuche -- die Zahl, die das Regelwerk zaehlt. */
-    private function failedCount(): int
+    /**
+     * Der Freigabestand der Rufnummer fuer diesen Kauf (Ticket #5).
+     *
+     * Gezaehlt wird in PhoneReleaseRule und nur dort -- mit derselben
+     * Zaehlweise, die ueber die Freigabe entscheidet (`counts()`, also auch
+     * ein angenommenes Gespraech). Die Versuche sind mitgeladen.
+     */
+    private function phoneRelease(): PhoneRelease
     {
-        return $this->purchase()->callAttempts
-            ->where('outcome', CallAttemptOutcome::FAILED_VALID)
-            ->count();
-    }
-
-    private function requiredAttempts(): int
-    {
-        return (int) config('lead_calls.unreachable_attempts');
+        return app(PhoneReleaseRule::class)->forPurchase($this->purchase());
     }
 
     private function runningAttempt(): ?CallAttempt

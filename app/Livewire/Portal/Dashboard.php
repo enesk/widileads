@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Portal;
 
-use App\Constants\CallAttemptOutcome;
 use App\Constants\PurchaseStatus;
 use App\Constants\WalletTransactionType;
 use App\Funnel\Snapshots\SnapshotLabels;
@@ -22,6 +21,7 @@ use App\Services\CallerIdService;
 use App\Services\CallNotPossible;
 use App\Services\CallService;
 use App\Services\LeadPurchaseAction;
+use App\Services\PhoneReleaseRule;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
 use App\Support\PostpaidTerms;
@@ -176,7 +176,9 @@ class Dashboard extends Component
             $lead = $purchase->lead;
             $presenter = new LeadPresenter($lead, $this->portalUser());
             $deadline = $lead?->deadline_at?->timezone(config('app.timezone'));
-            $failed = $purchase->callAttempts->where('outcome', CallAttemptOutcome::FAILED_VALID)->count();
+            // Dieselbe Zaehlung wie in "Meine Leads" und auf der
+            // Detailseite: die der Rufnummernfreigabe (Ticket #5).
+            $release = app(PhoneReleaseRule::class)->forPurchase($purchase);
 
             return [
                 'id' => (int) $purchase->getKey(),
@@ -189,8 +191,8 @@ class Dashboard extends Component
                 'urgent' => $this->isDueToday($purchase),
                 'meta' => __('portal.dashboard.deadlines.meta', [
                     'region' => $presenter->postalCode(),
-                    'done' => $failed,
-                    'total' => (int) config('lead_calls.unreachable_attempts'),
+                    'done' => $release->countedAttempts,
+                    'total' => $release->requiredAttempts,
                 ]),
             ];
         })->all();

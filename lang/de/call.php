@@ -292,8 +292,8 @@ return [
     ],
 
     'phone_release' => [
-        'pending' => 'Die vollständige Rufnummer wird freigegeben, sobald der Lead abgerechnet ist. Bis dahin erreichst du ihn über "Anrufen".',
-        'unreachable' => 'Dieser Lead gilt als nicht erreichbar. Die Rufnummer wird nicht mehr freigegeben.',
+        'pending' => 'Die vollständige Rufnummer wird freigegeben, sobald ein Anruf angenommen wurde oder :required gezählte Versuche vorliegen (:count von :required). Bis dahin erreichst du den Lead über "Anrufen".',
+        'unreachable' => 'Dieser Lead gilt als nicht erreichbar, du bekommst den Kaufpreis gutgeschrieben. Die Rufnummer wird deshalb nicht mehr angezeigt.',
     ],
 
     'resolution' => [

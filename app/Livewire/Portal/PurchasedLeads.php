@@ -9,6 +9,7 @@ use App\Constants\BuyerLeadStatus;
 use App\Constants\CallAttemptOutcome;
 use App\Constants\FunnelFieldKey;
 use App\Constants\LeadContactStatus;
+use App\Dto\PhoneRelease;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Livewire\Portal\Concerns\InteractsWithPortalTenant;
 use App\Livewire\Portal\Concerns\ShowsToasts;
@@ -21,6 +22,7 @@ use App\Services\AuditLogger;
 use App\Services\CallerIdService;
 use App\Services\CallNotPossible;
 use App\Services\CallService;
+use App\Services\PhoneReleaseRule;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
 use Illuminate\Contracts\View\View;
@@ -365,6 +367,7 @@ class PurchasedLeads extends Component
                 $presenter = new LeadPresenter($purchase->lead, $this->portalUser());
                 $lead = $purchase->lead;
                 $running = $this->runningAttempt($purchase);
+                $release = $this->phoneRelease($purchase);
 
                 return [
                     'id' => (int) $purchase->getKey(),
@@ -393,10 +396,12 @@ class PurchasedLeads extends Component
                     'group' => $this->groupOf($purchase),
                     'initials' => $this->initials($presenter->name()),
                     'avatar_tone' => $this->avatarTone($purchase),
-                    // Versuchsfortschritt als Balken. Erledigte Leads zeigen
-                    // stattdessen, was abgerechnet wurde.
-                    'attempts_done' => $this->failedAttempts($purchase),
-                    'attempts_total' => (int) config('lead_calls.unreachable_attempts'),
+                    // Versuchsfortschritt als Balken -- die Zaehlung der
+                    // Rufnummernfreigabe und keine zweite daneben (Ticket #5).
+                    // Erledigte Leads zeigen stattdessen, was abgerechnet
+                    // wurde.
+                    'attempts_done' => $release->countedAttempts,
+                    'attempts_total' => $release->requiredAttempts,
                     'settlement' => $this->settlementLabel($purchase),
                     // Die eigene Notiz des Kaeufers, nicht sein abschliessendes
                     // Urteil: Was hier steht, hat er sich beim letzten Anruf
@@ -657,8 +662,9 @@ class PurchasedLeads extends Component
     private function statusLine(LeadPurchase $purchase): string
     {
         $lead = $purchase->lead;
-        $failed = $this->failedAttempts($purchase);
-        $required = (int) config('lead_calls.unreachable_attempts');
+        $release = $this->phoneRelease($purchase);
+        $counted = $release->countedAttempts;
+        $required = $release->requiredAttempts;
 
         if ($lead->contact_status === LeadContactStatus::BILLABLE) {
             $talk = $this->answeredAttempt($purchase);
@@ -678,7 +684,7 @@ class PurchasedLeads extends Component
 
         if ($lead->contact_status === LeadContactStatus::UNREACHABLE) {
             return __('marketplace.purchased.line.unreachable', [
-                'count' => $failed,
+                'count' => $counted,
                 'required' => $required,
                 'amount' => Money::format((int) $purchase->price_cents),
             ]);
@@ -687,7 +693,7 @@ class PurchasedLeads extends Component
         $next = $this->nextAllowedAt($purchase);
 
         return __('marketplace.purchased.line.open', [
-            'count' => $failed,
+            'count' => $counted,
             'required' => $required,
             'next' => $next === null
                 ? __('marketplace.purchased.line.next_now')
@@ -786,12 +792,21 @@ class PurchasedLeads extends Component
             ->first();
     }
 
-    /** Gueltige Fehlversuche -- die Zahl, die das Regelwerk zaehlt (FB-083). */
-    private function failedAttempts(LeadPurchase $purchase): int
+    /**
+     * Der Freigabestand der Rufnummer fuer diesen Kauf (Ticket #5).
+     *
+     * Die Seite zaehlt die Versuche nicht mehr selbst: Gezaehlt wird in
+     * PhoneReleaseRule, und zwar genau so, wie es ueber die Freigabe
+     * entscheidet. Vorher standen hier zwei Zahlen mit derselben 3 und
+     * verschiedener Bedeutung -- der Balken zaehlte nur `failed_valid`, die
+     * Freigabe zaehlt `counts()`. Jetzt ist es eine.
+     *
+     * Die Versuche sind in baseQuery() mitgeladen; forPurchase() rechnet
+     * deshalb in der Sammlung und nicht je Zeile neu gegen die Datenbank.
+     */
+    private function phoneRelease(LeadPurchase $purchase): PhoneRelease
     {
-        return $purchase->callAttempts
-            ->where('outcome', CallAttemptOutcome::FAILED_VALID)
-            ->count();
+        return app(PhoneReleaseRule::class)->forPurchase($purchase);
     }
 
     /**

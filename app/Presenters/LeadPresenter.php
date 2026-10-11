@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Presenters;
 
-use App\Constants\LeadContactStatus;
+use App\Constants\PhoneReleaseReason;
 use App\Dto\LeadContact;
+use App\Dto\PhoneRelease;
 use App\Models\Lead;
 use App\Models\User;
 
@@ -22,6 +23,14 @@ class LeadPresenter
     private readonly LeadContact $contact;
 
     /**
+     * Der Freigabestand der Rufnummer -- erst beim ersten Zugriff geholt.
+     *
+     * false heisst "noch nicht gefragt", null heisst "es gibt keinen Stand":
+     * Der Betrachter hat den Lead nicht gekauft, oder es ist die Teamsicht.
+     */
+    private PhoneRelease|null|false $release = false;
+
+    /**
      * @param  bool  $teamView  Die Fassung fuer "Team Leads" (Ticket #3):
      *                          Rufnummer und E-Mail bleiben verdeckt, ganz
      *                          unabhaengig vom Betrachter. Bewusst ein
@@ -35,6 +44,12 @@ class LeadPresenter
         bool $teamView = false,
     ) {
         $this->contact = $teamView ? $lead->contactForTeamView() : $lead->contactFor($viewer);
+
+        if ($teamView) {
+            // Die Teamsicht zeigt die Nummer niemandem (Ticket #3). Ein
+            // Versuchsstand waere dort nur eine Zahl ohne Folge.
+            $this->release = null;
+        }
     }
 
     /**
@@ -98,9 +113,36 @@ class LeadPresenter
             return null;
         }
 
-        return $this->lead->contact_status === LeadContactStatus::UNREACHABLE
-            ? __('call.phone_release.unreachable')
-            : __('call.phone_release.pending');
+        $release = $this->phoneRelease();
+
+        if ($release === null) {
+            return null;
+        }
+
+        if ($release->reason === PhoneReleaseReason::REVOKED_CREDIT) {
+            return __('call.phone_release.unreachable');
+        }
+
+        return __('call.phone_release.pending', [
+            'count' => $release->countedAttempts,
+            'required' => $release->requiredAttempts,
+        ]);
+    }
+
+    /**
+     * Der Freigabestand der Rufnummer -- oder null (Ticket #5).
+     *
+     * Dieselbe Rechnung, die ueber die Maskierung entscheidet. Views zeigen
+     * den Versuchsstand ausschliesslich hieraus an und zaehlen nicht selbst;
+     * sonst steht im Hinweis eine andere Zahl als die, die entscheidet.
+     */
+    public function phoneRelease(): ?PhoneRelease
+    {
+        if ($this->release === false) {
+            $this->release = $this->lead->phoneReleaseForViewer($this->viewer);
+        }
+
+        return $this->release;
     }
 
     public function postalCode(): string
