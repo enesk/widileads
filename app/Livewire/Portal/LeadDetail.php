@@ -354,9 +354,28 @@ class LeadDetail extends Component
         return $this->pollUntil !== null && Carbon::parse($this->pollUntil)->isFuture();
     }
 
+    /**
+     * Die Kontaktdaten dieses Leads -- aber nur fuer den Kaeufer selbst.
+     *
+     * Wer den Kauf eines Kollegen bloss lesen darf ("Team Leads", Recht
+     * `view team leads`), bekommt die Teamsicht: Name, E-Mail und Rufnummer
+     * sind verdeckt, auch fuer den Admin des Workspace. Sonst waere die
+     * Trennung aus Ticket #2 ueber die Adresse der Detailseite zu umgehen --
+     * und bei einem Lead, dessen Nummer dem Kaeufer schon freigegeben wurde,
+     * stuende sie hier im Klartext.
+     *
+     * Massgeblich ist dieselbe Faehigkeit, die auch Anruf und Reklamation
+     * freigibt. Zwei Fragen mit einer Antwort: Wer handeln darf, darf sehen.
+     */
     public function presenter(): LeadPresenter
     {
-        return new LeadPresenter($this->purchase()->lead, $this->portalUser());
+        $purchase = $this->purchase();
+
+        if (! Gate::allows('act', $purchase)) {
+            return LeadPresenter::forTeamView($purchase->lead);
+        }
+
+        return new LeadPresenter($purchase->lead, $this->portalUser());
     }
 
     /**
