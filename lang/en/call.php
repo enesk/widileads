@@ -280,8 +280,8 @@ return [
     ],
 
     'phone_release' => [
-        'pending' => 'The full phone number is released once a call has been answered or :required counted attempts are on record (:count of :required). Until then, reach the lead with "Call".',
-        'unreachable' => 'This lead counts as unreachable and you are credited the purchase price. The phone number is therefore no longer shown.',
+        'pending' => 'The full phone number is released once a call has been answered or :required calls are on record – :count so far. Until then, reach the lead with "Call"; they see our portal number.',
+        'unreachable' => 'This lead was closed as unreachable and credited back to you. The phone number is therefore no longer shown – either the credit or the number, not both.',
     ],
 
     'resolution' => [

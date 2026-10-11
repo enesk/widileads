@@ -190,6 +190,10 @@ class PurchasedLeads extends Component
             'sortOptions' => $this->sortOptions(),
             'deadlineNotice' => $this->deadlineNotice(),
             'emptyText' => $this->emptyText(),
+            // Die Schwelle fuer die Fussnote unter der Liste (Ticket #6).
+            // Aus derselben Regel, die ueber die Freigabe entscheidet -- eine
+            // feste 3 im Text waere die zweite Quelle.
+            'releaseRequired' => app(PhoneReleaseRule::class)->requiredAttempts(),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $this->portalTenant()->uuid]),
         ])->title(__('marketplace.purchased.heading'));
     }

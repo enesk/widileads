@@ -292,8 +292,8 @@ return [
     ],
 
     'phone_release' => [
-        'pending' => 'Die vollständige Rufnummer wird freigegeben, sobald ein Anruf angenommen wurde oder :required gezählte Versuche vorliegen (:count von :required). Bis dahin erreichst du den Lead über "Anrufen".',
-        'unreachable' => 'Dieser Lead gilt als nicht erreichbar, du bekommst den Kaufpreis gutgeschrieben. Die Rufnummer wird deshalb nicht mehr angezeigt.',
+        'pending' => 'Die vollständige Rufnummer wird frei, sobald ein Gespräch angenommen wurde oder :required Anrufe gezählt sind – gezählt sind bisher :count. Bis dahin erreichst du den Lead über „Anrufen“, dabei sieht er unsere Portalnummer.',
+        'unreachable' => 'Dieser Lead wurde als nicht erreichbar geschlossen und dir gutgeschrieben. Deshalb wird die Rufnummer nicht mehr angezeigt – entweder Gutschrift oder Nummer, nicht beides.',
     ],
 
     'resolution' => [

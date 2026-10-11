@@ -135,6 +135,11 @@ class LeadDetail extends Component
             'phoneLink' => $presenter->isPhoneMasked()
                 ? null
                 : 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone()),
+            // Der Satz unter der Nummer: Warum sie verdeckt ist und was sie
+            // freigibt -- oder, nach der Gutschrift, warum sie wieder weg ist
+            // (Ticket #6). Der Stand kommt aus der Freigaberegel, nicht aus
+            // einer zweiten Rechnung in dieser Komponente.
+            'phoneNote' => $this->phoneNote($presenter),
             'postalCode' => $presenter->postalCode(),
             'funnelName' => $lead->funnel?->name ?? __('marketplace.listing.unknown_funnel'),
             'requestText' => $this->requestText(),
@@ -521,6 +526,25 @@ class LeadDetail extends Component
         return $when.' · '.__('marketplace.purchased.portal.calls.duration', [
             'duration' => sprintf('%d:%02d', intdiv($seconds, 60), $seconds % 60),
         ]);
+    }
+
+    /**
+     * Der Satz unter der Rufnummer (Ticket #6).
+     *
+     * Drei Faelle: frei (der Kaeufer waehlt selbst), durch die Gutschrift
+     * wieder verdeckt, oder noch verdeckt mit dem Versuchsstand. Den Text
+     * liefert der Presenter aus demselben Stand, der ueber die Maskierung
+     * entscheidet; der Rueckfall gilt nur, wenn es gar keinen Stand gibt --
+     * dann steht hier ein Satz, der in jedem Fall stimmt.
+     */
+    private function phoneNote(LeadPresenter $presenter): string
+    {
+        if (! $presenter->isPhoneMasked()) {
+            return (string) __('marketplace.purchased.portal.phone_hint_released');
+        }
+
+        return $presenter->phoneHint()
+            ?? (string) __('marketplace.purchased.portal.phone_hint_masked');
     }
 
     /**

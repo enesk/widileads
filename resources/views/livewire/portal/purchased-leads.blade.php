@@ -8,7 +8,10 @@
 
     Zwei Dinge sind aus der Liste heraus und stehen nur noch auf der
     Detailseite: Rufnummer und E-Mail. Der Hinweis zur verdeckten Nummer steht
-    dafuer genau einmal ueber der Liste statt sechsmal darin.
+    dafuer genau einmal unter der Liste statt sechsmal darin -- mit der
+    Schwelle aus der Freigaberegel und nicht mit einer Zahl im Text
+    (Ticket #6). Den Stand je Lead tragen die Balken; ihre Beschriftung sagt,
+    wohin sie zaehlen.
 
     Die Reiter filtern serverseitig, nicht per Skript am fertigen HTML: Die
     Liste ist geblaettert, ein Ausblenden im Browser haette nur die Zeilen der
@@ -28,6 +31,7 @@
       $sortOptions     Sortierungen
       $deadlineNotice  count, name, id -- oder null
       $emptyText       title, text je Reiter
+      $releaseRequired Gezaehlte Anrufe bis zur Rufnummernfreigabe
       $marketplaceUrl  Weg zum Marktplatz
 --}}
 <div>
@@ -229,7 +233,7 @@
              fuer die ganze Liste und ist keine Ueberschrift. --}}
         <p class="mt-6 text-sm text-zinc-500 flex items-center justify-center gap-2">
             <x-app.icon name="info" class="size-4 text-zinc-400 shrink-0" />
-            {{ __('marketplace.purchased.masking_hint') }}
+            {{ __('marketplace.purchased.masking_hint', ['required' => $releaseRequired]) }}
         </p>
 
         <p class="mt-2 text-sm text-zinc-500 text-center">

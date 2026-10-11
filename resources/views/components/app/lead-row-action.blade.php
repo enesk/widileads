@@ -1,9 +1,15 @@
 {{--
     Der Knopf am Ende einer Leadzeile. Drei Faelle, drei Knoepfe:
 
-      offen           "Anrufen"  -- Click-to-Call, die Nummer ist noch verdeckt
-      erreicht        "Nummer"   -- ab jetzt darf gewaehlt werden
-      nicht erreicht  "Details"  -- es gibt nichts mehr anzurufen
+      Nummer frei     "Nummer"   -- ab jetzt waehlt der Kaeufer selbst
+      offen, verdeckt "Anrufen"  -- Click-to-Call ueber die Bridge
+      sonst           "Details"  -- es gibt nichts mehr anzurufen
+
+    Die Freigabe entscheidet, nicht der Abrechnungsstand (Ticket #6): Seit der
+    neuen Regel kommt die Nummer auch bei einem noch offenen Lead heraus --
+    nach dem dritten gezaehlten Anruf. Stuende hier weiter "offen zuerst",
+    boete die Zeile dort den Bridge-Anruf an, waehrend die Detailseite
+    daneben die Nummer zum Waehlen zeigt.
 
     Steht je Zeile zweimal im Markup (breite Spalte und gestapelte Reihe),
     deshalb hier. Ob die Rufnummer offenliegt, hat der LeadPresenter
@@ -17,7 +23,12 @@
     $extra = (string) $attributes->get('class');
 @endphp
 
-@if ($row['open'])
+@if ($row['phone_link'] !== null)
+    <a href="{{ $row['phone_link'] }}" class="btn-secondary min-h-10 px-4 {{ $extra }}">
+        <x-app.icon name="phone" class="size-4 shrink-0" />
+        <span class="tabular-nums">{{ __('marketplace.purchased.number') }}</span>
+    </a>
+@elseif ($row['open'])
     <button
         type="button"
         class="btn-primary min-h-10 px-4 {{ $extra }}"
@@ -29,11 +40,6 @@
         <x-app.icon name="phone" class="size-4 shrink-0" />
         {{ __('marketplace.purchased.call') }}
     </button>
-@elseif ($row['billable'] && $row['phone_link'] !== null)
-    <a href="{{ $row['phone_link'] }}" class="btn-secondary min-h-10 px-4 {{ $extra }}">
-        <x-app.icon name="phone" class="size-4 shrink-0" />
-        <span class="tabular-nums">{{ __('marketplace.purchased.number') }}</span>
-    </a>
 @else
     <a href="{{ $row['url'] }}" class="btn-ghost min-h-10 px-4 {{ $extra }}">
         {{ __('marketplace.purchased.details') }}

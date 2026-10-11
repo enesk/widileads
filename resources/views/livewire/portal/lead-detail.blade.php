@@ -95,9 +95,7 @@
                             <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-400">{{ $phone }}</p>
                         @endif
                         <p class="mt-1 text-xs text-zinc-500">
-                            {{ $phoneLink !== null
-                                ? __('marketplace.purchased.portal.phone_hint_released')
-                                : __('marketplace.purchased.portal.phone_hint_masked') }}
+                            {{ $phoneNote }}
                         </p>
                     </div>
 
