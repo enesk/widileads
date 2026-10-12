@@ -293,10 +293,10 @@ class PurchasedLeads extends Page
             // Byte Order Mark, damit Excel die Umlaute richtig liest.
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, $headers, ';');
+            fputcsv($handle, $headers, ';', '"', '');
 
             foreach ($rows as $row) {
-                fputcsv($handle, $row, ';');
+                fputcsv($handle, $row, ';', '"', '');
             }
 
             fclose($handle);

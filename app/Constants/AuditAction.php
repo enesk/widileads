@@ -63,6 +63,22 @@ enum AuditAction: string
     /** Rufnummer von Twilio bestaetigt und als Rufnummernanzeige zugelassen (FB-080). */
     case CALLER_ID_VERIFIED = 'caller_id.verified';
 
+    /**
+     * Bestaetigung der Rufnummer eines Benutzers im Admin zurueckgesetzt
+     * (LP-ONBOARD-017). Danach ist das Konto bis zur erneuten Bestaetigung
+     * arbeitsunfaehig -- deshalb muss nachvollziehbar bleiben, wer das getan
+     * hat.
+     */
+    case PHONE_VERIFICATION_RESET = 'phone_verification.reset';
+
+    /**
+     * Anforderungssperre einer Rufnummer im Admin aufgehoben
+     * (LP-ONBOARD-022). Die Limits der Bestaetigung sind der Schutz davor,
+     * dass jemand uns als Versandmaschine missbraucht -- wer sie per
+     * Support-Anfrage umgeht, muss nachvollziehbar bleiben.
+     */
+    case PHONE_VERIFICATION_THROTTLE_RELEASED = 'phone_verification.throttle_released';
+
     /** Antrag auf Pay as you go freigegeben -- wird von LP-POSTPAID-006 aufgerufen. */
     case POSTPAID_APPROVED = 'postpaid.approved';
 

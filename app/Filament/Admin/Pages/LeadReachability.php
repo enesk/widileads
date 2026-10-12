@@ -93,7 +93,7 @@ class LeadReachability extends Page
                 __('call.reachability.csv.rate'),
                 __('call.reachability.csv.deviation'),
                 __('call.reachability.csv.flagged'),
-            ], ';');
+            ], ';', '"', '');
 
             foreach ($summary['rows'] as $row) {
                 $tenant = $row['tenant'];
@@ -107,10 +107,10 @@ class LeadReachability extends Page
                     number_format($row['unreachable_rate'] * 100, 1, ',', ''),
                     number_format($row['deviation_points'], 1, ',', ''),
                     $row['flagged'] ? __('call.reachability.flagged') : '',
-                ], ';');
+                ], ';', '"', '');
             }
 
-            fputcsv($handle, [], ';');
+            fputcsv($handle, [], ';', '"', '');
             fputcsv($handle, [
                 __('call.reachability.csv.average'),
                 $summary['leads_total'],
@@ -118,7 +118,7 @@ class LeadReachability extends Page
                 $summary['unreachable'],
                 '',
                 number_format($summary['average_rate'] * 100, 1, ',', ''),
-            ], ';');
+            ], ';', '"', '');
 
             fclose($handle);
         }, sprintf(

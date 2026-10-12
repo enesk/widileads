@@ -88,7 +88,7 @@ class LeadExportBuilder
 
         // Byte Order Mark: Ohne sie zeigt Excel Umlaute als Buchstabensalat.
         fwrite($handle, "\u{FEFF}");
-        fputcsv($handle, array_map(static fn (string $column): string => __('exports.columns.'.$column), $columns), ';');
+        fputcsv($handle, array_map(static fn (string $column): string => __('exports.columns.'.$column), $columns), ';', '"', '');
 
         $rows = 0;
 
@@ -96,7 +96,7 @@ class LeadExportBuilder
             ->with(['answers', 'funnel'])
             ->chunkById((int) config('funnel.export.chunk_size'), function ($leads) use ($handle, $columns, $requester, &$rows): void {
                 foreach ($leads as $lead) {
-                    fputcsv($handle, $this->row($lead, $columns, $requester), ';');
+                    fputcsv($handle, $this->row($lead, $columns, $requester), ';', '"', '');
                     $rows++;
                 }
             });

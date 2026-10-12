@@ -127,22 +127,22 @@ class BuyerBilling extends Page
 
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, [__('marketplace.billing.csv.buyer'), $buyer->name], ';');
-            fputcsv($handle, [__('marketplace.billing.csv.month'), $statement['month']], ';');
-            fputcsv($handle, [], ';');
-            fputcsv($handle, [__('marketplace.billing.csv.state'), __('marketplace.billing.csv.count')], ';');
+            fputcsv($handle, [__('marketplace.billing.csv.buyer'), $buyer->name], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.csv.month'), $statement['month']], ';', '"', '');
+            fputcsv($handle, [], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.csv.state'), __('marketplace.billing.csv.count')], ';', '"', '');
 
             foreach ($statement['states'] as $state => $count) {
-                fputcsv($handle, [$labels[$state] ?? $state, $count], ';');
+                fputcsv($handle, [$labels[$state] ?? $state, $count], ';', '"', '');
             }
 
-            fputcsv($handle, [], ';');
-            fputcsv($handle, [__('marketplace.billing.purchases'), $statement['purchases']], ';');
-            fputcsv($handle, [__('marketplace.billing.revenue'), $statement['revenue_cents'] / 100, $statement['currency']], ';');
-            fputcsv($handle, [__('marketplace.billing.topped_up'), $statement['topped_up_cents'] / 100, $statement['currency']], ';');
-            fputcsv($handle, [__('marketplace.billing.captured'), $statement['captured_cents'] / 100, $statement['currency']], ';');
-            fputcsv($handle, [__('marketplace.billing.refunded'), $statement['refunded_cents'] / 100, $statement['currency']], ';');
-            fputcsv($handle, [__('marketplace.billing.captured_expected'), $statement['captured_expected_cents'] / 100, $statement['currency']], ';');
+            fputcsv($handle, [], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.purchases'), $statement['purchases']], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.revenue'), $statement['revenue_cents'] / 100, $statement['currency']], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.topped_up'), $statement['topped_up_cents'] / 100, $statement['currency']], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.captured'), $statement['captured_cents'] / 100, $statement['currency']], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.refunded'), $statement['refunded_cents'] / 100, $statement['currency']], ';', '"', '');
+            fputcsv($handle, [__('marketplace.billing.captured_expected'), $statement['captured_expected_cents'] / 100, $statement['currency']], ';', '"', '');
 
             fclose($handle);
         }, sprintf('abrechnung-%s-%s.csv', $buyer->getKey(), $statement['month']), [
