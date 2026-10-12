@@ -108,6 +108,9 @@ sechs teuersten Tickets des Sets sind und alle Prio K tragen — gilt nicht mehr
 - **Was als erreicht zählt:** ein angenommener Anruf ab **20 Sekunden**
   Gesprächsdauer gilt als erreicht und wird abgerechnet. Der Wert steht in
   `config('funnel.call.answered_after_seconds')`.
+  *Überholt:* Die Schwelle liegt bei **30 Sekunden** und steht ausschließlich in
+  `config('lead_calls.answered_min_seconds')`. Der hier genannte Schlüssel ist
+  mit Ticket #43 entfallen — er wurde nie gelesen und trug eine andere Zahl.
 - **Verhältnis zur Reklamation:** der Anrufnachweis löst FB-058 als **regulären** Weg
   aus dem Zustand `verkauft` ab. Die Reklamation bleibt übergangsweise für
   Ausnahmefälle bestehen.

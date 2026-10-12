@@ -269,10 +269,13 @@ return [
 
     'call' => [
 
-        // Ab dieser Gespraechsdauer in Sekunden gilt ein Anruf als angenommen
-        // (kuerzere Verbindungen zaehlen als nicht erreicht). Am 10.09.2026 auf
-        // 20 Sekunden entschieden (Ticket #12).
-        'answered_after_seconds' => (int) env('FUNNEL_CALL_ANSWERED_AFTER_SECONDS', 20),
+        // Ab wann ein Anruf als angenommen gilt, steht in
+        // config('lead_calls.answered_min_seconds') -- und nur dort. Der
+        // frueher hier gefuehrte Schluessel `answered_after_seconds` ist
+        // ersatzlos entfallen (Ticket #43): Er wurde von keiner Stelle im Code
+        // gelesen, trug aber eine andere Vorgabe (20 statt 30). An dieser Zahl
+        // haengen Abrechnung, Gutschrift und seit Ticket #5 die Freigabe der
+        // Rufnummer -- zwei Zahlen fuer eine Regel sind da eine Zahl zu viel.
 
         // Anzahl erfolgloser Anrufversuche, nach denen der Kaeufer seine
         // Kontaktpflicht erfuellt hat und der Lead nicht reklamiert werden kann.
