@@ -282,6 +282,61 @@ auf dem privaten Anschluss des Betreibers, nicht im Portal. Dazu kommt, dass das
 deutsche Regulatory Bundle im Stand `twilio-rejected` steht und so lange kein
 Nummernkauf möglich ist. `leads:check-call-setup --production` meldet beides als FEHLER.
 
+### DE-Regulatory-Bundle: wer was ablehnt (Ticket #75, gemessen am 2026-10-12)
+
+Ohne freigegebenes Bundle lehnt Twilio den Kauf einer deutschen Festnetznummer mit
+Fehler 21649 ab. Das Bundle des Kontos steht auf `twilio-rejected` — **aber nicht als
+Ganzes**. Lesend am Konto gemessen (`/v2/RegulatoryCompliance/...`, Zugangsdaten aus der
+Admin-Seite „Twilio"):
+
+| Gegenstand | SID | Stand |
+|---|---|---|
+| Bundle „Germany: Local - Business  2026-09-10 at 22:26:56" | `BU453802ae1b3873795765c92331067987` | `twilio-rejected` |
+| Enduser (business), alle sieben Felder gesetzt | `IT7f0189cb8ec30714f468c8beb03506bf` | ohne Beanstandung |
+| Nachweis `trade_license` (Identität + Anschrift, Adresse `AD85b419661bbfa2727843b36dd6759255`) | `RD62cc98332ef69d20c6dce9a993f37e94` | **`approved`** |
+| Nachweis `tax_document` (Proof of Registration, Attribut `business_registration_number: 39272/47034`) | `RDb32d5306c281183a48a5df91da7ed340` | **`rejected`**, Fehler 18001 |
+
+Fehlertext zum abgelehnten Dokument, wörtlich von Twilio:
+
+> The document you have uploaded does not match our Regulatory Requirements criteria.
+> Please upload a Supporting Document according to our Guidelines.
+
+Alle fünf `Evaluations` des Bundles stehen auf `compliant` — die automatische Prüfung der
+Felder ist also bestanden, abgelehnt hat die **manuelle** Prüfung, und zwar **genau ein
+PDF**. Der Grund steht nicht in den Evaluations, sondern am Dokument
+(`failure_reason`/`errors` der `SupportingDocuments`-Ressource); die Konsole zeigt
+dasselbe.
+
+**Folge für die Menschen-Sitzung:** Es ist kein neues Bundle zu bauen und auch die
+Firmendaten sind nicht das Problem. Gebraucht wird **ein** neues PDF als Proof of
+Registration — ein Handelsregisterauszug (Typ `commercial_registrar_excerpt`, deckt laut
+Regulierung alle drei Nachweise ab) oder ein Finanzamtsschreiben, das Twilios Guidelines
+genügt. Firmenname und Anschrift darauf müssen zu dem passen, was bereits freigegeben ist
+(`widimedia`, Adresse `AD85b4…`, Platanenstr. 12, 76437 Rastatt) — nicht zur zweiten,
+älteren Kontoadresse `AD68047f…` (Rheinauer Ring 66/3).
+
+Der Weg bei Twilio für ein abgelehntes Bundle ist die **Bundle-Kopie**
+(`POST /v2/RegulatoryCompliance/Bundles/BU453802…/Copies`): sie erzeugt einen `draft` mit
+den bereits freigegebenen Teilen, darin wird nur das beanstandete Dokument ersetzt, dann
+wieder `pending-review`. In der Konsole heißt das „Edit and resubmit".
+
+> `leads:submit-de-bundle` hilft hier **nicht**: das Kommando überspringt Bundles im Stand
+> `twilio-rejected` und würde ein zweites Bundle von null anlegen, inklusive erneutem
+> Upload aller drei PDFs (Ticket #76).
+
+Nach der Freigabe (`status: twilio-approved`) ist die Reihenfolge: DE-**Voice**-Nummer
+kaufen, Nummer in der Admin-Seite „Twilio" **und** in `TWILIO_FROM` der Live-`.env`
+eintragen (die `.env` schlägt die Admin-Seite, siehe oben), `TWILIO_FROM_IS_OWNED=true`
+setzen, `config:clear`/`config:cache`, `systemctl restart horizon-widileads`, und zum
+Schluss muss
+
+```bash
+sudo -u leads /usr/bin/php8.4 artisan leads:check-call-setup --production
+```
+
+ohne FEHLER durchlaufen. Erst dann wird der Cutover im nächsten Abschnitt scharf
+gestellt.
+
 ### Cutover der Erreichbarkeitsprüfung (Ticket #73, Stand 2026-10-12)
 
 `LEAD_CALLS_ENFORCE_FROM` entscheidet, **ab welchem `delivered_at` ein Lead dem
