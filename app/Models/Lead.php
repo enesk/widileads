@@ -7,8 +7,10 @@ namespace App\Models;
 use App\Constants\LeadContactStatus;
 use App\Constants\LeadResolutionReason;
 use App\Constants\LeadState;
+use App\Constants\PurchaseStatus;
 use App\Dto\LeadContact;
 use App\Dto\PhoneRelease;
+use App\Exceptions\LeadHasPurchasesException;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Scopes\TenantScopes;
 use App\Services\LeadContactResolver;
@@ -221,6 +223,20 @@ class Lead extends Model
     }
 
     /**
+     * Alle Kaufbelege zu diesem Lead, ueber alle Kaeufer hinweg (LP-WALLET-013).
+     *
+     * Die Geldseite eines Leads haengt daran: Solange hier ein Beleg steht,
+     * bleibt der Lead unloeschbar -- in der Datenbank per restrictOnDelete, im
+     * Model ueber den `deleting`-Haken.
+     *
+     * @return HasMany<LeadPurchase, $this>
+     */
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(LeadPurchase::class);
+    }
+
+    /**
      * Laeuft die Erreichbarkeitspruefung noch?
      *
      * Nur dann darf angerufen werden und nur dann zaehlt ein Versuch. Ist der
@@ -395,6 +411,27 @@ class Lead extends Model
         static::creating(function (self $lead): void {
             if (($lead->uuid ?? '') === '') {
                 $lead->uuid = (string) Str::uuid();
+            }
+        });
+
+        // Ein Lead mit Kaufbeleg geht nicht (LP-WALLET-013). Die Datenbank
+        // haelt dasselbe per restrictOnDelete -- das hier ist die lesbare
+        // Fehlermeldung davor und greift, anders als der Fremdschluessel,
+        // nicht bei einem Massen-Delete: Model-Events feuern dort nicht.
+        static::deleting(function (self $lead): void {
+            $open = $lead->purchases()
+                ->where('status', PurchaseStatus::RESERVED->value)
+                ->orderBy('id')
+                ->first();
+
+            if ($open !== null) {
+                throw LeadHasPurchasesException::forOpenReservation($lead->id, $open->id);
+            }
+
+            $count = $lead->purchases()->count();
+
+            if ($count > 0) {
+                throw LeadHasPurchasesException::forPurchases($lead->id, $count);
             }
         });
     }

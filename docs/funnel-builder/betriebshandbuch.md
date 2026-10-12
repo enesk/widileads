@@ -522,6 +522,120 @@ Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfol
 > fiel dabei von 12113 auf 9113 Cent. Zu 326 und 1026 gibt es keinen Kaufbeleg. Nicht
 > abgerechnet wurde dabei nichts — die Käufer hatten das Anrufpanel nie.
 
+### Fremdschlüssel: nie für ein Aufräumen dauerhaft droppen (Ticket #83, gemessen am 2026-10-12)
+
+**Regel, ohne Ausnahme:** Ein Fremdschlüssel wird live niemals gedroppt, um Zeilen löschen
+zu können. Wer eine Zeile nicht loswird, hat kein Schema-Problem, sondern ein
+Datenproblem — und löst es über den Fachweg (eine offene Reservierung über
+`PurchaseService::release()`, einen Lead über den `LeadRetentionService`), nicht mit
+`ALTER TABLE ... DROP FOREIGN KEY`. Muss ein Fremdschlüssel wirklich weichen, gehört das
+in eine Migration, die ihn am Ende wieder anlegt, nicht in eine SQL-Sitzung.
+
+Der Grund steht im Live-Stand: Gemessen am 2026-10-12 trug die Live-Datenbank alle 152
+Migrationen als gelaufen, hatte aber nur **24 der 153 Fremdschlüssel**, die ein frischer
+Migrationslauf anlegt. `leads` hatte keinen einzigen, `lead_purchases` zwei von sechs
+(`buyer_tenant_id` und `lead_id` fehlten), ebenso `orders`, `subscriptions`,
+`transactions`, `funnels` und die Rollen-Pivots. Vollständig waren nur `wallets`,
+`wallet_transactions`, `payment_methods` und `settlements` — die Geldseite war
+abgesichert, die Lead- und Abo-Seite nicht. Was dadurch passieren kann, ist in Ticket #78
+passiert: Ein Lead wurde gelöscht, nahm per Kaskade einen reservierten Kaufbeleg mit, und
+`wallets.reserved_cents` blockte danach 16,13 EUR ohne Beleg.
+
+Nachgezogen wird das von
+`database/migrations/2026_10_12_130000_restore_missing_foreign_keys.php`. Die Migration
+trägt die Soll-Liste als Datenfeld, legt nur an, was fehlt, und ist beliebig oft
+wiederholbar. Verwaiste Zeilen löscht sie **nicht**: Die betroffene Beziehung bleibt
+offen und wird mit Zeilenzahl und Beispielwerten gemeldet. Ein Abbruch wäre falsch — er
+hielte live jede folgende Migration wegen Altdaten auf.
+
+**So wird gegengeprüft** (Soll-Stand ist immer ein frischer Migrationslauf, nie die
+lokale Entwicklungsdatenbank — die driftet mit):
+
+```bash
+# 1. Prüfdatenbank mit dem Soll-Stand aufbauen
+mysql -uroot -e "CREATE DATABASE widileads_fkref CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+DB_DATABASE=widileads_fkref php artisan migrate --force
+
+# 2. Fremdschlüssel beider Seiten vergleichen (ON UPDATE 'NO ACTION' heißt auf der
+#    MariaDB des Live-Servers 'RESTRICT' — ohne Normalisierung weicht jede Zeile ab)
+cat > /tmp/fkdump.sql <<'SQL'
+SELECT CONCAT(kcu.TABLE_NAME, ' | ', kcu.COLUMN_NAME, ' -> ', kcu.REFERENCED_TABLE_NAME,
+  '(', kcu.REFERENCED_COLUMN_NAME, ') ', REPLACE(rc.DELETE_RULE, 'NO ACTION', 'RESTRICT'))
+FROM information_schema.KEY_COLUMN_USAGE kcu
+JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+  ON rc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA AND rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+WHERE kcu.CONSTRAINT_SCHEMA = DATABASE() AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+ORDER BY 1;
+SQL
+mysql -uroot -N -B widileads_fkref < /tmp/fkdump.sql | sort > /tmp/fk_soll.txt
+scp /tmp/fkdump.sql leads:/tmp/
+ssh leads 'cd /home/leads/htdocs/leads.widimedia.com && eval $(grep -E "^DB_(DATABASE|USERNAME|PASSWORD)=" .env | sed -e "s/^/export /") && mysql -u"$DB_USERNAME" -p"$DB_PASSWORD" -N -B "$DB_DATABASE" < /tmp/fkdump.sql' | sort > /tmp/fk_live.txt
+comm -23 /tmp/fk_soll.txt /tmp/fk_live.txt   # fehlt live
+
+mysql -uroot -e "DROP DATABASE widileads_fkref;"
+```
+
+Eine Schema-Änderung an Fremdschlüsseln wird außerdem **immer gegen eine Kopie des
+Live-Stands** geprobt, nicht nur gegen einen frischen Migrationslauf — sonst fällt die
+Drift erst auf dem Live-Server auf:
+
+```bash
+ssh leads 'cd /home/leads/htdocs/leads.widimedia.com && eval $(grep -E "^DB_(DATABASE|USERNAME|PASSWORD)=" .env | sed -e "s/^/export /") && mysqldump -u"$DB_USERNAME" -p"$DB_PASSWORD" --single-transaction --no-tablespaces --skip-lock-tables "$DB_DATABASE" | gzip -9' > /tmp/live.sql.gz
+mysql -uroot -e "CREATE DATABASE widileads_livefk CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+gunzip -c /tmp/live.sql.gz | mysql -uroot widileads_livefk
+DB_DATABASE=widileads_livefk php artisan migrate --force
+mysql -uroot -e "DROP DATABASE widileads_livefk;"
+```
+
+### Verwaiste Altdaten vor dem Fremdschlüssel aufräumen: `db:cleanup-orphans` (Ticket #87)
+
+Die Nachzieh-Migration konnte am 2026-10-12 nur **107 von 128** Fremdschlüsseln anlegen.
+Die übrigen 21 blieben offen, weil in der Zeit ohne Fremdschlüssel Mandanten, Nutzer,
+Funnels und Leads gelöscht worden sind, ohne dass ihre Kinder mitgingen — die Datenbank
+hätte die Zeilen beim Anlegen zurückgewiesen. Dafür gibt es
+`App\Console\Commands\CleanupOrphanedRows`:
+
+```bash
+sudo -u leads /usr/bin/php8.4 artisan db:cleanup-orphans            # Probe, schreibt nichts
+sudo -u leads /usr/bin/php8.4 artisan db:cleanup-orphans --apply --force
+sudo -u leads /usr/bin/php8.4 artisan migrate --force               # zieht die Fremdschlüssel nach
+```
+
+**Die Regel des Laufs:** angewandt wird genau das, was der fehlende Fremdschlüssel selbst
+vorschreibt. `cascade` heißt, die Zeile wäre mit dem Elternteil gegangen — sie wird
+gelöscht. `set null` heißt, der Verweis wäre geleert worden — die Spalte geht auf `NULL`.
+Der Lauf erfindet damit keine Fachlogik; er holt die Kaskade nach, die zum Zeitpunkt des
+Löschens fehlte. Ein Lead mit Kaufbeleg wird nie angefasst (`lead_purchases` ist
+`restrict`): Er bleibt stehen und wird gemeldet.
+
+Die beiden `restrict`-Beziehungen der Geldseite schreiben nichts vor und werden von Hand
+entschieden, ohne einen Beleg zu löschen:
+
+- `transactions.tenant_id` wird aus `orders.tenant_id` des eigenen Belegs
+  richtiggestellt. Live waren das drei Zeilen auf Mandant 9, deren Bestellungen alle auf
+  Mandant 2 lauten — der Wert ist herleitbar, die Spalte muss nicht `nullable` werden.
+- `user_stripe_data.tenant_id` geht auf `NULL`. Die Zeile bleibt als Beleg des
+  Stripe-Kunden, aber kein Mandant beansprucht sie mehr. Umhängen wäre falsch:
+  `PaymentMethodService` liest `where tenant_id = …` mit `first()` und könnte danach den
+  alten Kunden statt des aktuellen erwischen.
+
+Ohne `--apply` läuft dieselbe Folge in einer Transaktion und wird am Ende zurückgedreht —
+die gemeldeten Zahlen sind damit die echten. Der Lauf ist wiederholbar: ein zweiter Aufruf
+findet nichts mehr.
+
+> Probe gegen eine Kopie des Live-Stands am 2026-10-12 (Ticket #87): **5994 Zeilen in 23
+> Beziehungen**. Größte Posten: 4860 `lead_answers` (2400 auf längst gelöschte Leads, 2460
+> als Kinder der gleich gelöschten), 479 `lead_state_log`, 205 `leads` der gelöschten
+> Demo-Mandanten 6 und 10 aus dem `PortalDemoSeeder` (Kontaktadressen auf `@demo.test`,
+> Funnel 3 ebenfalls gelöscht, **kein einziger Kaufbeleg darauf**), 117 `session_events`.
+> Danach zieht `migrate` **128 von 128** Fremdschlüsseln nach, und der Schema-Vergleich
+> oben liefert eine leere Differenz in beide Richtungen (153 zu 153). `wallet:verify`
+> meldet danach „3 Wallet(s) geprueft, keine Abweichung"; `OperatorRevenueReport` bleibt
+> unverändert (es rechnet auf `lead_purchases`), und das `BuyerBilling` des Käufers
+> Mandant 2 führt im September jetzt **23 statt 20 Zahlungsbelege** — die drei auf
+> Mandant 9 gestrandeten über 1000, 1000 und 1500 EUR waren dem Käufer vorher in seiner
+> eigenen Belegliste nicht zu sehen.
+
 ### Rollback
 
 Es gibt **keinen** Rollback-Mechanismus mit vorgehaltenen Releases: ausgerollt wird mit

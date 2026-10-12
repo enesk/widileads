@@ -178,6 +178,8 @@ return [
             'concurrent_transition' => 'Der Lead war beim Wechsel nach ":to" nicht mehr im erwarteten Zustand ":expected", sondern in ":actual". Ein anderer Vorgang war schneller.',
             'log_not_updatable' => 'Ein Eintrag im Zustandsprotokoll kann nach dem Anlegen nicht mehr geändert werden.',
             'log_not_deletable' => 'Ein Eintrag im Zustandsprotokoll kann nicht gelöscht werden.',
+            'delete_blocked_by_reservation' => 'Lead :lead kann nicht gelöscht werden: Kaufbeleg :purchase hält eine offene Reservierung. Lösen Sie sie zuerst über PurchaseService::release() auf.',
+            'delete_blocked_by_purchase' => 'Lead :lead kann nicht gelöscht werden: Es gibt :count abgerechnete Kaufbelege, die als Beleg der Geldseite erhalten bleiben müssen.',
             'justification_too_short' => 'Die Begründung muss mindestens :min Zeichen lang sein.',
             'force_state_forbidden' => 'Nur Betreiber-Administratoren dürfen den Zustand eines Leads von Hand setzen.',
         ],

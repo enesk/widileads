@@ -178,6 +178,8 @@ return [
             'concurrent_transition' => 'When moving to ":to" the lead was no longer in the expected state ":expected" but in ":actual". Another process was faster.',
             'log_not_updatable' => 'An entry in the state log cannot be changed after it has been created.',
             'log_not_deletable' => 'An entry in the state log cannot be deleted.',
+            'delete_blocked_by_reservation' => 'Lead :lead cannot be deleted: purchase :purchase still holds an open reservation. Release it through PurchaseService::release() first.',
+            'delete_blocked_by_purchase' => 'Lead :lead cannot be deleted: there are :count settled purchases that must be kept as proof of the money side.',
             'justification_too_short' => 'The justification must be at least :min characters long.',
             'force_state_forbidden' => 'Only operator administrators may set the state of a lead manually.',
         ],
