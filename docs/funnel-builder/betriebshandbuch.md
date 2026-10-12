@@ -183,7 +183,7 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 | `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
 | `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
 | `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
-| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:check-call-setup --production` ohne FEHLER laeuft **und** `call_attempts` mindestens eine Zeile hat (Ticket #76) — am 2026-10-12 erneut gemessen: beides nicht erfuellt |
+| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:check-call-setup --production` ohne FEHLER laeuft **und** `call_attempts` mindestens eine Zeile hat (Ticket #76) — am 2026-10-12 dreimal gemessen (Tickets #76, #85): beides nicht erfuellt, und live hat **kein einziges Konto eine bestaetigte Rufnummer** — damit kann niemand das Anrufpanel ueberhaupt oeffnen |
 
 ### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
 
@@ -433,6 +433,7 @@ hinterher.
 | `leads:check-call-setup --production` | FEHLER bei `Portal-Nummer gekauft` und `Regulatory Bundle DE (local)` |
 | `TWILIO_FROM` live | `+4915115509444` — verifizierte Privatnummer, nicht gekauft |
 | `call_attempts` live | **0 Zeilen** — über das Portal wurde live noch nie gewählt |
+| bestätigte Rufnummern live | **0 von 4 Konten** — `users.phone_number_verified_at` ist überall `null` (gemessen am 2026-10-12, Ticket #85) |
 
 Die dritte Zeile ist das eigentliche Kriterium: Solange es keinen einzigen Anrufversuch
 gibt, gibt es auch keinen „ersten Tag, an dem das Anrufpanel erreichbar war", und jedes
@@ -456,6 +457,31 @@ Portal-Anruf — und damit die erste Zeile in `call_attempts` — ist deshalb sc
 machbar: Absender `+4915115509444`, gewählt über das Anrufpanel eines Käufers mit
 bestätigter Rufnummer, Ziel ein Lead, dessen Telefonnummer dem Betreiber selbst gehört
 (zweites Telefon) — damit ruft der Probeanruf niemand Fremden an.
+
+**Was ihn doch aufhält — am 2026-10-12 live gemessen (Ticket #85).** Der Satz oben setzt
+„einen Käufer mit bestätigter Rufnummer" voraus, und genau den gibt es live nicht:
+`users.phone_number_verified_at` ist bei allen vier Konten `null`
+(`hello@eneskul.com`, `kul@widimedia.com`, `tolga.altuntas@allianz.de`,
+`engin.keskinsoy@allianz.de`). `EnsurePhoneVerified` sperrt damit jeden angemeldeten
+Screen; das Anrufpanel ist für niemanden erreichbar. Vor dem ersten Anrufversuch steht
+deshalb **die Rufnummernbestätigung des Betreibers am eigenen Telefon** — die läuft
+unabhängig vom Nummernkauf: `TWILIO_VERIFY_SID` ist gesetzt, `PHONE_VERIFICATION_FAKE` ist
+`false` und `TwilioVerifyClient` nimmt die Zugangsdaten aus der Admin-Seite „Twilio"
+(`services.twilio.sid/.token`), nicht aus den leeren `.env`-Zeilen. Reihenfolge der
+Betreiber-Sitzung also: **1.** eigene Nummer im Portal bestätigen, **2.** Übungs-Lead mit
+`leads:call-probe` und einer **zweiten** eigenen Nummer anlegen (dieselbe Nummer wie
+`TWILIO_FROM` geht nicht, Twilio lehnt `From == To` ab, Ticket #93), **3.** anrufen,
+**4.** Cutover setzen.
+
+**Frühester zulässiger Cutover (Stand 2026-10-12).** Die fünf offenen Reservierungen
+77–81 wurden am 2026-10-11 zwischen 17:24:44 und 23:15:33 ausgeliefert (Leads
+1791/1795/1798/1801/1803, Käufer Mandant 2 „Schoder & Altuntas OHG" — ein echter Kunde,
+Kaufbeleg 81 steht auf dessen Nutzer 9 —, je 15,00 EUR, Frist 2026-10-18). Ein Cutover
+auf `2026-10-11` oder früher rechnet sie ab, obwohl zu ihnen kein Anrufversuch existiert
+und der Käufer durch die Telefonsperre nie anrufen konnte. **Zulässig ist deshalb nur ein
+Datum ab `2026-10-12`** — und sinnvoll ist das Datum des ersten echten Anrufversuchs aus
+Punkt 2 der Reihenfolge unten. Ein geratenes Datum in der Zukunft ist keine Alternative:
+es stellt das Regelwerk unbeobachtet scharf, während leer „aus" bedeutet und geprüft wird.
 
 Am Kriterium oben ändert das **nichts**: scharf gestellt wird erst, wenn *beide*
 Bedingungen erfüllt sind. Es heißt nur, dass die zweite Bedingung nicht auf Twilios
