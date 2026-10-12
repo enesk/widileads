@@ -15,6 +15,7 @@ use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\Wallet;
 use App\Services\Wallet\WalletService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Tests\Feature\FeatureTest;
 
@@ -41,26 +42,32 @@ class VerifyWalletLedgerTest extends FeatureTest
 
     public function test_it_names_the_purchase_behind_a_reservation_without_a_counter_entry(): void
     {
-        [$buyer, $purchase] = $this->aBuyerWithAReservedPurchase();
+        // Zahlen und Zeitpunkt wie im Vorfall aus #78: 16,13 EUR, gebucht am
+        // 24.09.2026 um 16:35.
+        $this->travelTo(Carbon::parse('2026-09-24 16:35:11'));
 
-        // Der Beleg verschwindet, die Reservierung im Journal bleibt -- genau
-        // der Befund aus #78.
+        [$buyer, $purchase] = $this->aBuyerWithAReservedPurchase(1613);
+
+        // Der Beleg verschwindet, die Reservierung im Journal bleibt.
         LeadPurchase::query()->whereKey($purchase->getKey())->delete();
+
+        $this->travelBack();
 
         $this->artisan('wallet:verify')->assertExitCode(1);
 
         $detail = $this->findingAbout('Kaufbeleg #'.$purchase->getKey());
 
-        $this->assertStringContainsString('15,00 EUR', $detail);
+        $this->assertStringContainsString('16,13 EUR', $detail);
+        $this->assertStringContainsString('24.09.2026 16:35', $detail);
         $this->assertStringContainsString('existiert nicht mehr', $detail);
 
         // Ebene 2 nennt das Wallet, Ebene 3 den Beleg darunter.
         $this->assertStringContainsString(
-            'Differenz 15,00 EUR',
+            'Differenz 16,13 EUR',
             $this->findingAbout('Wallet #'.Wallet::forBuyer($buyer)->getKey()),
         );
 
-        $this->assertSame(1500, Wallet::forBuyer($buyer)->reserved_cents);
+        $this->assertSame(1613, Wallet::forBuyer($buyer)->reserved_cents);
     }
 
     public function test_the_orphan_counter_entry_closes_the_finding_without_a_purchase_reference(): void
@@ -145,7 +152,7 @@ class VerifyWalletLedgerTest extends FeatureTest
      *
      * @return array{Tenant, LeadPurchase}
      */
-    private function aBuyerWithAReservedPurchase(): array
+    private function aBuyerWithAReservedPurchase(int $priceCents = 1500): array
     {
         $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
         $buyer = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
@@ -164,7 +171,7 @@ class VerifyWalletLedgerTest extends FeatureTest
             'lead_id' => $lead->getKey(),
             'buyer_tenant_id' => $buyer->getKey(),
             'seller_tenant_id' => $operator->getKey(),
-            'price_cents' => 1500,
+            'price_cents' => $priceCents,
             'status' => PurchaseStatus::RESERVED,
             'reserved_at' => now(),
             'purchased_at' => now(),
@@ -173,7 +180,7 @@ class VerifyWalletLedgerTest extends FeatureTest
         $wallets->post(
             wallet: $wallet,
             type: WalletTransactionType::RESERVE,
-            amountCents: 1500,
+            amountCents: $priceCents,
             description: 'Reservierung',
             reference: $purchase,
         );
