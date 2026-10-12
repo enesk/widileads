@@ -337,6 +337,56 @@ sudo -u leads /usr/bin/php8.4 artisan leads:check-call-setup --production
 ohne FEHLER durchlaufen. Erst dann wird der Cutover im nächsten Abschnitt scharf
 gestellt.
 
+#### Was am Konto gemessen ist (Ticket #75, 2026-10-12)
+
+Der Nummernkauf wurde **ausprobiert**, nicht geschätzt — dreimal `POST
+/2010-04-01/Accounts/AC…/IncomingPhoneNumbers.json`, jedes Mal abgelehnt, also keine
+Nummer gekauft und kein Geld bewegt:
+
+| Versuch | Antwort von Twilio |
+|---|---|
+| Mobilnummer `+49 1588…` mit `AddressSid=AD85b419…` | `21649` — „Bundle required and not provided for country: [DE] and numberType: **[MOBILE]**" |
+| Festnetznummer in einem fremden Ortsnetz (Pulheim) | `21615` — „No valid address created for: Pulheim" |
+| Festnetznummer **in Rastatt** (`+49 7222 8079…`) mit derselben Adresse | `21649` — „Bundle required … numberType: **[LOCAL]**" |
+
+Daraus folgt dreierlei für die Menschen-Sitzung:
+
+* Das Bundle ist die **harte** Sperre. Es gibt keinen Weg daran vorbei — auch nicht über
+  eine Mobilnummer: die Regulierung „Germany: Mobile - Business"
+  (`RN0ffdc59bf88e48f2efdf8c440255723b`) verlangt **dieselben** sieben Enduser-Felder und
+  **dieselben** drei Nachweise wie „Local - Business". Ein zweites Bundle für `mobile`
+  aufzusetzen bringt also nichts, solange dasselbe PDF fehlt.
+* Eine Festnetznummer **im eigenen Ortsnetz Rastatt ist im Bestand** — der Kauf scheitert
+  derzeit nur am Bundle, nicht an der Verfügbarkeit. Zu finden sind diese Nummern aber nur
+  über `Contains`, **nicht** über `AreaCode` (`AreaCode=7222` liefert für DE eine leere
+  Liste, `Contains=+497222*` fünf Nummern):
+
+  ```bash
+  curl -s -u "$TWILIO_SID:$TWILIO_TOKEN" \
+    "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_SID/AvailablePhoneNumbers/DE/Local.json?Contains=%2B497222*&VoiceEnabled=true"
+  ```
+
+  Die Adresse muss zum Ortsnetz der Nummer passen (daher `21615` bei Pulheim): zu einer
+  Rastatter Nummer gehört `AD85b419661bbfa2727843b36dd6759255`.
+* Das Guthaben reicht: **18,88 USD** (`Balance.json`), eine deutsche Festnetznummer kostet
+  gut 1 USD im Monat. Für den Kauf ist also nichts aufzuladen.
+
+Beim Kauf nach der Freigabe sind **beide** Parameter mitzugeben — `BundleSid` des
+freigegebenen Bundles und `AddressSid` der Rastatter Adresse; in der Konsole fragt die
+Maske „Buy a number" dasselbe ab.
+
+Zu den Nachweisen, gemessen an der Regulierung: Proof of Registration akzeptiert nur
+`commercial_registrar_excerpt` oder `tax_document` — der bereits freigegebene
+`trade_license` (Gewerbeanmeldung) deckt diesen Nachweis **nicht** ab, nur Identität und
+Anschrift. Gebraucht wird also ein Handelsregisterauszug oder ein Dokument der
+Steuerbehörde (Mitteilung des Finanzamts über die Steuernummer, USt-IdNr.-Bestätigung des
+BZSt), ausgestellt auf `widimedia`, Platanenstr. 12, 76437 Rastatt.
+
+> **Wartet auf den Betreiber.** Dieser Punkt ist von keinem Agenten weiter zu bringen: er
+> braucht ein Dokument aus der Realität, Twilios manuelle Prüfung (Tage) und danach rund
+> zehn Minuten Konsole plus `.env`. Alles Prüfbare daran ist gemessen und steht oben.
+
+
 ### Cutover der Erreichbarkeitsprüfung (Ticket #73, Stand 2026-10-12)
 
 `LEAD_CALLS_ENFORCE_FROM` entscheidet, **ab welchem `delivered_at` ein Lead dem
@@ -356,13 +406,68 @@ LEAD_CALLS_ENFORCE_FROM=""
 ```
 
 Scharf gestellt wird erst, wenn Portal-Anrufe live funktionieren — dazu fehlt noch eine
-gekaufte Twilio-Rufnummer (Ticket #72). Dann hier das Datum des ersten Tages eintragen,
-an dem das Anrufpanel erreichbar war, und `optimize:clear` + `optimize` hinterher.
+gekaufte Twilio-Rufnummer (Ticket #72/#75). Dann hier das Datum des ersten Tages
+eintragen, an dem das Anrufpanel erreichbar war, und `optimize:clear` + `optimize`
+hinterher.
 
-> Nebenwirkung: Vier Bestandsleads (326, 1026, 1311, 1316) haben eine abgelaufene Frist
-> und bleiben dauerhaft `open`; bei 1311 und 1316 bleibt je eine Reservierung des Käufers
-> (Tenant 2) stehen. Das ist gewollt — abrechnen wäre falsch —, muss aber bei der
-> Entscheidung über den Cutover mitbedacht werden.
+#### Woran der Cutover hängt (Ticket #76, gemessen am 2026-10-12)
+
+| Prüfung | Stand am 2026-10-12 |
+|---|---|
+| `leads:check-call-setup --production` | FEHLER bei `Portal-Nummer gekauft` und `Regulatory Bundle DE (local)` |
+| `TWILIO_FROM` live | `+4915115509444` — verifizierte Privatnummer, nicht gekauft |
+| `call_attempts` live | **0 Zeilen** — über das Portal wurde live noch nie gewählt |
+
+Die dritte Zeile ist das eigentliche Kriterium: Solange es keinen einzigen Anrufversuch
+gibt, gibt es auch keinen „ersten Tag, an dem das Anrufpanel erreichbar war", und jedes
+Datum wäre geraten. **Deshalb bleibt der Wert leer, solange eine der beiden messbaren
+Bedingungen fehlt: `leads:check-call-setup --production` ohne FEHLER, und mindestens eine
+Zeile in `call_attempts`.** Der Ticketstand von #75 ist dafür kein
+Ersatz — #75 ist geschlossen, sobald der Agentenanteil gemessen und dokumentiert ist,
+die gekaufte Nummer kommt erst mit der Betreiber-Sitzung.
+
+#### Reihenfolge beim Scharfstellen
+
+1. `leads:check-call-setup --production` läuft ohne FEHLER (Portal-Nummer gekauft, Bundle freigegeben).
+2. Ersten Tag mit einem echten Anrufversuch feststellen:
+   ```bash
+   sudo -u leads /usr/bin/php8.4 artisan tinker --execute \
+     'echo DB::table("call_attempts")->min("created_at"), PHP_EOL;'
+   ```
+   Dieses Datum (Europe/Berlin, Form `YYYY-MM-DD`) ist der Cutover.
+3. `LEAD_CALLS_ENFORCE_FROM="<Datum>"` in die Live-`.env`, dann `optimize:clear` +
+   `optimize` und `systemctl restart horizon-widileads`.
+4. **Trockenlauf vor dem ersten 03:00-Lauf** — zählen, was `leads:resolve-expired`
+   greifen würde, und was das in Geld heißt:
+   ```bash
+   sudo -u leads /usr/bin/php8.4 artisan tinker --execute '
+   $von = config("lead_calls.enforce_from");
+   $f = App\Models\Lead::query()->withoutGlobalScopes(App\Models\Scopes\TenantScopes::names())
+     ->where("contact_status", "open")->whereNotNull("deadline_at")->where("deadline_at","<=",now())
+     ->whereNotNull("delivered_at")->where("delivered_at",">=",$von)->pluck("id");
+   echo "Leads: ", $f->count(), " -> ", $f->toJson(), PHP_EOL;
+   $k = DB::table("lead_purchases")->whereIn("lead_id",$f)->where("status","reserved")->get(["id","lead_id","buyer_tenant_id","price_cents"]);
+   echo "Kaeufe: ", $k->count(), ", Summe ", $k->sum("price_cents")/100, " EUR", PHP_EOL, $k->toJson(), PHP_EOL;'
+   ```
+   Jeder Treffer wird nachts als `billable`/`deadline` abgerechnet. Kommt etwas
+   Unerwartetes vor, erst den Cutover später legen, dann abrechnen — nie umgekehrt.
+5. Nach dem ersten Lauf `wallet:verify` und die Zeile „Fristablauf abgearbeitet" im Log
+   gegenprüfen.
+
+> Beim Scharfstellen mitbedenken: Am 2026-10-12 stehen fünf Reservierungen des Käufers
+> Tenant 2 offen (Kaufbelege 77–81, Leads 1791/1795/1798/1801/1803, Frist 2026-10-18,
+> je 15,00 EUR). Ein Cutover auf den 2026-10-11 oder früher rechnet sie beim ersten
+> 03:00-Lauf nach dem 18.10. ab, obwohl zu diesen Leads kein Anrufversuch existiert.
+> Entweder vorher einen echten Anruf nachweisen oder den Cutover hinter deren
+> Auslieferung legen.
+
+> Erledigte Altlast (Ticket #76, 2026-10-12): Die vier Bestandsleads mit abgelaufener
+> Frist (326, 1026, 1311, 1316) bleiben dauerhaft `open` — ihr `delivered_at` liegt vor
+> jedem künftigen Cutover, der Lauf fasst sie nicht mehr an. Die beiden hängenden
+> Reservierungen der Kaufbelege 75 und 76 (Lead 1316 bzw. 1311, Käufer Tenant 2) wurden
+> über `PurchaseService::release()` freigegeben; `wallets.reserved_cents` von Wallet 2
+> fiel dabei von 12113 auf 9113 Cent. Zu 326 und 1026 gibt es keinen Kaufbeleg. Nicht
+> abgerechnet wurde dabei nichts — die Käufer hatten das Anrufpanel nie.
 
 ### Rollback
 
