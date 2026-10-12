@@ -32,6 +32,7 @@ use App\Services\TenantCreationService;
 use App\Services\Wallet\PurchaseService;
 use App\Services\Wallet\WalletService;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -138,6 +139,8 @@ class FunnelDemoSeeder extends Seeder
             $this->command?->warn(
                 'Die Demo-Umgebung existiert bereits. Zum Neuaufbau zuerst die Datenbank zuruecksetzen.'
             );
+
+            $this->repairBuyerEvidence();
 
             return;
         }
@@ -668,6 +671,127 @@ class FunnelDemoSeeder extends Seeder
         } finally {
             config(['queue.default' => $previous]);
         }
+    }
+
+    /**
+     * Traegt den beiden Kaeufern die Aktivierungsnachweise nach, wenn sie im
+     * Bestand fehlen (LP-ONBOARD-054).
+     *
+     * `onboarding:backfill` hakt `first_topup` und `first_call` nur gegen einen
+     * Nachweis in den Daten ab (LP-ONBOARD-048) -- pauschal haken darf er
+     * nicht. Ein Demo-Bestand, der vor dem geldbasierten Wallet oder vor den
+     * Demo-Anrufversuchen aufgebaut wurde, hat diese Spuren nicht: Die beiden
+     * Kaeufer gelten dann nach dem Backfill nicht als aktiviert, und die
+     * Aktivierungskarte bleibt mit der Checkliste stehen. Also entsteht die
+     * Spur hier, und zwar echt: eine Aufladung ueber den Wallet-Dienst und ein
+     * angenommener Anruf auf einem Lead, der ohnehin als erreicht gilt.
+     *
+     * Laeuft nur auf einem bestehenden Bestand und ist beliebig wiederholbar --
+     * was schon steht, bleibt unberuehrt. Ein Neuaufbau der Datenbank ist
+     * dafuer nicht noetig; ein frischer Lauf legt beide Spuren ohnehin an
+     * (topUp() und reachLead()).
+     */
+    private function repairBuyerEvidence(): void
+    {
+        foreach ([self::BUYER_NORTH_EMAIL, self::BUYER_SOUTH_EMAIL] as $email) {
+            $buyer = $this->buyerTenant($email);
+
+            if (! $buyer instanceof Tenant) {
+                continue;
+            }
+
+            $added = [];
+
+            if (! $this->hasTopup($buyer)) {
+                $this->topUp($buyer, 100_000, 'demo');
+                $added[] = 'Aufladung';
+            }
+
+            if (! $this->hasAnsweredCall($buyer) && $this->recordDemoCall($buyer)) {
+                $added[] = 'Anruf';
+            }
+
+            $this->command?->line(sprintf(
+                '  %s: %s',
+                $email,
+                $added === [] ? 'Nachweise vorhanden' : 'nachgetragen -- '.implode(' und ', $added),
+            ));
+        }
+    }
+
+    /**
+     * Der Kaeufer-Workspace hinter einer Demo-Adresse.
+     */
+    private function buyerTenant(string $email): ?Tenant
+    {
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        return $user->tenants()->where('type', TenantType::BUYER)->first();
+    }
+
+    /**
+     * Steht im Kaeufer-Wallet eine echte Aufladung? Dieselbe Pruefung wie in
+     * OnboardingBackfill::hasTopup().
+     */
+    private function hasTopup(Tenant $buyer): bool
+    {
+        return $buyer->buyerWallet()
+            ->whereHas(
+                'transactions',
+                static fn (Builder $query): Builder => $query->where('type', WalletTransactionType::TOPUP),
+            )
+            ->exists();
+    }
+
+    /**
+     * Hat der Workspace ein gefuehrtes Gespraech? Dieselbe Schwelle wie
+     * MarkFirstCall und OnboardingBackfill::hasCompletedCall().
+     */
+    private function hasAnsweredCall(Tenant $buyer): bool
+    {
+        return CallAttempt::query()
+            ->where('tenant_id', $buyer->getKey())
+            ->where('duration_seconds', '>', 0)
+            ->exists();
+    }
+
+    /**
+     * Legt einen angenommenen Anrufversuch auf einem gekauften Lead an --
+     * bevorzugt auf einem, der schon als erreicht gilt, damit Zustand und
+     * Anrufprotokoll zusammenpassen.
+     *
+     * Bewusst ohne LeadResolver: Die Erreichbarkeit dieser Kaeufe ist laengst
+     * entschieden und abgerechnet; ein zweiter Durchlauf wuerde den Kaufbeleg
+     * nur noch einmal anfassen.
+     */
+    private function recordDemoCall(Tenant $buyer): bool
+    {
+        $purchases = LeadPurchase::query()
+            ->where('buyer_tenant_id', $buyer->getKey())
+            ->with('lead');
+
+        $purchase = (clone $purchases)
+            ->whereHas('lead', static fn (Builder $query): Builder => $query->where('lead_state', LeadState::ERREICHT))
+            ->latest('id')
+            ->first()
+            ?? $purchases->latest('id')->first();
+
+        if (! $purchase instanceof LeadPurchase || ! $purchase->lead instanceof Lead) {
+            return false;
+        }
+
+        $this->recordAttempt(
+            $purchase,
+            $purchase->lead,
+            now()->subHours(6),
+            CallAttemptOutcome::ANSWERED,
+        );
+
+        return true;
     }
 
     /**

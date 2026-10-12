@@ -4,6 +4,8 @@ namespace Tests;
 
 use App\Services\CurrencyService;
 use App\Services\TenantPermissionService;
+use Database\Factories\TenantFactory;
+use Database\Factories\UserFactory;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
@@ -50,6 +52,26 @@ abstract class TestCase extends BaseTestCase
     public function createApplication(): Application
     {
         self::useIsolatedTestDatabase();
+
+        // Testbenutzer haben eine bestaetigte Rufnummer, sofern ein Test nicht
+        // ausdruecklich `User::factory()->phoneUnverified()` nimmt. Ohne diese
+        // Vorgabe liefe jeder Bestandstest, der eine Portalseite, einen
+        // Geldweg des Kaeufers oder das Dashboard-Panel aufruft, in die
+        // Telefonsperre EnsurePhoneVerified (LP-ONBOARD-003) und bekaeme 302
+        // auf `onboarding.phone`. Gesetzt hier und nicht in setUp(), weil die
+        // Seeder von RefreshDatabase schon vor setUpTraits Benutzer anlegen
+        // koennen.
+        UserFactory::$phoneVerifiedByDefault = true;
+
+        // Derselbe Grund, zweite Sperre: Das Wizard-Gate
+        // EnsureOnboardingWizard (LP-ONBOARD-007) fuehrt jeden
+        // Kaeufer-Workspace mit offenem Einrichtungs-Wizard auf
+        // `portal.onboarding`. Die Tenant-Factory setzt die beiden
+        // Zeitstempel nicht, also waere jeder aus ihr erzeugte Workspace
+        // offen -- und jeder Bestandstest auf einer Portal- oder
+        // Dashboard-Adresse bekaeme 302. Wer die Fuehrung selbst prueft,
+        // nimmt `Tenant::factory()->onboardingPending()`.
+        TenantFactory::$onboardingCompletedByDefault = true;
 
         $this->withFunnelFeatureEnv(true);
 

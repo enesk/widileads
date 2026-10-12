@@ -71,8 +71,9 @@ class PanelSmokeTest extends FeatureTest
             TenancyPermissionConstants::PERMISSION_MANAGE_API_TOKENS,
         ]);
 
-        // Ohne bestaetigte Rufnummer haelt das Portal jeden Kaeufer auf der
-        // Bestaetigungsseite fest (RequireVerifiedCallerId).
+        // Die Rufnummernanzeige sperrt das Portal nicht mehr (Ticket #49);
+        // die Zeile bleibt, damit der Kaeufer hier so dasteht wie im Betrieb --
+        // mit nutzbarer Nummer und ohne Warnhinweis auf dem Dashboard.
         CallerId::factory()->verified()->create([
             'tenant_id' => $tenant->getKey(),
             'user_id' => $user->getKey(),

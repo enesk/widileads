@@ -57,7 +57,11 @@ SaaSykit Tenancy is built with the TALL stack (Tailwind CSS, Alpine.js, Laravel,
 - `vendor/bin/pint` - Run Laravel Pint code formatter
 
 ### Deployment
-- `php dep deploy` - Deploy using Deployer (configured in deploy.php)
+- Deployment: widileads laeuft live unter https://leads.widimedia.com (CloudPanel-Verzeichnis,
+  kein Deployer). `php dep deploy` bricht absichtlich ab. Ausgerollt wird mit `git pull` im
+  Live-Verzeichnis: `ssh leads` -> `/home/leads/htdocs/leads.widimedia.com`, PHP ist dort
+  `/usr/bin/php8.4`, der Worker ist der systemd-Dienst `horizon-widileads`. Die vollstaendige
+  Reihenfolge steht in `docs/funnel-builder/betriebshandbuch.md`, Abschnitt 1.
 
 ## Architecture & Structure
 

@@ -2683,42 +2683,6 @@ parameters:
 			path: app/Livewire/Roadmap/View.php
 
 		-
-			message: '#^Method App\\Livewire\\Verify\\SmsVerification\:\:editPhone\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
-			message: '#^Method App\\Livewire\\Verify\\SmsVerification\:\:render\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
-			message: '#^Method App\\Livewire\\Verify\\SmsVerification\:\:sendVerificationCode\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
-			message: '#^Method App\\Livewire\\Verify\\SmsVerification\:\:verifyCode\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
-			message: '#^Property App\\Livewire\\Verify\\SmsVerification\:\:\$code has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
-			message: '#^Property App\\Livewire\\Verify\\SmsVerification\:\:\$phone has no type specified\.$#'
-			identifier: missingType.property
-			count: 1
-			path: app/Livewire/Verify/SmsVerification.php
-
-		-
 			message: '#^Method App\\Mail\\Referral\\ReferralRewardEarned\:\:attachments\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
@@ -5539,12 +5503,6 @@ parameters:
 			path: app/Services/RoadmapService.php
 
 		-
-			message: '#^Method App\\Services\\SessionService\:\:clearSmsVerificationDto\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Services/SessionService.php
-
-		-
 			message: '#^Method App\\Services\\SessionService\:\:resetCreateTenantForFreePlanUser\(\) has no return type specified\.$#'
 			identifier: missingType.return
 			count: 1
@@ -6029,24 +5987,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/UserService.php
-
-		-
-			message: '#^Method App\\Services\\UserVerificationService\:\:verifyCode\(\) has no return type specified\.$#'
-			identifier: missingType.return
-			count: 1
-			path: app/Services/UserVerificationService.php
-
-		-
-			message: '#^Parameter \#2 \$code of method App\\Services\\UserVerificationService\:\:sendSmsVerificationCode\(\) expects string, int\<100000, 999999\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/UserVerificationService.php
-
-		-
-			message: '#^Property App\\Dto\\SmsVerificationDto\:\:\$code \(string\) does not accept int\<100000, 999999\>\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Services/UserVerificationService.php
 
 		-
 			message: '#^Property App\\Services\\UserVerificationService\:\:\$verificationProviders type has no value type specified in iterable type array\.$#'

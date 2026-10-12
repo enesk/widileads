@@ -11,49 +11,116 @@ beschreibt, die es nicht gibt, ist schlimmer als keines.
 
 ## 1. Deployment
 
-### Womit
+### Wo die Anwendung live läuft
 
-[Deployer](https://deployer.org) über `deploy.php`, auf Basis von `recipe/laravel.php`.
-Aufruf aus dem Projektverzeichnis:
+| Was | Wert | woher bestätigt |
+|---|---|---|
+| Öffentliche Adresse | `https://leads.widimedia.com` | abgefragt am 2026-10-12, liefert das Portal (HTTP 200, `/portal` leitet auf `/login`) |
+| Davor | Cloudflare (`server: cloudflare`, DNS zeigt auf 188.114.96.3/97.3) | gleiche Abfrage |
+| Verzeichnis auf dem Server | `/home/leads/htdocs/leads.widimedia.com` | Betriebsnotiz; CloudPanel-Schnitt (`/home/<user>/htdocs/<domain>`), **keine** Deployer-Struktur mit `releases/` und `current/` |
+| Systembenutzer | `leads` | dito |
+| Ursprungsserver | `88.198.64.145` (Hetzner, `Ubuntu-2404-noble-amd64-base`) | geprüft am 2026-10-12: `curl --resolve leads.widimedia.com:443:88.198.64.145` liefert dieselbe Seite wie der Weg über Cloudflare |
+| SSH-Zugang | `ssh leads` (Benutzer `root`, Schlüssel `~/.ssh/id_ed25519`) | Eintrag `Host leads` in `~/.ssh/config`, Ticket #66; dieselbe Maschine wie der dort schon vorhandene `Host sun` |
+| PHP | `/usr/bin/php8.4`, identisch mit `/usr/bin/php` | der FPM-Pool der Site liegt unter `/etc/php/8.4/fpm/pool.d/leads.widimedia.com.conf` (Listen `127.0.0.1:19002`, User `leads`); 8.5 ist auf der Maschine installiert, bedient aber **andere** Sites |
+| Queue | Redis, Horizon als **systemd**-Dienst `horizon-widileads` | `systemctl cat horizon-widileads`; Supervisor läuft auf der Maschine, kennt aber keinen Eintrag für widileads (Abschnitt 2) |
+| Nachbarschaft | geteilte Maschine (minber, sanitaerfinden, kasernencheck u. a.) | `ls /etc/nginx/sites-enabled` — jeder Eingriff am Webserver, an PHP oder an Redis trifft fremde Projekte mit |
+
+Über die DNS-Antwort ist der Server nicht zu finden — Cloudflare antwortet mit seinen
+eigenen Adressen (188.114.96.3/97.3). Der Ursprung ist `88.198.64.145`; der Nachweis ist
+die Abfrage mit erzwungener Auflösung oben in der Tabelle. In `~/.ssh/config` steht dafür
+`Host leads` (Benutzer `root`). Alles unten Beschriebene beginnt mit:
 
 ```bash
-php dep provision    # einmalig: Server einrichten
-php dep deploy       # jeder weitere Rollout
+ssh leads
+cd /home/leads/htdocs/leads.widimedia.com
 ```
 
-### Was vorher konfiguriert sein muss
+### Womit ausgerollt wird
 
-Der Konfigurationsblock steht ganz oben in `deploy.php` und trägt noch die
-Beispielwerte aus SaaSykit. **Ohne Anpassung deployt der Befehl gegen `1.2.3.4` und
-`git@github.com:username/saasykit.git`.**
+**Nicht mit Deployer.** `deploy.php` liegt unverändert aus dem SaaSykit-Boilerplate im
+Repository und trägt nur Platzhalter (`$host = '1.2.3.4'`,
+`git@github.com:username/saasykit.git`, `$deployPath = '~/app'`). Damit niemand
+versehentlich dagegen deployt, bricht die Datei beim Aufruf mit einem Hinweis ab,
+solange die Platzhalter darin stehen.
 
-| Wert | Bedeutung |
-|---|---|
-| `$host` | IP oder Hostname des Zielservers |
-| `$domain` | Domain der Anwendung |
-| `$remoteUser` | Benutzer für den Deploy (Vorgabe `deployer`) |
-| `$deployPath` | Zielverzeichnis, Vorgabe `~/app` |
-| `$repository` | Repository in SSH-Schreibweise |
-| `$phpVersion` | `8.4` |
+Ein Umstellen auf Deployer wäre kein Konfigurationsschritt, sondern ein Umbau: Deployer
+erwartet unter `$deployPath` seine eigene Struktur (`releases/`, `shared/`, Symlink
+`current`), das Live-Verzeichnis ist aber ein flaches CloudPanel-Verzeichnis. Diese
+Entscheidung gehört dem Betreiber, nicht einem Rollout.
 
-Node wird in Version 23 installiert, PHP bekommt zusätzlich `php8.4-redis`.
+**So läuft es: `git pull` im Live-Verzeichnis.** Das Verzeichnis ist ein gewöhnlicher
+Git-Arbeitsbaum auf `main` mit `origin = git@github.com:enesk/widileads.git`; das
+Reflog zeigt ausschließlich `pull: Fast-forward` (geprüft am 2026-10-12, zuletzt am
+2026-10-11 auf `59e8802a`). Kein Rsync, kein Deployer, keine Releases.
 
-### Was ein Deploy von selbst tut
+Zwei Eigenheiten, die man kennen muss:
 
-In dieser Reihenfolge:
+- **Der Pull läuft als `root`.** Der Benutzer `leads` hat keinen GitHub-Schlüssel
+  (`/home/leads/.ssh/authorized_keys` und `config` sind leer), `sudo -u leads git fetch`
+  endet mit „Please make sure you have the correct access rights". Root authentifiziert
+  über `/root/.ssh/config` → `github_deploy`. Deshalb gehört hinter jeden Pull ein
+  `chown`, sonst liegen frische Dateien root — der Webserver und Horizon laufen als
+  `leads`.
+- **Gebaute Assets liegen nicht im Repository.** `/public/build` steht in `.gitignore`
+  und wird auf dem Server gebaut (`node_modules` liegt dort). Ein Pull ohne `npm run
+  build` lässt die Anwendung mit dem alten Bundle laufen.
 
-1. `artisan migrate` — danach automatisch `artisan db:seed`. Der `DatabaseSeeder` ruft
-   seine Seeder über `callOnce` auf; ein wiederholter Lauf legt nichts doppelt an.
-2. `npm:build` — Vite-Assets.
-3. Nach Erfolg: `artisan horizon:terminate` (Horizon startet mit neuem Code neu),
-   `crontab:sync`, `app:generate-sitemap`, `app:export-configs`.
-4. Bei Fehlschlag: `deploy:unlock`.
+Reihenfolge für einen Rollout, im Live-Verzeichnis:
 
-Der Cron bekommt genau einen Eintrag:
+```bash
+# 1. Code holen (als root, siehe oben)
+git pull --ff-only
+chown -R leads:leads /home/leads/htdocs/leads.widimedia.com
+
+# 2. Abhaengigkeiten, nur wenn composer.lock / package-lock.json sich geaendert haben
+sudo -u leads composer install --no-dev --optimize-autoloader
+sudo -u leads npm ci
+
+# 3. Assets - immer, sobald sich etwas unter resources/ bewegt hat
+sudo -u leads npm run build
+
+# 4. Datenbank
+sudo -u leads /usr/bin/php8.4 artisan migrate --force
+
+# 5. Caches erneuern. bootstrap/cache/config.php UND routes-v7.php sind auf diesem
+#    Server gefuellt - ohne diesen Schritt wirkt weder neue Konfiguration noch eine
+#    neue Route.
+sudo -u leads /usr/bin/php8.4 artisan optimize:clear
+sudo -u leads /usr/bin/php8.4 artisan optimize
+
+# 6. Worker neu starten, sonst verarbeitet er Jobs mit dem alten Code
+systemctl restart horizon-widileads
+
+# 7. Nacharbeiten
+sudo -u leads /usr/bin/php8.4 artisan app:generate-sitemap
+sudo -u leads /usr/bin/php8.4 artisan app:export-configs
+```
+
+**Immer `/usr/bin/php8.4`, nicht 8.5.** Der FPM-Pool der Site läuft auf 8.4; ein mit 8.5
+geschriebener Konfigurations-Cache wird von 8.4 wieder gelesen, aber jede Prüfung per
+`tinker` zeigt sonst eine andere Laufzeit als die, die die Seite ausliefert.
+
+Gegenprobe nach dem Rollout:
+
+```bash
+git log --oneline -1                         # steht der erwartete Commit?
+git status --short                           # nur /public/vendor/livewire ist bekannt unverfolgt
+systemctl show -p ActiveEnterTimestamp horizon-widileads   # jung, nicht Wochen alt
+stat -c '%y' public/build/manifest.json      # juenger als der Commit
+curl -sI https://leads.widimedia.com/ | head -1
+```
+
+Der Cron braucht genau einen Eintrag:
 
 ```
-* * * * * cd {{current_path}} && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/leads/htdocs/leads.widimedia.com && /usr/bin/php8.4 artisan schedule:run >> /dev/null 2>&1
 ```
+
+Er steht in der Crontab des Benutzers **`leads`**, nicht bei `root` — Webserver und
+Horizon laufen als `leads`, ein Lauf als `root` hinterließe Cache- und Logdateien, die
+die Anwendung danach nicht mehr schreiben kann. Angelegt am 2026-10-12 (Ticket #67),
+nachgewiesen über `grep CRON /var/log/syslog | grep '(leads)'`. Bearbeitet wird er als
+`root` mit `crontab -u leads -e`, aufgelistet mit `crontab -u leads -l`.
 
 ### Umgebungsvariablen
 
@@ -62,10 +129,15 @@ Vorlage ist `.env.example`. Für den Betrieb gilt zusätzlich:
 | Variable | Wert im Betrieb | Warum |
 |---|---|---|
 | `APP_ENV` | `production` | steuert Fehlerausgabe und den Schutz destruktiver Befehle |
+| `APP_DEBUG` | `false` | sonst steht der Stacktrace im Browser |
+| `APP_URL` | `https://leads.widimedia.com` | geht in Links, Mails und in den WebOTP-Host der SMS |
 | `APP_LOCALE` | `de` | die Oberfläche ist deutsch |
 | `QUEUE_CONNECTION` | `redis` | `.env.example` steht auf `sync`; damit liefe jeder Job im Request |
 | `CACHE_DRIVER` | `redis` | |
 | `SESSION_DRIVER` | `redis` oder `database` | `file` skaliert nicht über mehrere Prozesse |
+| `TRUSTED_PROXIES` | Cloudflare-Netze oder `*` | hinter Cloudflare sieht Laravel sonst `http` — dann scheitert jede Twilio-Signaturprüfung (FB-084) |
+| `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` | aus der Twilio-Konsole, `TWILIO_FROM` in E.164 | Anrufe und SMS |
+| `TWILIO_VERIFY_SID` | `VA…` des Verify-Service | ohne sie bricht jede echte Rufnummernbestätigung ab; kommt **nur** aus der `.env`, die Admin-Seite pflegt sie nicht (Ticket #63) |
 | `FUNNEL_ALLOW_DESTRUCTIVE` | **nicht gesetzt** | siehe unten |
 
 Die Feature-Flags der mitgelieferten SaaSykit-Module (`FUNNEL_FEATURE_BLOG_ENABLED`,
@@ -79,25 +151,159 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 > Betrieb setzt, entfernt den einzigen Schutz davor, die Produktivdatenbank mit einem
 > Tippfehler zu leeren.
 
-### Rollback
+#### Abgleich mit der Live-`.env` (Stand 2026-10-12, Ticket #66)
 
-Deployer hält die letzten Releases vor. Ein Rollback auf das vorige Release:
+| Variable | live | Urteil |
+|---|---|---|
+| `APP_ENV` | `production` | passt |
+| `APP_DEBUG` | `false` | passt |
+| `APP_URL` | `https://leads.widimedia.com` | passt |
+| `TRUSTED_PROXIES` | `*` | passt — damit liest Laravel `X-Forwarded-Proto` von Cloudflare, die Twilio-Signaturprüfung rechnet mit `https` (FB-084) |
+| `QUEUE_CONNECTION` | `redis` | passt |
+| `FUNNEL_ALLOW_DESTRUCTIVE` | nicht gesetzt | passt |
+| `APP_LOCALE` | nicht gesetzt | unkritisch, `config/app.php` fällt auf `de` zurück |
+| `CACHE_DRIVER` | `file` | abweichend, aber wirksam — `config/cache.php` liest in diesem Projekt `CACHE_DRIVER` (nicht `CACHE_STORE`). Auf einer Maschine mit einem FPM-Pool tragbar |
+| `SESSION_DRIVER` | `file` | abweichend, bewusst gelassen: ein Umstellen wirft alle angemeldeten Käufer heraus. Erst anfassen, wenn ein zweiter Prozess dazukommt |
+| `TWILIO_FROM` | `"+4915115509444"` | am 2026-10-12 nachgetragen (Ticket #69), siehe unten |
+| `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
+| `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
+| `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
 
-```bash
-php dep rollback
+### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
+
+Der Verify-Service ist am 2026-10-12 im Twilio-Konto angelegt (Friendly Name
+`widileads`, SID `VA8e6c9468220ed2021adbdb7f7ca5f7d0`, `code_length: 6`, Code-Laufzeit
+10 Minuten — Twilio-Vorgabe). Die Live-`.env` trägt den Wert seit demselben Tag; direkt
+unter `TWILIO_FROM` stehen dort jetzt:
+
+```
+TWILIO_VERIFY_SID="VA8e6c9468220ed2021adbdb7f7ca5f7d0"
+# WebOTP bleibt aus, bis das Custom-Template freigegeben ist (Tickets #60/#65).
+TWILIO_VERIFY_WEBOTP=false
+PHONE_VERIFICATION_FAKE=false
 ```
 
-**Migrationen laufen dabei nicht zurück.** Ein Rollback hilft gegen fehlerhaften Code,
-nicht gegen eine fehlerhafte Migration. Für die gilt Abschnitt 3.
+Die Sicherung der vorigen Fassung liegt als `.env.bak-20261012-63` im Live-Verzeichnis.
 
+Nach jeder Änderung an diesen Werten, als Benutzer `leads` im Live-Verzeichnis:
+
+```bash
+# 1. Konfigurationscache erneuern, sonst wirkt der Wert nicht.
+#    Dieser Server faehrt MIT Cache (bootstrap/cache/config.php ist gefuellt),
+#    deshalb beide Schritte:
+sudo -u leads /usr/bin/php8.4 artisan config:clear
+sudo -u leads /usr/bin/php8.4 artisan config:cache
+
+# 2. Gegenprobe - erwartet dieselbe SID
+sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo config("services.twilio.verify_sid");'
+
+# 3. Der Worker haelt die Konfiguration im Speicher
+systemctl restart horizon-widileads
+```
+
+> **Die Gegenprobe über `config()` liefert auf diesem Server derzeit noch nichts** —
+> nicht weil die `.env` falsch stünde, sondern weil der ausgerollte Stand (`59e8802a`)
+> den Verify-Zweig noch nicht enthält: `config/services.php` kennt dort den Schlüssel
+> `twilio.verify_sid` gar nicht, `app/Services/Twilio/TwilioVerifyClient.php` liegt noch
+> nicht auf dem Server. Belegbar ist der Wert deshalb nur über die Umgebung selbst:
+>
+> ```bash
+> sudo -u leads /usr/bin/php8.4 artisan config:clear
+> sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo env("TWILIO_VERIFY_SID");'
+> sudo -u leads /usr/bin/php8.4 artisan config:cache
+> ```
+>
+> Das liefert die SID (geprüft am 2026-10-12). Achtung: **mit** gefülltem
+> Konfigurationscache überspringt Laravel das Laden der `.env` komplett, dann gibt `env()`
+> immer `null` zurück — deshalb der Umweg über `config:clear`. Sobald der Verify-Code
+> ausgerollt ist, zieht `config('services.twilio.verify_sid')` den Wert ohne weiteres
+> Zutun.
+
+Zwei Werte in derselben `.env` gehören dazu:
+
+| Variable | Wert | Warum |
+|---|---|---|
+| `PHONE_VERIFICATION_FAKE` | `false` | in `production` wird die Attrappe ohnehin ignoriert, der Wert gehört trotzdem auf `false` |
+| `TWILIO_VERIFY_WEBOTP` | `false`, bis das Custom-Template freigegeben ist | Twilio lehnt eine Substitution ab, die das Template nicht führt — dann scheitert **jeder** SMS-Versand, nicht nur WebOTP (Tickets #60/#65) |
+
+Die Admin-Seite „Twilio" pflegt `TWILIO_VERIFY_SID` **nicht** (dort stehen nur `sid`,
+`token`, `from`); `config('services.twilio.verify_sid')` liest ausschliesslich die
+Umgebung.
+
+### Portal-Nummer `TWILIO_FROM` auf dem Live-Server (Ticket #69, erledigt am 2026-10-12)
+
+Die Live-`.env` trägt seit dem 2026-10-12 `TWILIO_FROM="+4915115509444"` (Zeile 113,
+vorher `""`), danach `config:clear`/`config:cache` und ein Neustart von
+`horizon-widileads`. Gegenprobe:
+
+```bash
+sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo config("twilio.from_number");'
+sudo -u leads /usr/bin/php8.4 artisan leads:check-call-setup --production
+```
+
+Beides liefert `+4915115509444`.
+
+**Der geführte Anruf war auch vorher nicht blind.** `CallService::platformNumber()`
+(`app/Services/CallService.php:171-176`) liest zuerst `config('twilio.from_number')`
+(nur `.env`) und fällt auf `config('services.twilio.from')` zurück — und dieser
+Schlüssel steht in `ConfigConstants::OVERRIDABLE_CONFIGS`, wird also von
+`ConfigService::loadConfigs()` bei jedem Boot aus Cache/Datenbank über die Umgebung
+gelegt. Die Nummer kam deshalb aus der Admin-Seite „Twilio". Der Eintrag in der `.env`
+nimmt dem Anruf die Abhängigkeit von Redis-Cache, `configs`-Tabelle und dem Schalter
+`app.admin_settings.enabled`.
+
+> **Vorrangregel, die daraus folgt:** `.env` schlägt die Admin-Seite. Wird die
+> Portal-Nummer künftig im Admin-Panel geändert, muss `TWILIO_FROM` mitgeändert werden —
+> sonst wählt Twilio weiter mit dem alten Wert, während die Oberfläche den neuen zeigt.
+> `leads:check-call-setup` zeigt immer den tatsächlich gewählten Wert.
+
+**Was offen bleibt (nicht Teil von #69):** Im Twilio-Konto ist **keine** Rufnummer
+gekauft (`IncomingPhoneNumbers` ist leer, geprüft am 2026-10-12). `+4915115509444` ist
+eine bei Twilio *verifizierte* Absendernummer (`OutgoingCallerIds`, Konto `Full`,
+`active`). Als `From` eines ausgehenden Anrufs akzeptiert Twilio das — der geführte
+Anruf ist also fahrbar. Nicht fahrbar sind Rückrufe auf die Portal-Nummer: sie landen
+auf dem privaten Anschluss des Betreibers, nicht im Portal. Dazu kommt, dass das
+deutsche Regulatory Bundle im Stand `twilio-rejected` steht und so lange kein
+Nummernkauf möglich ist. `leads:check-call-setup --production` meldet beides als FEHLER.
+
+### Rollback
+
+Es gibt **keinen** Rollback-Mechanismus mit vorgehaltenen Releases: ausgerollt wird mit
+`git pull`, es liegt nur ein Stand im Verzeichnis (`php dep rollback` läuft ins Leere).
+Ein Rückfall ist derselbe Weg rückwärts:
+
+```bash
+git checkout <voriger-commit>     # oder: git reset --hard <voriger-commit> auf main
+chown -R leads:leads /home/leads/htdocs/leads.widimedia.com
+sudo -u leads npm run build
+sudo -u leads /usr/bin/php8.4 artisan optimize:clear && sudo -u leads /usr/bin/php8.4 artisan optimize
+systemctl restart horizon-widileads
+```
+
+**Migrationen laufen dabei nicht zurück.** Ein Rückfall hilft gegen fehlerhaften Code,
+nicht gegen eine fehlerhafte Migration. Für die gilt Abschnitt 3.
 ---
 
 ## 2. Horizon und Hintergrundverarbeitung
 
 ### Aufbau
 
-Horizon läuft unter Supervisor. `provision:supervisor` legt
-`/etc/supervisor/conf.d/horizon.conf` an:
+**Live läuft Horizon als systemd-Dienst, nicht unter Supervisor** (geprüft am
+2026-10-12). Die Unit `/etc/systemd/system/horizon-widileads.service` ist `enabled`:
+
+```
+[Service]
+User=leads
+Group=leads
+WorkingDirectory=/home/leads/htdocs/leads.widimedia.com
+ExecStart=/usr/bin/php /home/leads/htdocs/leads.widimedia.com/artisan horizon
+ExecStop=/usr/bin/php .../artisan horizon:terminate
+Restart=always
+```
+
+Der Supervisor auf der Maschine bedient fremde Projekte (minber, sanitaerfinden,
+kasernencheck) — **kein** Eintrag für widileads. Der `provision:supervisor`-Task aus
+`deploy.php` unten ist Boilerplate und auf diesem Server nie gelaufen:
 
 ```
 [program:horizon]
@@ -114,14 +320,18 @@ Konfiguration in `config/horizon.php`: ein Supervisor, eine Queue (`default`),
 ### Handgriffe
 
 ```bash
-supervisorctl status horizon          # laeuft er?
-supervisorctl restart horizon         # Neustart
-php artisan horizon:status            # Sicht der Anwendung
-php artisan horizon:terminate         # sanft beenden, Supervisor startet neu
-php artisan queue:failed              # fehlgeschlagene Jobs
-php artisan queue:retry all           # alle erneut einreihen
-tail -f {deploy_path}/log/horizon.log
+# live (ssh leads), im Verzeichnis /home/leads/htdocs/leads.widimedia.com
+systemctl status horizon-widileads     # laeuft er, und seit wann?
+systemctl restart horizon-widileads    # Neustart - nach JEDEM Rollout
+sudo -u leads /usr/bin/php8.4 artisan horizon:status      # Sicht der Anwendung
+sudo -u leads /usr/bin/php8.4 artisan horizon:terminate   # sanft beenden, systemd startet neu
+sudo -u leads /usr/bin/php8.4 artisan queue:failed        # fehlgeschlagene Jobs
+sudo -u leads /usr/bin/php8.4 artisan queue:retry all     # alle erneut einreihen
+journalctl -u horizon-widileads -n 100 --no-pager
 ```
+
+`ActiveEnterTimestamp` ist die wichtigste Zahl davon: ist der Dienst älter als der
+letzte Rollout, verarbeitet er Jobs mit altem Code.
 
 Die Oberfläche liegt unter `/horizon` und ist nur für Plattform-Admins erreichbar.
 
@@ -144,7 +354,8 @@ jede Fehlermeldung.
 **Erste Prüfung bei „irgendetwas läuft nicht mehr":**
 
 ```bash
-crontab -l                                    # steht der Eintrag noch da?
+crontab -u leads -l                           # steht der Eintrag noch da?
+grep CRON /var/log/syslog | grep '(leads)'    # feuert er auch (minuetlich eine Zeile)?
 php artisan schedule:list                     # was waere faellig?
 php artisan schedule:run                      # einmal von Hand
 ```
@@ -235,7 +446,7 @@ php artisan migrate --force
 php artisan migrate:status                    # keine offenen Migrationen
 php artisan about                             # Cache, Queue, Datenbank verbunden
 supervisorctl status horizon                  # laeuft
-crontab -l                                    # Eintrag vorhanden
+crontab -u leads -l                           # Eintrag vorhanden
 curl -I https://<domain>/f/<token>            # oeffentliche Strecke antwortet 200
 ```
 

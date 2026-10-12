@@ -58,6 +58,16 @@ class LeadMatcherTest extends TestCase
     }
 
     /**
+     * Die Umkreis-Kriterien aus Wizard-Schritt 2.
+     *
+     * @return array{region: string, postal_code: string, radius_km: int}
+     */
+    private static function radius(int $radiusKm, string $centre = '76133'): array
+    {
+        return ['region' => 'radius', 'postal_code' => $centre, 'radius_km' => $radiusKm];
+    }
+
+    /**
      * Je Filtertyp: was er durchlaesst und was er abweist.
      *
      * @return array<string, array{MatchableLead, BuyerProfile, bool}>
@@ -92,6 +102,66 @@ class LeadMatcherTest extends TestCase
             ],
             'PLZ: Lead ohne Postleitzahl faellt bei gesetztem Filter raus' => [
                 self::lead(['postal_code' => null]), self::profile(['postal_prefixes' => ['76']]), false,
+            ],
+
+            // Der Umkreis aus Wizard-Schritt 2. Entfernungen
+            // kommen aus resources/data/plz-de.csv: 75172 liegt 24,7 km von
+            // 76133 entfernt, 68159 gut 54 km.
+            'Umkreis: Postleitzahl liegt innerhalb' => [
+                self::lead(['postal_code' => '75172']), self::profile(self::radius(25)), true,
+            ],
+            'Umkreis: Postleitzahl liegt ausserhalb' => [
+                self::lead(['postal_code' => '68159']), self::profile(self::radius(25)), false,
+            ],
+            'Umkreis: ein weiterer Umkreis holt sie wieder herein' => [
+                self::lead(['postal_code' => '68159']), self::profile(self::radius(100)), true,
+            ],
+            'Umkreis: Lead ohne Postleitzahl faellt raus' => [
+                self::lead(['postal_code' => null]), self::profile(self::radius(25)), false,
+            ],
+            // Im Zweifel nicht anzeigen: Grosskunden-Postleitzahlen stehen
+            // nicht im Verzeichnis, und ohne Koordinate ist nicht zu sagen, ob
+            // der Lead im Umkreis liegt.
+            'Umkreis: unbekannte Postleitzahl des Leads faellt raus' => [
+                self::lead(['postal_code' => '99999']), self::profile(self::radius(25)), false,
+            ],
+            'Umkreis: bundesweit schraenkt nicht ein' => [
+                self::lead(['postal_code' => '10115']),
+                self::profile(['region' => 'nationwide', 'postal_code' => '76133', 'radius_km' => 25]),
+                true,
+            ],
+            // Die Gegenrichtung: Ein unbekannter Mittelpunkt ist ein
+            // unbrauchbares Kriterium und darf nicht den ganzen Marktplatz
+            // leeren.
+            'Umkreis: unbekannter Mittelpunkt schraenkt nicht ein' => [
+                self::lead(['postal_code' => '10115']), self::profile(self::radius(25, '99999')), true,
+            ],
+            'Umkreis: ohne Mittelpunkt schraenkt nicht ein' => [
+                self::lead(['postal_code' => '10115']),
+                self::profile(['region' => 'radius', 'postal_code' => null, 'radius_km' => 25]),
+                true,
+            ],
+            'Umkreis: ohne Kilometerangabe schraenkt nicht ein' => [
+                self::lead(['postal_code' => '10115']),
+                self::profile(['region' => 'radius', 'postal_code' => '76133', 'radius_km' => null]),
+                true,
+            ],
+            // Umkreis und Praefixe gelten zusammen (UND) -- das engere der
+            // beiden Kriterien gewinnt, in beiden Richtungen.
+            'Umkreis und Praefix: beide treffen' => [
+                self::lead(['postal_code' => '76149']),
+                self::profile(self::radius(25) + ['postal_prefixes' => ['76']]),
+                true,
+            ],
+            'Umkreis und Praefix: nur der Umkreis trifft' => [
+                self::lead(['postal_code' => '75172']),
+                self::profile(self::radius(25) + ['postal_prefixes' => ['76']]),
+                false,
+            ],
+            'Umkreis und Praefix: nur der Praefix trifft' => [
+                self::lead(['postal_code' => '76532']),
+                self::profile(self::radius(10) + ['postal_prefixes' => ['76']]),
+                false,
             ],
 
             'Antwort: erlaubter Wert' => [

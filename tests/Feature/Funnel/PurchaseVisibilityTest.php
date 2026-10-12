@@ -134,9 +134,9 @@ class PurchaseVisibilityTest extends FeatureTest
     }
 
     /**
-     * Ein Mitglied des Kaeufer-Workspaces -- mit bestaetigter Rufnummer, sonst
-     * haelt RequireVerifiedCallerId es auf der Bestaetigungsseite fest, bevor
-     * es die zu pruefende Seite ueberhaupt erreicht.
+     * Ein Mitglied des Kaeufer-Workspaces -- mit bestaetigter Rufnummer. Die
+     * sperrt seit Ticket #49 nichts mehr, gehoert aber zum Normalzustand eines
+     * Kaeufers, der telefonieren kann.
      */
     private function memberOfBuyer(): User
     {

@@ -22,7 +22,18 @@ $phpVersion = '8.4'; // the version of PHP to be installed on the server
 
 // End of configs
 // ///////////////////////////////////
-// ///////////////////////////////////
+
+// widileads laeuft nicht ueber Deployer, sondern flach unter
+// /home/leads/htdocs/leads.widimedia.com (CloudPanel). Die Werte oben sind unveraenderte
+// SaaSykit-Platzhalter; ein Deploy dagegen traefe einen fremden Host und ein fremdes
+// Repository. Siehe docs/funnel-builder/betriebshandbuch.md, Abschnitt 1.
+if ($host === '1.2.3.4' || str_contains($repository, 'username/saasykit')) {
+    throw new \RuntimeException(
+        'deploy.php ist nicht konfiguriert: $host/$repository tragen noch die SaaSykit-Platzhalter. '
+        .'widileads wird derzeit nicht ueber Deployer ausgerollt - der Live-Stand und der Rollout-Weg '
+        .'stehen in docs/funnel-builder/betriebshandbuch.md, Abschnitt 1.'
+    );
+}
 
 set('repository', $repository);
 set('sub_directory', $subDirectory);

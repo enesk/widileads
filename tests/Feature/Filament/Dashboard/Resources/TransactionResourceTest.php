@@ -31,8 +31,8 @@ class TransactionResourceTest extends FeatureTest
         $this->get(TransactionResource::getUrl('index', [], true, 'dashboard', tenant: $tenant))
             ->assertRedirect(route('portal.transactions', ['tenant' => $tenant->uuid]));
 
-        // Ohne bestaetigte Rufnummer haelt das Portal jeden Kaeufer auf der
-        // Bestaetigungsseite fest (RequireVerifiedCallerId).
+        // Die Rufnummernanzeige sperrt das Portal nicht mehr (Ticket #49); die
+        // Zeile bleibt als Normalzustand eines Kaeufers stehen.
         CallerId::factory()->verified()->create([
             'tenant_id' => $tenant->getKey(),
             'user_id' => $user->getKey(),
