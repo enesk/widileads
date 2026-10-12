@@ -169,6 +169,7 @@ return [
         'funnels' => 'Funnels',
         'leads' => 'Leads',
         'marketplace' => 'Marketplace',
+        'reports' => 'Reports',
         'security' => 'Security',
         'settings' => 'Settings',
     ],

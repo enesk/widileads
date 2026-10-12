@@ -49,8 +49,13 @@ final class Money
     /**
      * Waehrungszeichen der Wallet-Waehrung. Unbekannte Waehrungen werden mit
      * ihrem Code geschrieben; erfundene Zeichen waeren schlechter als ein Code.
+     *
+     * Oeffentlich seit LP-ONBOARD-011: Die Abrechnungs-Erklaerung laesst eine
+     * Guthabenzahl im Browser herunterlaufen und braucht dafuer das Zeichen
+     * allein -- jeden Zwischenstand hier zu formatieren waere eine Liste von
+     * hundert Zeichenketten im Markup.
      */
-    private static function symbol(?string $currency = null): string
+    public static function symbol(?string $currency = null): string
     {
         $code = strtoupper($currency ?? (string) config('wallet.currency', 'EUR'));
 

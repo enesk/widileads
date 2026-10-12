@@ -66,6 +66,8 @@ return [
             'buyer_rejected' => 'Käufer abgelehnt',
             'caller_id_requested' => 'Rufnummer-Bestätigung angefordert',
             'caller_id_verified' => 'Rufnummer bestätigt',
+            'phone_verification_reset' => 'Rufnummer-Bestätigung zurückgesetzt',
+            'phone_verification_throttle_released' => 'Sperre der Rufnummer-Bestätigung aufgehoben',
             'postpaid_approved' => 'Pay as you go freigegeben',
             'postpaid_rejected' => 'Pay as you go abgelehnt',
             'postpaid_credit_limit_changed' => 'Kreditrahmen geändert',

@@ -66,6 +66,8 @@ return [
             'buyer_rejected' => 'Buyer rejected',
             'caller_id_requested' => 'Caller ID verification requested',
             'caller_id_verified' => 'Caller ID verified',
+            'phone_verification_reset' => 'Phone verification reset',
+            'phone_verification_throttle_released' => 'Phone verification limit released',
             'postpaid_approved' => 'Pay as you go approved',
             'postpaid_rejected' => 'Pay as you go rejected',
             'postpaid_credit_limit_changed' => 'Credit limit changed',

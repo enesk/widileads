@@ -53,6 +53,21 @@ use Throwable;
  */
 class WalletTopupController extends Controller
 {
+    /**
+     * Sitzungsschluessel fuer "der Kaeufer kam aus dem Einrichtungs-Wizard".
+     *
+     * Der Weg zum Zahlungsanbieter und zurueck verliert jeden
+     * Adressparameter -- das Kennzeichen muss also die Zahlung ueberdauern,
+     * und die Sitzung ist die einzige Stelle, die das ohne eine neue Spalte
+     * tut. Gelesen und weggeworfen wird es auf der Erfolgsseite
+     * (App\Livewire\Portal\TopUpSuccess), die daraufhin in die Einrichtung
+     * weiterfuehrt statt in den Marktplatz (LP-ONBOARD-010).
+     *
+     * Es entscheidet ausschliesslich ueber einen Verweis. Ein verlorenes oder
+     * ein stehengebliebenes Kennzeichen kostet keinen Cent.
+     */
+    public const ONBOARDING_SESSION_KEY = 'onboarding.topup_return';
+
     public function store(Request $request): RedirectResponse
     {
         $minEuro = (int) ceil(((int) config('wallet.topup_min_cents')) / 100);
@@ -67,6 +82,10 @@ class WalletTopupController extends Controller
         ]);
 
         $tenant = $this->tenantOfUser($request, (string) $data['tenant']);
+
+        if ($request->boolean('onboarding')) {
+            $request->session()->put(self::ONBOARDING_SESSION_KEY, true);
+        }
 
         $product = OneTimeProduct::query()
             ->where('slug', (string) config('wallet.topup_product_slug'))

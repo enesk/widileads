@@ -1,5 +1,6 @@
 <?php
 
+use App\Constants\OnboardingStep;
 use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\BlogController;
@@ -12,7 +13,11 @@ use App\Http\Controllers\Funnel\LeadExportDownloadController;
 use App\Http\Controllers\Funnel\ThemePreviewController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Onboarding\MailPreviewController as OnboardingMailPreviewController;
+use App\Http\Controllers\Onboarding\MailUnsubscribeController;
 use App\Http\Controllers\PaymentProviders\PaddleController;
+use App\Http\Controllers\Portal\Onboarding\PhoneController as PhoneVerificationScreen;
+use App\Http\Controllers\Portal\Onboarding\TourSeenController;
 use App\Http\Controllers\ProductCheckoutController;
 use App\Http\Controllers\RoadmapController;
 use App\Http\Controllers\SubscriptionCheckoutController;
@@ -24,6 +29,8 @@ use App\Livewire\Portal\CallerIdVerification as PortalCallerIdVerification;
 use App\Livewire\Portal\Dashboard as PortalDashboard;
 use App\Livewire\Portal\LeadDetail as PortalLeadDetail;
 use App\Livewire\Portal\Marketplace as PortalMarketplace;
+use App\Livewire\Portal\Onboarding\Done as PortalOnboardingDone;
+use App\Livewire\Portal\Onboarding\Wizard as PortalOnboardingWizard;
 use App\Livewire\Portal\Orders as PortalOrders;
 use App\Livewire\Portal\PaymentMethods as PortalPaymentMethods;
 use App\Livewire\Portal\Profile as PortalProfile;
@@ -39,6 +46,7 @@ use App\Services\PlanService;
 use App\Services\SessionService;
 use App\Services\TenantCreationService;
 use App\Services\UserDashboardService;
+use App\Support\PortalTour;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,6 +64,13 @@ use Illuminate\Support\Facades\Route;
 | If you want the URL to be added to the sitemap, add a "sitemapped" middleware to the route (it has to GET route)
 |
 */
+
+// LP-ONBOARD-006: Styleguide des Portals. Arbeitsmittel fuer die Abnahme der
+// Bausteine, keine Seite fuer Besucher -- deshalb nur ausserhalb der
+// Produktionsumgebung erreichbar.
+if (! app()->environment('production')) {
+    Route::view('/styleguide', 'styleguide')->name('styleguide');
+}
 
 // FB-024: Testseite fuer das Embed-Snippet -- simuliert eine fremde Webseite.
 // Nur lokal, sie gehoert nicht in eine oeffentliche Umgebung.
@@ -102,6 +117,33 @@ Route::get('/dashboard/funnels/{funnel}/theme-vorschau', [ThemePreviewController
     ->name('funnel.theme-preview')
     ->middleware('auth');
 
+/*
+|--------------------------------------------------------------------------
+| Onboarding-Mailstrecke (LP-ONBOARD-014)
+|--------------------------------------------------------------------------
+|
+| Zwei Adressen ausserhalb des Portals, beide bewusst ohne Mandanten im Pfad.
+|
+| Die Abmeldung ist signiert und braucht keine Anmeldung: Sie steht in einer
+| Mail, und wer sich abmelden will, soll sich dafuer nicht einloggen. Sie
+| schaltet ausschliesslich die Onboarding-Strecke ab -- Belege bleiben
+| unberuehrt.
+|
+| Die Vorschau rendert dieselbe Mailable, die auch verschickt wird (mit
+| `?format=text` die Nur-Text-Fassung, mit `?tenant=<uuid>` ein bestimmter
+| Workspace). Sie versendet nichts und schreibt nichts; den Zugang
+| beschraenkt der Controller auf Plattform-Admins.
+|
+*/
+
+Route::get('/onboarding-mails/abmelden/{user}', MailUnsubscribeController::class)
+    ->name('onboarding-mails.unsubscribe')
+    ->middleware('signed');
+
+Route::get('/mail-preview/onboarding-{key}', OnboardingMailPreviewController::class)
+    ->name('onboarding-mails.preview')
+    ->where('key', '[a-z-]+');
+
 Route::get('/', function () {
     return view('home');
 })->name('home')->middleware('sitemapped');
@@ -143,15 +185,58 @@ Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $requ
     return redirect('/');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
-Route::get('/phone/verify', function () {
-    return view('verify.sms-verification');
-})->name('user.phone-verify')
-    ->middleware('auth');
+/*
+|--------------------------------------------------------------------------
+| Alte SaaSykit-Rufnummernbestaetigung: nur noch Umleitung (LP-ONBOARD-023)
+|--------------------------------------------------------------------------
+|
+| Hier lag der zweite Weg, der `users.phone_number_verified_at` setzen konnte:
+| ein Code aus `mt_rand` in der Session, ohne Rate-Limit, ohne E.164 und ohne
+| Pruefung, ob die Nummer schon einem anderen Konto gehoert. Damit war jede
+| Zusicherung von App\Services\Phone\PhoneVerificationService umgehbar.
+|
+| Die beiden Adressen bleiben als Umleitung auf `onboarding.phone` bestehen,
+| weil im Bestand noch dorthin verwiesen wird (Checkout-Formular und die
+| Abo-Karte im Dashboard). Der Name bleibt deshalb ebenfalls erhalten.
+|
+*/
 
-Route::get('/phone/verified', function () {
-    return view('verify.sms-verification-success');
-})->name('user.phone-verified')
-    ->middleware('auth');
+Route::redirect('/phone/verify', '/onboarding/telefon')
+    ->name('user.phone-verify');
+
+Route::redirect('/phone/verified', '/onboarding/telefon')
+    ->name('user.phone-verified');
+
+/*
+|--------------------------------------------------------------------------
+| Onboarding-Gate: die Rufnummer (LP-ONBOARD-003)
+|--------------------------------------------------------------------------
+|
+| Das Ziel der Sperre EnsurePhoneVerified und damit die einzige Seite, die ein
+| angemeldeter Nutzer ohne bestaetigte Rufnummer erreicht. Sie liegt bewusst
+| OHNE Workspace im Pfad: Die Sperre greift, bevor ein Workspace gewaehlt ist,
+| und sie gilt fuer jeden Workspace des Nutzers -- die Bestaetigung haengt am
+| Benutzer (`users.phone_number_verified_at`).
+|
+| Der Fokus-Rahmen ist Absicht: keine Navigation, kein Workspace-Wechsler,
+| keine Guthaben-Anzeige. Es werden auch keine Workspace-Daten geladen -- der
+| View-Composer fuer den Onboarding-Stand haengt an
+| `components.layouts.portal-app` und laeuft hier deshalb nicht.
+|
+| Ist die Nummer schon bestaetigt, fuehrt die Seite die gemerkte Adresse aus
+| (`redirect()->intended`). Das ist die Rueckkehr nach der Sperre und zugleich
+| der Weg, den der Knopf der Erfolgsseite nimmt.
+|
+| Der Inhalt sind die drei Screens aus LP-ONBOARD-005 -- Nummer, Code, Erfolg
+| -- als Zustaende EINER Livewire-Komponente
+| (App\Livewire\Portal\Onboarding\PhoneVerification). Deshalb gibt es hier nur
+| diese eine Adresse: Der Vorgang darf zwischen den Screens nicht neu laden.
+|
+*/
+
+Route::get('/onboarding/telefon', PhoneVerificationScreen::class)
+    ->name('onboarding.phone')
+    ->middleware(['auth', 'verified']);
 
 Route::post('/email/verification-notification', function (Request $request) {
     $request->user()->sendEmailVerificationNotification();
@@ -336,7 +421,7 @@ if (config('funnel.api.docs_enabled')) {
 
 Route::get('/kaeufer/registrierung', function () {
     return view('pages.buyer-registration');
-})->name('buyer.register')->middleware('auth');
+})->name('buyer.register')->middleware(['auth', 'portal.phone-verified']);
 
 /*
 |--------------------------------------------------------------------------
@@ -351,7 +436,7 @@ Route::get('/kaeufer/registrierung', function () {
 */
 
 Route::post('/leads/{lead}/call', LeadCallController::class)
-    ->middleware(['auth', 'throttle:lead-calls'])
+    ->middleware(['auth', 'portal.phone-verified', 'throttle:lead-calls'])
     ->name('buyer.leads.call');
 
 /*
@@ -366,7 +451,7 @@ Route::post('/leads/{lead}/call', LeadCallController::class)
 */
 
 Route::post('/guthaben/aufladen', [WalletTopupController::class, 'store'])
-    ->middleware('auth')
+    ->middleware(['auth', 'portal.phone-verified'])
     ->name('buyer.wallet.topup');
 
 /*
@@ -385,7 +470,14 @@ Route::post('/guthaben/aufladen', [WalletTopupController::class, 'store'])
 |
 */
 
-Route::middleware('auth')->group(function (): void {
+/*
+ * Die Telefonsperre steht auch vor den Geldwegen des Kaeufers
+ * (LP-ONBOARD-003). Es sind die Formularziele der Portalseiten -- ohne sie
+ * waere die Sperre eine Sichtsperre: Der gesperrte Nutzer sieht die Seite
+ * nicht, koennte aber weiter aufladen, ein Zahlungsmittel hinterlegen oder
+ * einen Lead anrufen lassen.
+ */
+Route::middleware(['auth', 'portal.phone-verified'])->group(function (): void {
     Route::post('/zahlungsmittel/einrichten', [PaymentMethodController::class, 'setupIntent'])
         ->name('buyer.payment-methods.setup-intent');
 
@@ -435,12 +527,91 @@ Route::middleware('auth')->group(function (): void {
 
 Route::get('/portal', function (UserDashboardService $dashboardService) {
     return redirect($dashboardService->getUserPortalUrl(Auth::user()));
-})->name('portal.home')->middleware(['auth', 'verified']);
+})->name('portal.home')->middleware(['auth', 'verified', 'portal.phone-verified']);
 
-Route::middleware(['auth', 'verified', 'portal.tenant', 'portal.verified-number'])
+/*
+ * Reihenfolge der Middlewares (LP-ONBOARD-003): `auth`, dann `verified`
+ * (E-Mail), dann die Telefonsperre `portal.phone-verified` -- und erst danach
+ * der Workspace-Kontext `portal.tenant`. Ein gesperrter Nutzer soll den
+ * Mandantenkontext gar nicht erst bekommen. Festgeschrieben ist die Reihenfolge
+ * nicht hier, sondern in der Prioritaetsliste in bootstrap/app.php; die Liste
+ * hier nennt sie in derselben Folge, damit beides zusammen gelesen wird.
+ *
+ * Die Sperre gilt fuer Kaeufer- UND Verkaeuferseiten dieser Gruppe -- eine
+ * Regel fuer alle. Die Wizard-Schritte (LP-ONBOARD-006 ff.) gelten dagegen nur
+ * fuer Kaeufer-Workspaces und stehen nicht in der Routen-Middleware.
+ *
+ * Eine zweite Sperre auf die bestaetigte Rufnummernanzeige gibt es hier nicht
+ * mehr (Ticket #49). Sie unterschied sich von der Telefonsperre in genau einem
+ * Fall -- einer unbrauchbaren `caller_ids`-Zeile -- und tat dort das Falsche:
+ * Sie verlangte einen zweiten Nachweis fuer eine Nummer, die Twilio Verify
+ * kurz vorher bestaetigt hatte. Die Rufnummernanzeige ist Voraussetzung fuer
+ * den Anruf und nicht fuer das Portal; geprueft wird sie im CallService
+ * (`caller_id_missing`), und Dashboard und Lead-Detail weisen den Weg dorthin.
+ */
+Route::middleware(['auth', 'verified', 'portal.phone-verified', 'portal.tenant', 'portal.wizard'])
     ->prefix('portal/{tenant:uuid}')
     ->name('portal.')
     ->group(function () {
+        /*
+         | Der Einrichtungs-Wizard (LP-ONBOARD-007)
+         |----------------------------------------------------------------
+         |
+         | Ein Schritt je Adresse -- `industries`, `region`, `payment`,
+         | eingeschraenkt auf genau diese drei. Der Schritt steht im Pfad und
+         | nicht in der Sitzung: Zurueck und Vorwaerts des Browsers sollen
+         | tun, was sie sagen, und ein Neuladen auf demselben Schritt landen.
+         |
+         | Die Seite laeuft im Fokus-Rahmen, nicht im Arbeitsbereich: Wer hier
+         | ist, hat genau eine Aufgabe und soll nicht nebenbei im Marktplatz
+         | stoebern, der ihm noch nichts zeigen kann.
+         |
+         | `portal.wizard` ist der Rest der Gruppe und nicht diese Route:
+         | Die Middleware fuehrt JEDE andere Portaladresse hierher, dieser
+         | Routenname ist in ihrer Ausnahmeliste.
+         */
+        Route::get('/onboarding/{step}', PortalOnboardingWizard::class)
+            ->name('onboarding')
+            ->whereIn('step', OnboardingStep::wizardSlugs());
+
+        /*
+         | Der Abschluss-Screen des Wizards (LP-ONBOARD-011)
+         |----------------------------------------------------------------
+         |
+         | Das Ziel von Schritt 3: nach der Zahlung, nach "Spaeter, erst mal
+         | umschauen" und nach dem Verweis auf der Erfolgsseite der Aufladung.
+         |
+         | Links der Beispiel-Lead mit seinen drei Markern, rechts der
+         | 3-Schritte-Player "So wird abgerechnet" (LP-ONBOARD-011). Die Seite
+         | speichert nichts und hakt nichts ab -- sie erklaert und fuehrt zum
+         | Marktplatz.
+         |
+         | Der Name faellt unter `portal.onboarding.*` und damit in die
+         | Ausnahmeliste des Wizard-Gates: Wer ihn ueber die Zahlung erreicht,
+         | hat den Wizard abgeschlossen -- wer ihn vorher aufruft, soll nicht
+         | in eine Umleitungsschleife laufen.
+         */
+        Route::get('/onboarding/fertig', PortalOnboardingDone::class)
+            ->name('onboarding.done');
+
+        /*
+         | "Diese Tour ist durch" (LP-ONBOARD-013)
+         |----------------------------------------------------------------
+         |
+         | Die einzige Adresse der gefuehrten Touren. Sie zeigt nichts an: Das
+         | Skript meldet hierher, wenn der Kaeufer die Tour beendet oder
+         | uebersprungen hat, und bleibt auf der Seite.
+         |
+         | Der Tourname ist auf die bekannten Namen eingeschraenkt -- ein
+         | Tippfehler endet damit in 404 und nicht in einem Haken, den niemand
+         | liest. Der Name faellt unter `portal.onboarding.*` und damit in die
+         | Ausnahmeliste des Wizard-Gates; die Meldung soll nicht in einer
+         | Umleitung verschwinden.
+         */
+        Route::post('/onboarding/tour/{name}/seen', TourSeenController::class)
+            ->name('onboarding.tour.seen')
+            ->whereIn('name', PortalTour::names());
+
         // Das Dashboard nach dem Entwurf dashboard.html: oben der
         // Handlungsbedarf, unten die Statistik.
         Route::get('/', PortalDashboard::class)

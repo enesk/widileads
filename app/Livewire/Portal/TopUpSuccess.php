@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Portal;
 
 use App\Constants\WalletTransactionType;
+use App\Http\Controllers\Buyer\WalletTopupController;
 use App\Livewire\Portal\Concerns\InteractsWithPortalTenant;
 use App\Models\Order;
 use App\Models\Transaction;
@@ -68,11 +69,27 @@ class TopUpSuccess extends Component
     #[Locked]
     public string $arrivedAt = '';
 
+    /**
+     * Kam der Kaeufer ueber den Einrichtungs-Wizard (LP-ONBOARD-010)?
+     *
+     * Das Kennzeichen hat der WalletTopupController in die Sitzung gelegt,
+     * weil der Umweg ueber den Zahlungsanbieter jeden Adressparameter
+     * verliert. Hier wird es einmal gelesen und sofort weggeworfen: Ab jetzt
+     * traegt es der Zustand dieser Komponente, und die naechste Aufladung
+     * findet keinen alten Eintrag mehr vor.
+     *
+     * Es entscheidet ueber einen Verweis, nicht ueber Geld -- deshalb genuegt
+     * die Sitzung, und deshalb ist es gesperrt statt geprueft.
+     */
+    #[Locked]
+    public bool $fromOnboarding = false;
+
     public function mount(): void
     {
         abort_unless(Gate::allows('marketplace.access', $this->portalTenant()), 403);
 
         $this->arrivedAt = now()->toIso8601String();
+        $this->fromOnboarding = (bool) session()->pull(WalletTopupController::ONBOARDING_SESSION_KEY, false);
     }
 
     public function render(): View
@@ -93,6 +110,17 @@ class TopUpSuccess extends Component
             'invoiceUrl' => $credit instanceof WalletTransaction ? $this->invoiceUrl($order) : null,
             'reference' => $this->paymentReference($credit),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $this->portalTenant()->uuid]),
+            // Aus dem Wizard gekommen fuehrt der Hauptknopf in die
+            // Einrichtung zurueck und nicht in den Marktplatz: Dort steht noch
+            // die Abrechnungs-Erklaerung, und der Marktplatz kommt danach
+            // (LP-ONBOARD-010).
+            'continueUrl' => $this->fromOnboarding
+                ? route('portal.onboarding.done', ['tenant' => $this->portalTenant()->uuid])
+                : route('portal.marketplace', ['tenant' => $this->portalTenant()->uuid]),
+            'continueLabel' => $this->fromOnboarding
+                ? __('portal.onboarding.payment.continue')
+                : __('marketplace.purchased.to_marketplace'),
+            'continueIcon' => $this->fromOnboarding ? 'arrow-right' : 'cart',
             'walletUrl' => route('portal.wallet', ['tenant' => $this->portalTenant()->uuid]),
             'email' => $this->portalUser()?->email,
             'supportEmail' => (string) config('app.support_email'),

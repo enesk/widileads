@@ -36,6 +36,9 @@ return [
             'broker_register_number' => 'Vermittlerregister-Nr. (optional)',
             'broker_register_number_helper' => 'Registrierungsnummer nach Paragraf 34d GewO, falls vorhanden. Käufer ohne Vermittlerzulassung lassen das Feld leer.',
             'vat_id' => 'Umsatzsteuer-Identifikationsnummer',
+            'industry' => 'Branche',
+            'industry_placeholder' => 'Branche wählen',
+            'industry_helper' => 'In welcher Branche suchst du Anfragen? Die Auswahl ist später im Einrichtungs-Assistenten schon vorausgewählt und lässt sich dort ergänzen.',
             'av_accepted' => 'Ich bestätige den Auftragsverarbeitungsvertrag.',
             'av_accepted_helper' => 'Ohne diese Bestätigung dürfen wir keine personenbezogenen Lead-Daten an dich übermitteln.',
             'submit' => 'Registrierung absenden',
@@ -49,6 +52,7 @@ return [
             'required' => 'Bitte fülle das Feld ":attribute" aus.',
             'email' => 'Bitte gib unter ":attribute" eine gültige E-Mail-Adresse an.',
             'max' => 'Das Feld ":attribute" ist zu lang.',
+            'industry' => 'Bitte wähle eine Branche aus der Liste.',
             'vat_id' => 'Die Umsatzsteuer-Identifikationsnummer beginnt mit dem Ländercode, z. B. DE123456789.',
             'av_accepted' => 'Ohne die Bestätigung des Auftragsverarbeitungsvertrags können wir den Zugang nicht anlegen.',
         ],
@@ -127,8 +131,29 @@ return [
                 'label' => 'Postleitzahl-Bereiche',
                 'placeholder' => 'PLZ-Anfang, Enter',
                 'hint' => '„76" deckt 76001 bis 76999 ab. Leer: ganz Deutschland.',
-                'radius' => 'Umkreis um deinen Standort statt PLZ',
-                'radius_action' => 'Standort setzen',
+                'mode_label' => 'Wie weit willst du fahren?',
+                'mode' => [
+                    'nationwide' => [
+                        'title' => 'Ganz Deutschland',
+                        'text' => 'Die meisten Anfragen, kein Streuverlust',
+                    ],
+                    'radius' => [
+                        'title' => 'Nur in meiner Region',
+                        'text' => 'PLZ und Umkreis festlegen',
+                    ],
+                ],
+                'plz' => [
+                    'label' => 'Postleitzahl',
+                    'placeholder' => '76133',
+                ],
+                'radius' => [
+                    'label' => 'Umkreis',
+                    'unit' => 'km',
+                ],
+                'errors' => [
+                    'unknown_plz' => 'Diese PLZ kennen wir nicht. Prüf die fünf Ziffern.',
+                ],
+                'both_apply' => 'Umkreis und PLZ-Bereiche gelten zusammen: Eine Anfrage muss in beiden liegen.',
                 'too_many' => 'Mehr als :max Bereiche sind nicht möglich.',
                 'bad_format' => 'Ein Bereich besteht aus bis zu :max Ziffern.',
             ],
@@ -195,6 +220,7 @@ return [
                 'prefixes' => 'PLZ :list',
                 'postcodes' => 'PLZ',
                 'all_regions' => 'Ganz Deutschland',
+                'radius' => ':radius km um :plz',
                 'filter' => ':field :values',
                 'or' => ' oder ',
                 'auto_on' => 'Autokauf an',
@@ -210,8 +236,18 @@ return [
         'funnels_helper' => 'Ohne Auswahl siehst du Leads aus allen Fragebogen.',
         'no_funnels' => 'Zurzeit ist kein Fragebogen veröffentlicht.',
 
+        'region' => 'Gebiet',
+        'region_options' => [
+            'nationwide' => 'Ganz Deutschland',
+            'radius' => 'Nur in meiner Region',
+        ],
+        'postal_code' => 'Postleitzahl',
+        'postal_code_helper' => 'Der Mittelpunkt des Umkreises, fünf Ziffern.',
+        'radius_km' => 'Umkreis',
+        'radius_km_helper' => 'Anfragen weiter weg siehst du nicht.',
+
         'postal_prefixes' => 'Regionen',
-        'postal_prefixes_helper' => 'Anfänge von Postleitzahlen, mit Komma getrennt. "76" deckt alles von 76001 bis 76999 ab.',
+        'postal_prefixes_helper' => 'Anfänge von Postleitzahlen, mit Komma getrennt. "76" deckt alles von 76001 bis 76999 ab. Zusammen mit einem Umkreis gilt beides: Eine Anfrage muss in beiden liegen.',
 
         'answer_filters' => 'Antwortfilter',
         'answer_filters_helper' => 'Je Zeile ein Feldschlüssel und die Antworten, die du akzeptierst. Bei einer Mehrfachauswahl genügt eine Übereinstimmung.',
@@ -235,6 +271,7 @@ return [
 
         'validation' => [
             'too_many_prefixes' => 'Es sind höchstens :max Regionen möglich.',
+            'unknown_plz' => 'Diese PLZ kennen wir nicht.',
             'prefix_format' => '":prefix" ist keine Region: erlaubt sind Ziffern, höchstens :max Stellen.',
             'notify_email' => 'Bitte gib eine gültige E-Mail-Adresse an.',
             'min_score' => 'Die Mindestpunktzahl muss eine ganze Zahl sein.',

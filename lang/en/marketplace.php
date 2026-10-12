@@ -36,6 +36,9 @@ return [
             'broker_register_number' => 'Insurance intermediary register no. (optional)',
             'broker_register_number_helper' => 'Registration number under section 34d GewO, if you have one. Buyers without an intermediary licence leave this empty.',
             'vat_id' => 'VAT identification number',
+            'industry' => 'Industry',
+            'industry_placeholder' => 'Choose an industry',
+            'industry_helper' => 'Which industry are you looking for requests in? Your choice is pre-selected in the setup wizard later, where you can add more.',
             'av_accepted' => 'I confirm the data processing agreement.',
             'av_accepted_helper' => 'Without this confirmation we may not pass any personal lead data on to you.',
             'submit' => 'Submit registration',
@@ -49,6 +52,7 @@ return [
             'required' => 'Please fill in the ":attribute" field.',
             'email' => 'Please provide a valid email address for ":attribute".',
             'max' => 'The ":attribute" field is too long.',
+            'industry' => 'Please choose an industry from the list.',
             'vat_id' => 'The VAT identification number starts with the country code, e.g. DE123456789.',
             'av_accepted' => 'Without confirming the data processing agreement we cannot set up your access.',
         ],
@@ -120,8 +124,29 @@ return [
                 'label' => 'Postcode ranges',
                 'placeholder' => 'Postcode start, Enter',
                 'hint' => '"76" covers 76001 to 76999. Empty: all of Germany.',
-                'radius' => 'Radius around your location instead of postcodes',
-                'radius_action' => 'Set location',
+                'mode_label' => 'How far are you willing to travel?',
+                'mode' => [
+                    'nationwide' => [
+                        'title' => 'All of Germany',
+                        'text' => 'The most requests, nothing wasted',
+                    ],
+                    'radius' => [
+                        'title' => 'Only in my region',
+                        'text' => 'Set a postcode and a radius',
+                    ],
+                ],
+                'plz' => [
+                    'label' => 'Postcode',
+                    'placeholder' => '76133',
+                ],
+                'radius' => [
+                    'label' => 'Radius',
+                    'unit' => 'km',
+                ],
+                'errors' => [
+                    'unknown_plz' => 'We do not know this postcode. Check the five digits.',
+                ],
+                'both_apply' => 'Radius and postcode ranges both apply: a request has to be inside both.',
                 'too_many' => 'More than :max ranges are not possible.',
                 'bad_format' => 'A range is up to :max digits.',
             ],
@@ -188,6 +213,7 @@ return [
                 'prefixes' => 'Postcodes :list',
                 'postcodes' => 'Postcodes',
                 'all_regions' => 'All of Germany',
+                'radius' => ':radius km around :plz',
                 'filter' => ':field :values',
                 'or' => ' or ',
                 'auto_on' => 'Auto-buy on',
@@ -208,8 +234,18 @@ return [
         'funnels_helper' => 'Without a selection you see leads from every questionnaire.',
         'no_funnels' => 'No questionnaire is published at the moment.',
 
+        'region' => 'Area',
+        'region_options' => [
+            'nationwide' => 'All of Germany',
+            'radius' => 'Only in my region',
+        ],
+        'postal_code' => 'Postcode',
+        'postal_code_helper' => 'The centre of the radius, five digits.',
+        'radius_km' => 'Radius',
+        'radius_km_helper' => 'You do not see requests further away.',
+
         'postal_prefixes' => 'Regions',
-        'postal_prefixes_helper' => 'Beginnings of postal codes, separated by commas. "76" covers everything from 76001 to 76999.',
+        'postal_prefixes_helper' => 'Beginnings of postal codes, separated by commas. "76" covers everything from 76001 to 76999. Together with a radius both apply: a request has to be inside both.',
 
         'answer_filters' => 'Answer filters',
         'answer_filters_helper' => 'One field key per row plus the answers you accept. For a multiple choice question one match is enough.',
@@ -233,6 +269,7 @@ return [
 
         'validation' => [
             'too_many_prefixes' => 'At most :max regions are allowed.',
+            'unknown_plz' => 'We do not know this postcode.',
             'prefix_format' => '":prefix" is not a region: digits only, at most :max characters.',
             'notify_email' => 'Please provide a valid email address.',
             'min_score' => 'The minimum score must be a whole number.',

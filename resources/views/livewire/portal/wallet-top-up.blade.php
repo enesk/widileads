@@ -22,11 +22,17 @@
       $workspaces      uuid, name
       $recentTopUps    date, amount
       $prefillEuro     vorbelegter Betrag in Euro, 0 ohne Vorbelegung
+      $isOnboarding    kommt der Kaeufer aus dem Einrichtungs-Wizard?
+      $backUrl, $backLabel  Rueckweg oben: Marktplatz oder Wizard-Schritt
       $marketplaceUrl, $transactionsUrl, $ordersUrl
 --}}
 <div>
 
-    <a href="{{ $marketplaceUrl }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"><x-app.icon name="arrow-left" class="size-4" />{{ __('portal.topup.back') }}</a>
+    {{-- Der Rueckweg. Aus dem Einrichtungs-Wizard fuehrt er in den
+         Zahlungsschritt zurueck und nicht in den Marktplatz: Wer dort
+         abbricht, will ein anderes Paket oder "spaeter" -- beides steht im
+         Schritt (LP-ONBOARD-010). --}}
+    <a href="{{ $backUrl }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"><x-app.icon name="arrow-left" class="size-4" />{{ $backLabel }}</a>
 
     <div class="mt-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
@@ -49,6 +55,14 @@
 
         <form class="card p-5 md:p-8 space-y-6 min-w-0" id="topup" method="POST" action="{{ route('buyer.wallet.topup') }}" data-balance="{{ $balanceCents / 100 }}" data-vat="{{ $vatPercent }}" data-pay-label="{{ __('portal.topup.submit', ['amount' => ':amount']) }}">
             @csrf
+
+            {{-- Aus dem Wizard gekommen: Die Erfolgsseite soll den Kaeufer
+                 wieder in die Einrichtung bringen und nicht in den Marktplatz.
+                 Der WalletTopupController merkt sich das Kennzeichen fuer die
+                 Rueckkehr vom Zahlungsanbieter. --}}
+            @if ($isOnboarding)
+                <input type="hidden" name="onboarding" value="1">
+            @endif
 
             <div class="flex items-start gap-4">
                 <span class="size-12 rounded-xl bg-brand text-white flex items-center justify-center shrink-0"><x-app.icon name="coins" class="size-6" /></span>

@@ -97,5 +97,82 @@ return [
         'more' => 'Empfiehl uns weiter, jede angenommene Empfehlung bringt eine weitere Prämie.',
         'cta' => 'Zum Konto',
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | Onboarding-Strecke (LP-ONBOARD-014)
+    |--------------------------------------------------------------------------
+    |
+    | Vier Mails bis zum ersten Anruf: Tag 0, 1, 3, 7. Du-Form, ein Knopf je
+    | Mail, Betreff ohne Ausrufezeichen -- die Strecke begleitet, sie ruft
+    | nicht.
+    |
+    */
+
+    'onboarding' => [
+
+        'unsubscribe' => [
+            'note' => 'Diese E-Mail gehört zur Einrichtungs-Begleitung.',
+            'link' => 'Keine Tipps mehr erhalten',
+            'heading' => 'Abgemeldet',
+            'text' => 'Du bekommst keine Einrichtungs-Tipps mehr. Bestellbestätigungen, Rechnungen und Hinweise zu deinen Leads kommen weiterhin — sie gehören zu deinem Konto.',
+            'back' => 'Zur Startseite',
+        ],
+
+        'welcome' => [
+            'subject' => 'Du bist startklar',
+            'label' => 'Einrichtung',
+            'heading' => 'Du bist startklar',
+            'intro' => 'Hallo :name, dein Zugang steht. Ab jetzt siehst du die Anfragen, die zu deinen Kriterien passen — und zahlst erst, wenn du eine kaufst.',
+            'next_heading' => 'Dein nächster Schritt',
+            'done' => 'Du hast alles erledigt. Schau im Marktplatz, was gerade da ist.',
+            'cta_marketplace' => 'Zum Marktplatz',
+        ],
+
+        'billing_explained' => [
+            'subject' => 'So wird bei widileads abgerechnet',
+            'label' => 'Abrechnung',
+            'heading' => 'Du zahlst nur, wen du erreichst',
+            'intro' => 'Hallo :name, hier in drei Zeilen, wann ein Lead Geld kostet und wann nicht.',
+            'states' => [
+                'ringing' => [
+                    'title' => 'Du rufst über widileads an',
+                    'text' => 'Den Anruf startest du im Portal. Deine eigene Nummer bleibt dabei unsichtbar.',
+                ],
+                'answered' => [
+                    'title' => 'Anruf angenommen: der Lead wird berechnet',
+                    'text' => 'Ab :seconds Sekunden Gespräch gilt der Lead als erreicht und der Preis wird abgebucht.',
+                ],
+                'missed' => [
+                    'title' => 'Nicht erreicht: der Lead ist kostenlos',
+                    'text' => 'Nach :attempts Versuchen an :days Tagen mit mindestens :hours Stunden Abstand bekommst du den Betrag zurück.',
+                ],
+            ],
+            'cta' => 'Zum Marktplatz',
+        ],
+
+        'leads_waiting' => [
+            'subject' => 'Anfragen warten auf dich',
+            'label' => 'Marktplatz',
+            'heading' => '{1} Eine Anfrage passt zu dir|[2,*] :count Anfragen passen zu dir',
+            'intro' => 'Hallo :name, das liegt gerade im Marktplatz und passt zu deinen Branchen und deiner Region.',
+            'card' => [
+                'region' => 'Region',
+                'price' => 'Preis',
+            ],
+            'more' => 'Und :count weitere.',
+            'note' => 'Name und Rufnummer siehst du nach dem Kauf.',
+            'cta' => 'Anfragen ansehen',
+        ],
+
+        'nudge' => [
+            'subject' => 'Dir fehlt noch ein Schritt',
+            'label' => 'Einrichtung',
+            'heading' => ':done von :total Schritten erledigt',
+            'intro' => 'Hallo :name, du bist fast durch. Ein Schritt fehlt noch, bis du mit deinem ersten Lead sprichst.',
+            'next_heading' => 'Dein nächster Schritt',
+            'cta_marketplace' => 'Zum Marktplatz',
+        ],
+
+    ],
 
 ];

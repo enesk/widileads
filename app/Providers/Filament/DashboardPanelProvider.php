@@ -7,6 +7,7 @@ use App\Constants\TenancyPermissionConstants;
 use App\Filament\Dashboard\Pages\CreateWorkspace;
 use App\Filament\Dashboard\Pages\TenantSettings;
 use App\Filament\Dashboard\Pages\TwoFactorAuth\TwoFactorAuth;
+use App\Http\Middleware\EnsurePhoneVerified;
 use App\Http\Middleware\RedirectDashboardToPortal;
 use App\Http\Middleware\UpdateUserLastSeenAt;
 use App\Livewire\AddressForm;
@@ -144,8 +145,22 @@ class DashboardPanelProvider extends PanelProvider
                     ? Blade::render("@livewire('announcement.view', ['placement' => '".AnnouncementPlacement::USER_DASHBOARD->value."'])")
                     : ''
             )
+            /*
+             * LP-ONBOARD-003: Die Telefonsperre gilt auch hier.
+             *
+             * Das Portal ist der Nutzerbereich, dieses Panel haelt nur noch,
+             * was dort fehlt -- aber eben auch noch den alten Marktplatz und
+             * die Lead-Seiten, solange RedirectDashboardToPortal sie nur
+             * umleitet. Ohne diese Zeile waere die Sperre ueber /dashboard
+             * umgehbar.
+             *
+             * In authMiddleware und nicht in middleware(): Filament fuehrt die
+             * authMiddleware NACH der Middleware-Liste aus, dort ist
+             * $request->user() noch null und die Sperre liefe ins Leere.
+             */
             ->authMiddleware([
                 Authenticate::class,
+                EnsurePhoneVerified::class,
             ])->plugins([
                 BreezyCore::make()
                     ->myProfile(

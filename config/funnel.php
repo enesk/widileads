@@ -664,4 +664,102 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Onboarding (LP-ONBOARD-003)
+    |--------------------------------------------------------------------------
+    */
+
+    'onboarding' => [
+
+        // Die harte Sperre bis zur bestaetigten Rufnummer. Ein Schalter, weil
+        // Bestaetigungsanrufe auf einem Twilio-Trial-Konto gesperrt sind
+        // (HTTP 400, "Placing verification calls is not supported on trial
+        // accounts") -- auf einem solchen Konto kaeme kein Nutzer je an der
+        // Sperre vorbei. Dieselbe Begruendung wie beim Schalter der
+        // Rufnummernsperre des Portals.
+        'phone_gate' => (bool) env('FUNNEL_ONBOARDING_PHONE_GATE', true),
+
+        // Der Einrichtungs-Wizard als Pflichtweg vor dem Portal
+        // (LP-ONBOARD-007). Der Schalter ist fuer die manuelle Abnahme und
+        // fuer Umgebungen, in denen der Wizard im Weg steht -- im Betrieb
+        // bleibt er an: Ohne Branchen, Region und Zahlungsweise zeigt der
+        // Marktplatz einem Kaeufer eine leere Liste.
+        'wizard_gate' => (bool) env('FUNNEL_ONBOARDING_WIZARD_GATE', true),
+
+        /*
+        | Die Anfragezahlen auf den Branchenkacheln des ersten Wizard-Schritts
+        | (LP-ONBOARD-008). Sie sind eine Groessenordnung und keine Statistik:
+        | gerundet, gemerkt und unterhalb der Mindestzahl gar nicht genannt.
+        */
+        'industry_stats' => [
+
+            // Zeitfenster des Durchschnitts in Tagen. Vier Wochen, damit eine
+            // einzelne starke oder schwache Woche die Zahl nicht kippt.
+            'window_days' => (int) env('FUNNEL_ONBOARDING_INDUSTRY_WINDOW_DAYS', 28),
+
+            // So lange gilt die gemerkte Auswertung. Eine Stunde, weil die
+            // Abfrage ueber alle Betreiber laeuft und die Zahl als "ca."
+            // ausgewiesen ist -- sie muss nicht aktuell sein, sie muss stimmen.
+            'cache_minutes' => (int) env('FUNNEL_ONBOARDING_INDUSTRY_CACHE_MINUTES', 60),
+
+            // Auf dieses Vielfache wird gerundet. Eine Zahl wie "ca. 37" liest
+            // sich wie eine Zusage.
+            'rounding' => (int) env('FUNNEL_ONBOARDING_INDUSTRY_ROUNDING', 5),
+
+            // Unterhalb dieser Wochenzahl steht "neu" statt einer Zahl: Wer
+            // "ca. 0 Anfragen" liest, waehlt die Branche nicht.
+            'minimum' => (int) env('FUNNEL_ONBOARDING_INDUSTRY_MINIMUM', 5),
+
+            // Ab wie vielen Kacheln der Rest hinter "Alle Branchen anzeigen"
+            // liegt.
+            'visible_tiles' => (int) env('FUNNEL_ONBOARDING_INDUSTRY_VISIBLE_TILES', 9),
+
+        ],
+
+        /*
+        | Das Symbol einer Branchenkachel. Der Schluessel ist ein Stueck des
+        | Portalnamens in Kleinbuchstaben, der Wert ein Symbolname aus
+        | x-app.icon. Der erste Treffer gewinnt, deshalb stehen die engeren
+        | Begriffe vorn. Kein Treffer heisst `industry_icon_default`.
+        |
+        | Die Zuordnung steht hier und nicht im Funnel, weil der Marktplatz-
+        | Katalog von einem Funnel ausdruecklich nur Kennung und Name
+        | freigibt (MarketplaceCatalog) -- ein Symbol aus seinen Einstellungen
+        | zu lesen, waere ein zweites freigegebenes Feld.
+        */
+        'industry_icons' => [
+            'photovoltaik' => 'zap',
+            'solar' => 'zap',
+            'elektr' => 'zap',
+            'tier' => 'paw',
+            'sanitaer' => 'wrench',
+            'sanitär' => 'wrench',
+            'heizung' => 'wrench',
+            'klima' => 'wrench',
+            'installat' => 'wrench',
+            'werkstatt' => 'wrench',
+            'kfz' => 'wrench',
+            'auto' => 'wrench',
+            'dach' => 'home',
+            'fenster' => 'home',
+            'immobilien' => 'home',
+            'makler' => 'home',
+            'umzug' => 'package',
+            'transport' => 'package',
+            'reinigung' => 'rows',
+            'fliesen' => 'grid',
+            'maler' => 'grid',
+            'boden' => 'grid',
+            'garten' => 'pin',
+            'finanz' => 'coins',
+            'kredit' => 'coins',
+            'versicherung' => 'coins',
+        ],
+
+        // Symbol einer Branche, deren Name keinen Begriff oben trifft.
+        'industry_icon_default' => env('FUNNEL_ONBOARDING_INDUSTRY_ICON', 'leads'),
+
+    ],
+
 ];

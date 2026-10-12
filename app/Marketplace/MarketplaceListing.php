@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Marketplace;
 
+use App\Constants\BuyerRegion;
 use App\Constants\FunnelFieldKey;
 use App\Constants\LeadState;
 use App\Constants\TenantType;
@@ -12,6 +13,7 @@ use App\Models\Lead;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Scopes\TenantScopes;
 use App\Models\Tenant;
+use App\Support\Geo\PlzDirectory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
@@ -55,15 +57,39 @@ class MarketplaceListing
     private const LIKE_ESCAPE = '!';
 
     /**
+     * Hoechstzahl der Postleitzahl-Praefixe, mit denen der Umkreis vorgewaehlt
+     * wird. Jedes Praefix ist eine LIKE-Bedingung; irgendwann ist die Abfrage
+     * teurer als die Vorauswahl wert ist -- dann faellt der Umkreis aus der
+     * Vorauswahl heraus und nur noch der Matcher entscheidet ihn.
+     */
+    private const MAX_RADIUS_PREFIXES = 60;
+
+    /**
+     * Praefixlaengen fuer die Umkreis-Vorauswahl, von genau nach grob. Ein
+     * kleiner Umkreis kommt mit dreistelligen Praefixen aus; ein grosser
+     * faellt auf zweistellige zurueck, statt die Abfrage zu sprengen.
+     */
+    private const RADIUS_PREFIX_LENGTHS = [3, 2];
+
+    /**
      * Die Leads, die dieser Kaeufer sehen darf -- bereits gegen sein Profil
      * geprueft.
      *
      * Der LeadMatcher ist eine reine Funktion und laeuft in PHP. Die Datenbank
      * schraenkt deshalb nur vor, was sie sicher entscheiden kann (Zustand,
-     * Betreiber, Funnelauswahl, Mindestpunktzahl); Regionen und Antwortfilter
-     * beurteilt danach der Matcher. Die Vorauswahl darf dabei nie mehr
-     * ausschliessen als der Matcher -- sonst faehrt die Anzeige ein anderes
-     * Ergebnis als der Autokauf in FB-056.
+     * Betreiber, Funnelauswahl, Mindestpunktzahl, Postleitzahl-Praefixe und
+     * -- grob -- den Umkreis); die Entfernung selbst und die Antwortfilter
+     * beurteilt danach der Matcher.
+     *
+     * Die Entfernung rechnet die Datenbank nicht nach: Sie steht in einer CSV
+     * und nicht in einer Spalte, und ein Nachbau in SQL waere eine zweite
+     * Wahrheit. Vorgewaehlt werden deshalb nur die Postleitzahl-Praefixe der
+     * Zustellbereiche im Umkreis (siehe radiusPrefixes) -- eine Obermenge
+     * dessen, was der Matcher durchlaesst.
+     *
+     * Die Vorauswahl darf nie mehr ausschliessen als der Matcher -- sonst
+     * faehrt die Anzeige ein anderes Ergebnis als der Autokauf in FB-056,
+     * und beim Kandidatendeckel unten fielen passende Leads stumm weg.
      *
      * @return Collection<int, Lead>
      */
@@ -112,6 +138,10 @@ class MarketplaceListing
         }
 
         $this->restrictToPostalPrefixes($query, $profile->postalPrefixes());
+
+        // Praefixe und Umkreis gelten zusammen (UND) -- genauso wertet sie der
+        // Matcher aus, also zwei getrennte Bedingungen und keine verschmolzene.
+        $this->restrictToPostalPrefixes($query, $this->radiusPrefixes($profile));
 
         if ($onlyWatchlisted) {
             $query->whereIn('id', $this->watchlistedLeadIds($buyer));
@@ -177,6 +207,61 @@ class MarketplaceListing
             [self::LIKE_ESCAPE.self::LIKE_ESCAPE, self::LIKE_ESCAPE.'%', self::LIKE_ESCAPE.'_'],
             $prefix,
         );
+    }
+
+    /**
+     * Die Postleitzahl-Praefixe, mit denen sich der Umkreis des Profils
+     * vorwaehlen laesst -- leer, wenn er nicht einschraenkt.
+     *
+     * Ohne diese Vorauswahl bekaeme ein Kaeufer mit "25 km um 76133" und ohne
+     * eigene Praefixe eine bundesweite Kandidatenliste, von der der Matcher
+     * fast alles verwirft. Sobald mehr Leads vorliegen als der
+     * Kandidatendeckel zulaesst, fielen passende Leads stumm weg, weil der
+     * Deckel schon vor der Entfernungspruefung greift.
+     *
+     * **Obermenge, nicht Nachbau.** Aus dem Verzeichnis kommen die
+     * Zustellbereiche im Umkreis; davon bleibt nur der Anfang der
+     * Postleitzahl stehen. Jeder Lead, den der Matcher durchlaesst, liegt in
+     * einem dieser Bereiche -- also auch unter einem dieser Praefixe. Die
+     * Umkehrung gilt nicht, und genau das ist gewollt: Entschieden wird
+     * weiterhin ausschliesslich im Matcher.
+     *
+     * Dieselben Vorbedingungen wie dort: `nationwide`, ein halb gefuelltes
+     * Kriterium und ein unbekannter Mittelpunkt schraenken nicht ein.
+     *
+     * @return list<string>
+     */
+    private function radiusPrefixes(BuyerProfile $profile): array
+    {
+        if ($profile->region !== BuyerRegion::RADIUS) {
+            return [];
+        }
+
+        $centre = trim((string) $profile->postal_code);
+        $radiusKm = $profile->radius_km;
+
+        if ($centre === '' || $radiusKm === null || $radiusKm <= 0) {
+            return [];
+        }
+
+        $postalCodes = (new PlzDirectory)->postalCodesWithin($centre, (float) $radiusKm);
+
+        if ($postalCodes === []) {
+            return [];
+        }
+
+        foreach (self::RADIUS_PREFIX_LENGTHS as $length) {
+            $prefixes = array_values(array_unique(array_map(
+                static fn (string $postalCode): string => substr($postalCode, 0, $length),
+                $postalCodes,
+            )));
+
+            if (count($prefixes) <= self::MAX_RADIUS_PREFIXES) {
+                return $prefixes;
+            }
+        }
+
+        return [];
     }
 
     /**

@@ -22,6 +22,8 @@
       $invoiceUrl   Rechnung als PDF (oder null)
       $reference    gekuerzte Zahlungsreferenz (oder null)
       $marketplaceUrl, $walletUrl, $email, $supportEmail
+      $continueUrl, $continueLabel, $continueIcon  Hauptknopf: Marktplatz --
+                       oder zurueck in die Einrichtung (LP-ONBOARD-010)
       $shouldPoll   nur solange etwas offen ist
 --}}
 <div @if ($shouldPoll) wire:poll.2s @endif>
@@ -98,9 +100,9 @@
                 </div>
 
                 <div class="mt-6 flex flex-col gap-2">
-                    <a href="{{ $marketplaceUrl }}" class="btn-primary w-full" autofocus>
-                        <x-app.icon name="cart" />
-                        {{ __('marketplace.purchased.to_marketplace') }}
+                    <a href="{{ $continueUrl }}" class="btn-primary w-full" autofocus>
+                        <x-app.icon :name="$continueIcon" />
+                        {{ $continueLabel }}
                     </a>
 
                     {{-- Die Rechnung nur, wenn es sie gibt. Ohne
@@ -140,8 +142,8 @@
                 @endif
 
                 <div class="mt-6 flex flex-col gap-2">
-                    <a href="{{ $marketplaceUrl }}" class="btn-primary w-full">
-                        {{ __('marketplace.purchased.to_marketplace') }}
+                    <a href="{{ $continueUrl }}" class="btn-primary w-full">
+                        {{ $continueLabel }}
                     </a>
                     <a href="mailto:{{ $supportEmail }}" class="btn-ghost w-full">
                         {{ __('marketplace.wallet.top_up.success.slow.support') }}

@@ -115,6 +115,15 @@
                     <a href="{{ route('portal.settings', ['tenant' => $tenant->uuid]) }}" role="menuitem" class="flex items-center min-h-11 px-3 rounded-lg text-sm text-zinc-700 hover:bg-zinc-100">
                         {{ __('portal.menu.settings') }}
                     </a>
+
+                    {{-- Die Tour der aktuellen Seite erneut starten
+                         (LP-ONBOARD-013). Versteckt im Markup: Ob diese Seite
+                         eine Tour hat und ob ihre Marken ueberhaupt da sind,
+                         weiss erst das Skript -- und ein Menuepunkt, der nichts
+                         tut, ist schlimmer als keiner. --}}
+                    <button type="button" role="menuitem" hidden data-tour-restart class="w-full flex items-center min-h-11 px-3 rounded-lg text-sm text-zinc-700 hover:bg-zinc-100 text-left">
+                        {{ __('tour.restart') }}
+                    </button>
                 @endif
 
                 <form method="POST" action="{{ route('logout') }}" class="border-t border-zinc-200 mt-1 pt-1">
@@ -157,6 +166,10 @@
 {{-- Kurzmeldungen. Einmal im Rahmen, nicht je Seite: Jede Komponente
      schickt ihre Bestaetigung an denselben Ort (x-app.toasts). --}}
 <x-app.toasts />
+
+{{-- Die gefuehrte Tour dieser Seite, falls sie eine hat (LP-ONBOARD-013).
+     Zeigt selbst nichts an -- sie sagt dem Skript, was zu zeigen ist. --}}
+<x-app.tour :tenant="$tenant" :onboarding="$onboarding ?? null" />
 
 @include('components.layouts.partials.tail', ['skipCookieContentBar' => true])
 

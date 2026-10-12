@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Support\Money;
+use App\Support\TopupPackages;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Layout;
@@ -51,6 +52,18 @@ class WalletTopUp extends Component
     #[Url(as: 'betrag', except: '')]
     public string $prefill = '';
 
+    /**
+     * Kommt der Kaeufer aus dem Einrichtungs-Wizard (LP-ONBOARD-010)?
+     *
+     * Dann aendern sich genau zwei Dinge: Der Rueckweg oben fuehrt in den
+     * Wizard-Schritt statt in den Marktplatz, und das Formular schickt das
+     * Kennzeichen mit, damit die Erfolgsseite den Kaeufer wieder in die
+     * Einrichtung bringt (LP-PORTAL-015). Gerechnet oder gebucht wird
+     * deswegen nichts anders.
+     */
+    #[Url(as: 'onboarding', except: '')]
+    public string $onboarding = '';
+
     public function render(): View
     {
         $tenant = $this->portalTenant();
@@ -70,6 +83,13 @@ class WalletTopUp extends Component
             'workspaces' => $this->workspaces(),
             'recentTopUps' => $this->recentTopUps($wallet),
             'prefillEuro' => $this->prefillEuro(),
+            'isOnboarding' => $this->isOnboarding(),
+            'backUrl' => $this->isOnboarding()
+                ? route('portal.onboarding', ['tenant' => $tenant->uuid, 'step' => 'payment'])
+                : route('portal.marketplace', ['tenant' => $tenant->uuid]),
+            'backLabel' => $this->isOnboarding()
+                ? __('portal.topup.back_onboarding')
+                : __('portal.topup.back'),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $tenant->uuid]),
             'transactionsUrl' => route('portal.transactions', ['tenant' => $tenant->uuid]),
             'ordersUrl' => route('portal.orders', ['tenant' => $tenant->uuid]),
@@ -79,6 +99,15 @@ class WalletTopUp extends Component
     public function money(int $cents): string
     {
         return Money::format($cents);
+    }
+
+    /**
+     * Ein Kennzeichen aus der Adresse, nichts weiter -- es entscheidet ueber
+     * zwei Verweise und nicht ueber Geld.
+     */
+    private function isOnboarding(): bool
+    {
+        return $this->onboarding === '1';
     }
 
     /**
@@ -104,12 +133,12 @@ class WalletTopUp extends Component
      */
     private function minEuro(): int
     {
-        return (int) ceil(((int) config('wallet.topup_min_cents')) / 100);
+        return TopupPackages::minEuro();
     }
 
     private function maxEuro(): int
     {
-        return intdiv((int) config('wallet.topup_max_cents'), 100);
+        return TopupPackages::maxEuro();
     }
 
     /**
@@ -123,40 +152,15 @@ class WalletTopUp extends Component
     }
 
     /**
-     * Die Vorschlaege des Entwurfs, aufsteigend und ohne Werte ausserhalb der
-     * Spanne -- ein Vorschlag unter dem Mindestbetrag fuehrte nur in die
-     * Fehlermeldung des Controllers.
-     *
-     * Hervorgehoben ist der mittlere Vorschlag ("Beliebt"). Bei zwei
-     * Vorschlaegen ist das der zweite, bei einem gibt es keine Hervorhebung.
+     * Die Vorschlaege des Entwurfs. Die Regel dahinter steht in
+     * App\Support\TopupPackages -- derselbe Code baut die Karten des
+     * Zahlungsschritts im Wizard (LP-ONBOARD-010).
      *
      * @return list<array{euro: int, leads: int, popular: bool}>
      */
     private function packages(): array
     {
-        $euros = array_map(
-            static fn (int $cents): int => intdiv($cents, 100),
-            array_map('intval', (array) config('wallet.topup_presets_cents', [])),
-        );
-
-        $euros = array_values(array_filter(
-            array_unique($euros),
-            fn (int $euro): bool => $euro >= $this->minEuro() && $euro <= $this->maxEuro(),
-        ));
-
-        sort($euros);
-
-        $popular = count($euros) > 1 ? intdiv(count($euros) - 1, 2) : -1;
-
-        return array_values(array_map(
-            fn (int $euro, int $index): array => [
-                'euro' => $euro,
-                'leads' => intdiv($euro * 100, $this->leadPriceCents()),
-                'popular' => $index === $popular,
-            ],
-            $euros,
-            array_keys($euros),
-        ));
+        return TopupPackages::forLeadPrice($this->leadPriceCents());
     }
 
     /**

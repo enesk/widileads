@@ -93,5 +93,77 @@ return [
         'more' => 'Keep referring, every accepted referral earns another reward.',
         'cta' => 'To your account',
     ],
+    /*
+    |--------------------------------------------------------------------------
+    | Onboarding sequence (LP-ONBOARD-014)
+    |--------------------------------------------------------------------------
+    */
+
+    'onboarding' => [
+
+        'unsubscribe' => [
+            'note' => 'This email is part of the setup guidance.',
+            'link' => 'Stop receiving setup tips',
+            'heading' => 'Unsubscribed',
+            'text' => 'You will not receive setup tips any more. Order confirmations, invoices and notices about your leads keep coming — they belong to your account.',
+            'back' => 'To the homepage',
+        ],
+
+        'welcome' => [
+            'subject' => 'You are ready to go',
+            'label' => 'Setup',
+            'heading' => 'You are ready to go',
+            'intro' => 'Hi :name, your account is set up. From now on you see the requests that match your criteria — and you only pay once you buy one.',
+            'next_heading' => 'Your next step',
+            'done' => 'You are all set. Have a look at what is on the marketplace right now.',
+            'cta_marketplace' => 'To the marketplace',
+        ],
+
+        'billing_explained' => [
+            'subject' => 'How billing works at widileads',
+            'label' => 'Billing',
+            'heading' => 'You only pay for the people you reach',
+            'intro' => 'Hi :name, here are the three cases in which a lead costs money — and in which it does not.',
+            'states' => [
+                'ringing' => [
+                    'title' => 'You call through widileads',
+                    'text' => 'You start the call from the portal. Your own number stays hidden.',
+                ],
+                'answered' => [
+                    'title' => 'Call answered: the lead is charged',
+                    'text' => 'From :seconds seconds of conversation the lead counts as reached and the price is charged.',
+                ],
+                'missed' => [
+                    'title' => 'Not reached: the lead is free',
+                    'text' => 'After :attempts attempts across :days days with at least :hours hours in between you get the amount back.',
+                ],
+            ],
+            'cta' => 'To the marketplace',
+        ],
+
+        'leads_waiting' => [
+            'subject' => 'Requests are waiting for you',
+            'label' => 'Marketplace',
+            'heading' => '{1} One request matches you|[2,*] :count requests match you',
+            'intro' => 'Hi :name, this is on the marketplace right now and matches your industries and your region.',
+            'card' => [
+                'region' => 'Region',
+                'price' => 'Price',
+            ],
+            'more' => 'And :count more.',
+            'note' => 'You see the name and phone number after the purchase.',
+            'cta' => 'View requests',
+        ],
+
+        'nudge' => [
+            'subject' => 'One step is still missing',
+            'label' => 'Setup',
+            'heading' => ':done of :total steps done',
+            'intro' => 'Hi :name, you are almost there. One step is missing until you talk to your first lead.',
+            'next_heading' => 'Your next step',
+            'cta_marketplace' => 'To the marketplace',
+        ],
+
+    ],
 
 ];

@@ -3,8 +3,10 @@
 use App\Exceptions\ApiProblem;
 use App\Http\Middleware\BlockedUser;
 use App\Http\Middleware\EnsureMarketplaceAccess;
+use App\Http\Middleware\EnsureOnboardingWizard;
+use App\Http\Middleware\EnsurePhoneVerified;
+use App\Http\Middleware\EnsureTenantPhoneVerified;
 use App\Http\Middleware\EnsureTenantType;
-use App\Http\Middleware\RequireVerifiedCallerId;
 use App\Http\Middleware\ResolvePortalTenant;
 use App\Http\Middleware\ResolveTenantFromToken;
 use App\Http\Middleware\Sitemapped;
@@ -12,6 +14,7 @@ use App\Http\Middleware\TrackCouponCode;
 use App\Http\Middleware\TrackReferralCode;
 use App\Http\Middleware\UpdateUserLastSeenAt;
 use App\Http\Middleware\VerifyTwilioSignature;
+use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -66,6 +69,44 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolvePortalTenant::class,
         );
 
+        /*
+         * LP-ONBOARD-003: Die Reihenfolge des Onboarding-Gates.
+         *
+         * Gueltige Kette eines angemeldeten Portal-Screens:
+         *
+         *   auth -> verified (E-Mail) -> portal.phone-verified -> portal.tenant
+         *   -> portal.wizard -> SubstituteBindings
+         *
+         * Die Telefonsperre steht VOR ResolvePortalTenant, und zwar hier in der
+         * Prioritaetsliste statt nur im Routen-Array: Sonst haengt die
+         * Reihenfolge daran, wie jemand die Liste in routes/web.php sortiert.
+         * Der Grund fuer das "vorher": Steht der Mandant erst, haben Global
+         * Scope und Policies bereits gearbeitet -- ein gesperrter Nutzer haette
+         * den Workspace-Kontext bekommen, den er nicht haben soll. Weil
+         * ResolvePortalTenant selbst vor SubstituteBindings gezogen ist, liegt
+         * die Sperre damit auch vor der Route-Modellbindung.
+         *
+         * Illuminate\Auth\Middleware\Authenticate steht in Laravels
+         * Standard-Prioritaetsliste und laeuft vor SubstituteBindings --
+         * $request->user() ist in der Sperre also gesetzt.
+         */
+        $middleware->prependToPriorityList(
+            ResolvePortalTenant::class,
+            EnsurePhoneVerified::class,
+        );
+
+        // Und die E-Mail-Bestaetigung vor die Telefonsperre: `verified` steht
+        // nicht in Laravels Standard-Prioritaetsliste und lief deshalb NACH der
+        // Telefonsperre. Ein Nutzer mit unbestaetigter E-Mail-Adresse waere
+        // erst auf den Telefon-Screen geleitet worden und von dort (die Route
+        // traegt selbst `verified`) weiter auf den E-Mail-Hinweis -- zwei
+        // Umleitungen fuer eine Entscheidung, die in der ersten haette fallen
+        // koennen.
+        $middleware->prependToPriorityList(
+            EnsurePhoneVerified::class,
+            EnsureEmailIsVerified::class,
+        );
+
         // Die Twilio-Rueckrufe kommen von aussen und tragen kein CSRF-Token.
         // Sie sind allein durch die Signatur geschuetzt.
         $middleware->validateCsrfTokens(except: [
@@ -85,7 +126,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'marketplace.access' => EnsureMarketplaceAccess::class,
             'tenant.from-token' => ResolveTenantFromToken::class,
             'portal.tenant' => ResolvePortalTenant::class,
-            'portal.verified-number' => RequireVerifiedCallerId::class,
+            'portal.phone-verified' => EnsurePhoneVerified::class,
+            'api.phone-verified' => EnsureTenantPhoneVerified::class,
+            'portal.wizard' => EnsureOnboardingWizard::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
             'role' => RoleMiddleware::class,
