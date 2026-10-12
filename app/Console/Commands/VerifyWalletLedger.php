@@ -18,10 +18,12 @@ use App\Services\SupportMailbox;
 use App\Services\Wallet\WalletService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 /**
  * Taegliche Konsistenzpruefung des Wallet-Ledgers (LP-WALLET-015).
@@ -65,6 +67,12 @@ class VerifyWalletLedger extends Command
      * klein genug, dass die Aggregation nicht ueber den ganzen Bestand geht.
      */
     private const CHUNK_SIZE = 200;
+
+    /**
+     * Belegbefunde je Wallet in Konsole und Mail. Darueber steht nur noch eine
+     * Sammelzeile -- vollstaendig bleibt der Befund im Protokoll.
+     */
+    private const PURCHASE_FINDING_LIMIT = 20;
 
     protected $signature = 'wallet:verify
         {--repair : Abgewichene Salden auf den Ledger-Stand zuruecksetzen}
@@ -121,9 +129,10 @@ class VerifyWalletLedger extends Command
         });
 
         $reservationTotals = $this->checkReservationTotals();
-        $findings = $this->checkPostpaidInvariants();
+        $reservationFindings = $this->checkReservations($reservationTotals);
+        $findings = [...$reservationFindings, ...$this->checkPostpaidInvariants()];
 
-        $this->renderSummary($mismatches, $reservationTotals, $findings, $checked);
+        $this->renderSummary($mismatches, $reservationTotals, $findings, $checked, $reservationFindings !== []);
 
         if ($mismatches === [] && $reservationTotals === null && $findings === []) {
             $this->info(sprintf('%d Wallet(s) geprueft, keine Abweichung.', $checked));
@@ -131,7 +140,7 @@ class VerifyWalletLedger extends Command
             return self::SUCCESS;
         }
 
-        $this->notify($mismatches, $reservationTotals, $findings, $checked);
+        $this->notify($mismatches, $reservationTotals, $findings, $checked, $reservationFindings !== []);
 
         return self::FAILURE;
     }
@@ -237,6 +246,343 @@ class VerifyWalletLedger extends Command
         ]);
 
         return ['expected' => $reservedInPurchases, 'actual' => $reservedInWallets];
+    }
+
+    /**
+     * Ebene 2 und 3 der zweiten Klammer: nicht nur dass eine Reservierung
+     * fehlt, sondern wessen Guthaben sie blockiert, welcher Kaufbeleg dahinter
+     * steht und seit wann (Ticket #81).
+     *
+     * Ebene 2 laeuft immer und braucht eine Abfrage: die Kaeufer-Wallets gegen
+     * die nach Kaeufer gruppierten offenen Leadkaeufe. Ebene 3 laeuft nur fuer
+     * die dabei auffaelligen Wallets -- im gruenen Bestand also gar nicht und
+     * ohne zusaetzliche Abfrage.
+     *
+     * Die Restdifferenz (Gesamtdifferenz minus Summe der Wallet-Differenzen)
+     * wird gerechnet, nicht abgefragt: Sie faengt offene Kaeufe, deren Kaeufer
+     * gar kein Wallet hat, und waere sonst die einzige unerklaerte Zahl.
+     *
+     * @param  array{expected: int, actual: int}|null  $reservationTotals
+     * @return list<array{check: string, subject: string, detail: string}>
+     */
+    private function checkReservations(?array $reservationTotals): array
+    {
+        $wallets = $this->walletsWithReservationGap();
+
+        if ($wallets === [] && $reservationTotals === null) {
+            return [];
+        }
+
+        $byWallet = $wallets === []
+            ? []
+            : $this->purchaseReservationFindings(array_map(static fn (array $row): int => $row['wallet_id'], $wallets));
+
+        $findings = [];
+
+        foreach ($wallets as $row) {
+            $findings[] = $this->logged([
+                'check' => __('marketplace.wallet.verify.findings.wallet_reservation.check'),
+                'subject' => sprintf('Wallet #%d (%s)', $row['wallet_id'], $row['owner']),
+                'detail' => __('marketplace.wallet.verify.findings.wallet_reservation.detail', [
+                    'actual' => $this->formatMoney($row['actual']),
+                    'count' => (string) $row['count'],
+                    'expected' => $this->formatMoney($row['expected']),
+                    'difference' => $this->formatMoney($row['actual'] - $row['expected']),
+                ]),
+            ]);
+
+            // Die Belegbefunde stehen direkt unter ihrem Wallet: Wer die Mail
+            // liest, soll den Weg von grob nach fein nicht selbst sortieren.
+            $findings = [...$findings, ...($byWallet[$row['wallet_id']] ?? [])];
+        }
+
+        $difference = $reservationTotals === null ? 0 : $reservationTotals['actual'] - $reservationTotals['expected'];
+        $assigned = array_sum(array_map(static fn (array $row): int => $row['actual'] - $row['expected'], $wallets));
+
+        if ($difference - $assigned !== 0) {
+            $findings[] = $this->logged([
+                'check' => __('marketplace.wallet.verify.findings.unassigned_difference.check'),
+                'subject' => __('marketplace.wallet.verify.findings.unassigned_difference.subject'),
+                'detail' => __('marketplace.wallet.verify.findings.unassigned_difference.detail', [
+                    'difference' => $this->formatMoney($difference - $assigned),
+                ]),
+            ]);
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Protokolliert einen Reservierungsbefund und gibt ihn zurueck. Das
+     * Protokoll ist die vollstaendige Fassung: In Konsole und Mail steht je
+     * Wallet nur der Deckel, hier steht jede Zeile.
+     *
+     * @param  array{check: string, subject: string, detail: string}  $finding
+     * @return array{check: string, subject: string, detail: string}
+     */
+    private function logged(array $finding): array
+    {
+        Log::error('Reservierung ohne Deckung in den offenen Leadkaeufen.', $finding);
+
+        return $finding;
+    }
+
+    /**
+     * Ebene 2: Kaeufer-Wallets, deren `reserved_cents` nicht zur Summe ihrer
+     * offenen Leadkaeufe passt -- eine Abfrage, nur die Abweichler.
+     *
+     * Treiber sind die Wallets, nicht die Kaeufe: Ein Wallet mit Reservierung
+     * und ohne offenen Kauf ist genau der Fall, den diese Ebene sucht, und
+     * waere auf der anderen Seite des Joins unsichtbar.
+     *
+     * Preis UND Aufschlag, Begruendung siehe checkReservationTotals().
+     *
+     * @return list<array{wallet_id: int, owner: string, expected: int, actual: int, count: int}>
+     */
+    private function walletsWithReservationGap(): array
+    {
+        $openPurchases = LeadPurchase::query()
+            ->where('status', PurchaseStatus::RESERVED->value)
+            ->groupBy('buyer_tenant_id')
+            ->selectRaw('buyer_tenant_id')
+            ->selectRaw('SUM(price_cents + surcharge_cents) AS reserved_expected')
+            ->selectRaw('COUNT(*) AS purchase_count');
+
+        $rows = Wallet::query()
+            ->where('wallets.owner_type', WalletOwnerType::BUYER->value)
+            ->leftJoinSub($openPurchases, 'open_purchases', 'open_purchases.buyer_tenant_id', '=', 'wallets.owner_id')
+            ->whereRaw('wallets.reserved_cents <> COALESCE(open_purchases.reserved_expected, 0)')
+            ->orderBy('wallets.id')
+            ->select('wallets.*')
+            ->selectRaw('COALESCE(open_purchases.reserved_expected, 0) AS reserved_expected')
+            ->selectRaw('COALESCE(open_purchases.purchase_count, 0) AS purchase_count')
+            ->get();
+
+        return $rows->map(fn (Wallet $wallet): array => [
+            'wallet_id' => (int) $wallet->getKey(),
+            'owner' => $this->describeOwner($wallet),
+            'expected' => (int) $wallet->getAttribute('reserved_expected'),
+            'actual' => $wallet->reserved_cents,
+            'count' => (int) $wallet->getAttribute('purchase_count'),
+        ])->values()->all();
+    }
+
+    /**
+     * Ebene 3: je Kaufbeleg, nur fuer die auffaelligen Wallets. Zwei Abfragen --
+     * die `reserve`- und `release`-Zeilen dieser Wallets (Netto je Beleg in
+     * PHP, damit kein Datenbankdialekt im Code steht) und die zugehoerigen
+     * Kaufbelege.
+     *
+     * `capture` entlastet nicht: Nach
+     * WalletTransactionType::affectsReservedBalance() bewegt nur `release` den
+     * reservierten Betrag. Ein Beleg mit `capture`, aber ohne `release`
+     * blockiert weiter Guthaben -- ihn als erledigt zu zaehlen, verdeckte genau
+     * den Fall, den diese Ebene sucht.
+     *
+     * @param  list<int>  $walletIds
+     * @return array<int, list<array{check: string, subject: string, detail: string}>>
+     */
+    private function purchaseReservationFindings(array $walletIds): array
+    {
+        /** @var array<int, array<int, array{net: int, entry: int|null, date: ?Carbon}>> $perPurchase */
+        $perPurchase = [];
+        /** @var array<int, array{net: int, entries: list<int>}> $unassigned */
+        $unassigned = [];
+
+        WalletTransaction::query()
+            ->whereIn('wallet_id', $walletIds)
+            ->whereIn('type', [
+                WalletTransactionType::RESERVE->value,
+                WalletTransactionType::RELEASE->value,
+            ])
+            ->chunkById(self::CHUNK_SIZE, function (Collection $entries) use (&$perPurchase, &$unassigned): void {
+                foreach ($entries as $entry) {
+                    $walletId = (int) $entry->wallet_id;
+                    $purchaseId = $this->purchaseIdFor($entry);
+
+                    if ($purchaseId === null) {
+                        $unassigned[$walletId] ??= ['net' => 0, 'entries' => []];
+                        $unassigned[$walletId]['net'] += $entry->amount_cents;
+                        $unassigned[$walletId]['entries'][] = (int) $entry->getKey();
+
+                        continue;
+                    }
+
+                    $perPurchase[$walletId][$purchaseId] ??= ['net' => 0, 'entry' => null, 'date' => null];
+                    $perPurchase[$walletId][$purchaseId]['net'] += $entry->amount_cents;
+
+                    // Aelteste reserve-Zeile: Sie ist der Anfang, den ein
+                    // Mensch sucht, und chunkById laeuft nach `id` aufwaerts.
+                    if ($entry->type === WalletTransactionType::RESERVE && $perPurchase[$walletId][$purchaseId]['entry'] === null) {
+                        $perPurchase[$walletId][$purchaseId]['entry'] = (int) $entry->getKey();
+                        $perPurchase[$walletId][$purchaseId]['date'] = $entry->created_at;
+                    }
+                }
+            });
+
+        $purchaseIds = [];
+
+        foreach ($perPurchase as $byPurchase) {
+            $purchaseIds = [...$purchaseIds, ...array_keys($byPurchase)];
+        }
+
+        $purchases = $purchaseIds === []
+            ? collect()
+            : LeadPurchase::query()
+                ->whereIn('id', $purchaseIds)
+                ->get(['id', 'status', 'price_cents', 'surcharge_cents'])
+                ->keyBy('id');
+
+        $findings = [];
+
+        foreach ($walletIds as $walletId) {
+            $rows = [];
+
+            foreach ($perPurchase[$walletId] ?? [] as $purchaseId => $state) {
+                /** @var LeadPurchase|null $purchase */
+                $purchase = $purchases->get($purchaseId);
+
+                $expected = $purchase !== null && $purchase->status === PurchaseStatus::RESERVED
+                    ? $purchase->price_cents + $purchase->surcharge_cents
+                    : 0;
+
+                if ($state['net'] === $expected) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'sort' => $state['date']?->getTimestamp() ?? 0,
+                    'finding' => $this->purchaseFinding($walletId, (int) $purchaseId, $purchase, $state, $expected),
+                ];
+            }
+
+            // Aeltestes zuerst: Wer sucht, will den Anfang.
+            usort($rows, static fn (array $a, array $b): int => $a['sort'] <=> $b['sort']);
+
+            $wallet = array_map(static fn (array $row): array => $row['finding'], $rows);
+
+            if (($unassigned[$walletId]['net'] ?? 0) !== 0) {
+                $entries = $unassigned[$walletId]['entries'];
+
+                $wallet[] = [
+                    'check' => __('marketplace.wallet.verify.findings.purchase.unassigned.check'),
+                    'subject' => __('marketplace.wallet.verify.mail.wallet', ['id' => $walletId]),
+                    'detail' => __('marketplace.wallet.verify.findings.purchase.unassigned.detail', [
+                        'amount' => $this->formatMoney($unassigned[$walletId]['net']),
+                        'count' => (string) count($entries),
+                        'entries' => implode(', ', array_map(static fn (int $id): string => '#'.$id, $entries)),
+                    ]),
+                ];
+            }
+
+            foreach ($wallet as $finding) {
+                $this->logged($finding);
+            }
+
+            // Deckel: Eine Mail mit vierhundert Zeilen liest niemand.
+            // Vollstaendig bleibt der Befund im Protokoll darueber.
+            if (count($wallet) > self::PURCHASE_FINDING_LIMIT) {
+                $hidden = count($wallet) - self::PURCHASE_FINDING_LIMIT;
+                $wallet = array_slice($wallet, 0, self::PURCHASE_FINDING_LIMIT);
+
+                $wallet[] = [
+                    'check' => __('marketplace.wallet.verify.findings.purchase.more.check'),
+                    'subject' => __('marketplace.wallet.verify.mail.wallet', ['id' => $walletId]),
+                    'detail' => __('marketplace.wallet.verify.findings.purchase.more.detail', [
+                        'count' => (string) $hidden,
+                    ]),
+                ];
+            }
+
+            if ($wallet !== []) {
+                $findings[$walletId] = $wallet;
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Vier Ausfallbilder, vier Texte -- jeder mit Journalzeile und Datum, den
+     * zwei Angaben, mit denen ein Mensch die Zeile ohne weitere Abfrage findet.
+     *
+     * @param  array{net: int, entry: int|null, date: ?Carbon}  $state
+     * @return array{check: string, subject: string, detail: string}
+     */
+    private function purchaseFinding(int $walletId, int $purchaseId, ?LeadPurchase $purchase, array $state, int $expected): array
+    {
+        $subject = __('marketplace.wallet.verify.findings.purchase.subject', [
+            'purchase' => (string) $purchaseId,
+            'wallet' => (string) $walletId,
+        ]);
+
+        $entry = $state['entry'] === null ? '?' : (string) $state['entry'];
+        $date = $state['date']?->format('d.m.Y H:i') ?? '?';
+
+        if ($purchase === null) {
+            return [
+                'check' => __('marketplace.wallet.verify.findings.purchase.missing.check'),
+                'subject' => $subject,
+                'detail' => __('marketplace.wallet.verify.findings.purchase.missing.detail', [
+                    'entry' => $entry,
+                    'amount' => $this->formatMoney($state['net']),
+                    'date' => $date,
+                ]),
+            ];
+        }
+
+        if ($purchase->status !== PurchaseStatus::RESERVED) {
+            return [
+                'check' => __('marketplace.wallet.verify.findings.purchase.settled.check'),
+                'subject' => $subject,
+                'detail' => __('marketplace.wallet.verify.findings.purchase.settled.detail', [
+                    'entry' => $entry,
+                    'amount' => $this->formatMoney($state['net']),
+                    'date' => $date,
+                    'status' => $purchase->status->value,
+                ]),
+            ];
+        }
+
+        return [
+            'check' => __('marketplace.wallet.verify.findings.purchase.amount.check'),
+            'subject' => $subject,
+            'detail' => __('marketplace.wallet.verify.findings.purchase.amount.detail', [
+                'expected' => $this->formatMoney($expected),
+                'actual' => $this->formatMoney($state['net']),
+                'difference' => $this->formatMoney($state['net'] - $expected),
+                'entry' => $entry,
+                'date' => $date,
+            ]),
+        ];
+    }
+
+    /**
+     * Welchen Kaufbeleg traegt eine Journalzeile?
+     *
+     * Erst der Beleg selbst, sonst der mittlere Teil des Idempotenzschluessels
+     * (Konvention aus WalletService::keyFor()). Die Schluesselauswertung ist
+     * nicht optional: Die Gegenbuchung einer belegfreien Reservierung traegt
+     * bewusst `reference: null` und heisst `release:lead_purchase:<id>:orphan`.
+     * Ohne sie erschiene die ausgeglichene Zeile dauerhaft als Befund.
+     */
+    private function purchaseIdFor(WalletTransaction $entry): ?int
+    {
+        if ($entry->reference_type === LeadPurchase::class && $entry->reference_id !== null) {
+            return (int) $entry->reference_id;
+        }
+
+        if ($entry->idempotency_key === null) {
+            return null;
+        }
+
+        $segment = preg_quote(Str::snake(class_basename(LeadPurchase::class)), '/');
+
+        if (preg_match('/^[a-z_]+:'.$segment.':(\d+)(?::|$)/', $entry->idempotency_key, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     /**
@@ -459,8 +805,9 @@ class VerifyWalletLedger extends Command
      * @param  list<array{wallet_id: int, owner: string, balance_expected: int, balance_actual: int, reserved_expected: int, reserved_actual: int, repaired: bool}>  $mismatches
      * @param  array{expected: int, actual: int}|null  $reservationTotals
      * @param  list<array{check: string, subject: string, detail: string}>  $findings
+     * @param  bool  $reservationHint  Mindestens ein Reservierungsbefund -- dann steht der Hinweis unter der Tabelle
      */
-    private function renderSummary(array $mismatches, ?array $reservationTotals, array $findings, int $checked): void
+    private function renderSummary(array $mismatches, ?array $reservationTotals, array $findings, int $checked, bool $reservationHint = false): void
     {
         if ($mismatches !== []) {
             $this->table(
@@ -498,7 +845,13 @@ class VerifyWalletLedger extends Command
                 ], $findings),
             );
 
-            $this->error(sprintf('%d verletzte Postpaid-Invariante(n).', count($findings)));
+            $this->error(sprintf('%d Befund(e).', count($findings)));
+        }
+
+        // Einmal unter der Tabelle, nicht als Zeile darin: Repariert wird eine
+        // belegfreie Reservierung nie, sie wird gegengebucht.
+        if ($reservationHint) {
+            $this->warn(__('marketplace.wallet.verify.findings.hint'));
         }
     }
 
@@ -513,7 +866,7 @@ class VerifyWalletLedger extends Command
      * @param  array{expected: int, actual: int}|null  $reservationTotals
      * @param  list<array{check: string, subject: string, detail: string}>  $findings
      */
-    private function notify(array $mismatches, ?array $reservationTotals, array $findings, int $checked): void
+    private function notify(array $mismatches, ?array $reservationTotals, array $findings, int $checked, bool $reservationHint = false): void
     {
         $recipient = $this->support->address();
 
@@ -523,7 +876,7 @@ class VerifyWalletLedger extends Command
             return;
         }
 
-        Mail::to($recipient)->send(new WalletLedgerMismatch($mismatches, $reservationTotals, $checked, $findings));
+        Mail::to($recipient)->send(new WalletLedgerMismatch($mismatches, $reservationTotals, $checked, $findings, $reservationHint));
     }
 
     private function describeOwner(Wallet $wallet): string

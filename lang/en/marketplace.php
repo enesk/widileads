@@ -1909,10 +1909,58 @@ return [
                 'reserved' => 'Reserved',
                 'expected' => 'Expected',
                 'actual' => 'Actual',
-                'findings' => 'Violated postpaid rules',
+                'findings' => 'Check findings',
                 'repaired' => 'The cached balance was reset to the ledger during this run.',
                 'reservation_totals' => 'The reserved amounts of the buyer wallets do not match the open lead purchases: expected :expected, actual :actual.',
                 'outro' => 'The ledger is always authoritative. Please find the cause before correcting the balance.',
+            ],
+
+            'findings' => [
+
+                'wallet_reservation' => [
+                    'check' => 'Reservation per wallet',
+                    'detail' => 'Reserved :actual, expected :expected from :count open lead purchases (difference :difference).',
+                ],
+
+                'unassigned_difference' => [
+                    'check' => 'Reservation without a wallet',
+                    'subject' => 'All buyer wallets',
+                    'detail' => ':difference of the overall difference cannot be attributed to any buyer wallet — open lead purchases without a buyer wallet are affected.',
+                ],
+
+                'purchase' => [
+
+                    'subject' => 'Purchase #:purchase (wallet #:wallet)',
+
+                    'missing' => [
+                        'check' => 'Reservation without a purchase',
+                        'detail' => 'Ledger entry :entry reserves :amount since :date; the purchase no longer exists and there is no counter entry.',
+                    ],
+
+                    'settled' => [
+                        'check' => 'Reservation without a counter entry',
+                        'detail' => 'Ledger entry :entry holds :amount since :date; the purchase is in state ":status" and a release counter entry is missing.',
+                    ],
+
+                    'amount' => [
+                        'check' => 'Reservation amount differs',
+                        'detail' => 'The purchase is reserved over :expected, the ledger holds :actual (difference :difference, oldest entry :entry from :date).',
+                    ],
+
+                    'unassigned' => [
+                        'check' => 'Ledger entries without a purchase reference',
+                        'detail' => ':amount across :count ledger entry/entries without a purchase reference (:entries).',
+                    ],
+
+                    'more' => [
+                        'check' => 'Further affected purchases',
+                        'detail' => 'This wallet has :count further affected purchases; they are listed in the log.',
+                    ],
+
+                ],
+
+                'hint' => 'Do not repair: a reservation without a purchase is reversed with a counter entry (WalletService::post() with release, key release:lead_purchase:<id>:orphan, reference: null), never with an UPDATE on reserved_cents.',
+
             ],
 
         ],

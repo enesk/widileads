@@ -104,6 +104,12 @@
                                     </tr>
                                 @endforeach
                             </table>
+
+                            @if ($reservationHint)
+                                <p style="margin: 12px 0 0; font-size: 14px; line-height: 22px; color: #64748b">
+                                    {{ __('marketplace.wallet.verify.findings.hint') }}
+                                </p>
+                            @endif
                         @endif
 
                         <div role="separator" style="background-color: #e2e8f0; height: 1px; line-height: 1px; margin: 32px 0">&zwj;</div>

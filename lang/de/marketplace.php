@@ -1975,10 +1975,58 @@ return [
                 'reserved' => 'Reserviert',
                 'expected' => 'Soll',
                 'actual' => 'Ist',
-                'findings' => 'Verletzte Postpaid-Regeln',
+                'findings' => 'Befunde der Prüfung',
                 'repaired' => 'Der Stand wurde in diesem Lauf auf das Ledger zurückgesetzt.',
                 'reservation_totals' => 'Die reservierten Beträge der Käufer-Wallets passen nicht zu den offenen Leadkäufen: Soll :expected, Ist :actual.',
                 'outro' => 'Maßgeblich ist immer das Ledger. Bitte die Ursache klären, bevor der Stand korrigiert wird.',
+            ],
+
+            'findings' => [
+
+                'wallet_reservation' => [
+                    'check' => 'Reservierung je Wallet',
+                    'detail' => 'Reserviert :actual, aus :count offenen Leadkäufen erwartet :expected (Differenz :difference).',
+                ],
+
+                'unassigned_difference' => [
+                    'check' => 'Reservierung ohne Wallet',
+                    'subject' => 'Alle Käufer-Wallets',
+                    'detail' => ':difference der Gesamtdifferenz lassen sich keinem Käufer-Wallet zuordnen — betroffen sind offene Leadkäufe ohne Käufer-Wallet.',
+                ],
+
+                'purchase' => [
+
+                    'subject' => 'Kaufbeleg #:purchase (Wallet #:wallet)',
+
+                    'missing' => [
+                        'check' => 'Reservierung ohne Beleg',
+                        'detail' => 'Journalzeile :entry reserviert :amount seit :date; der Kaufbeleg existiert nicht mehr und es gibt keine Gegenbuchung.',
+                    ],
+
+                    'settled' => [
+                        'check' => 'Reservierung ohne Gegenbuchung',
+                        'detail' => 'Journalzeile :entry hält :amount seit :date; der Beleg steht auf „:status", eine release-Gegenbuchung fehlt.',
+                    ],
+
+                    'amount' => [
+                        'check' => 'Reservierung weicht ab',
+                        'detail' => 'Der Beleg steht auf „reserved" über :expected, im Journal stehen dazu :actual (Differenz :difference, älteste Zeile :entry vom :date).',
+                    ],
+
+                    'unassigned' => [
+                        'check' => 'Journalzeilen ohne Belegbezug',
+                        'detail' => ':amount in :count Journalzeile(n) ohne Belegbezug (:entries).',
+                    ],
+
+                    'more' => [
+                        'check' => 'Weitere auffällige Belege',
+                        'detail' => 'Zu diesem Wallet gibt es :count weitere auffällige Belege; sie stehen im Protokoll.',
+                    ],
+
+                ],
+
+                'hint' => 'Nicht reparieren: Eine belegfreie Reservierung wird gegengebucht (WalletService::post() mit release, Schlüssel release:lead_purchase:<id>:orphan, reference: null), nie per UPDATE auf reserved_cents.',
+
             ],
 
         ],
