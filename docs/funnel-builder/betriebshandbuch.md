@@ -320,9 +320,25 @@ Der Weg bei Twilio für ein abgelehntes Bundle ist die **Bundle-Kopie**
 den bereits freigegebenen Teilen, darin wird nur das beanstandete Dokument ersetzt, dann
 wieder `pending-review`. In der Konsole heißt das „Edit and resubmit".
 
-> `leads:submit-de-bundle` hilft hier **nicht**: das Kommando überspringt Bundles im Stand
-> `twilio-rejected` und würde ein zweites Bundle von null anlegen, inklusive erneutem
-> Upload aller drei PDFs (Ticket #77).
+> Genau das macht `leads:submit-de-bundle` seit Ticket #79 selbst. Rein lesend
+> aufgerufen benennt es das beanstandete Teil (Tabelle `Gegenstand | SID | Stand | Grund`
+> aus `failure_reason`/`errors`) und gibt den kopierbaren Aufruf mit genau der Option aus,
+> die zum abgelehnten Nachweis gehört:
+>
+> ```bash
+> php artisan leads:submit-de-bundle
+> php artisan leads:submit-de-bundle --resubmit --proof-registration=/pfad/auszug.pdf --submit
+> ```
+>
+> `--resubmit` legt die Bundle-Kopie an, hängt nur das abgelehnte Dokument ab, lädt das
+> Ersatz-PDF hoch, hängt es an und setzt mit `--submit` auf `pending-review`. Enduser und
+> freigegebene Nachweise werden **nicht** neu hochgeladen, das alte Bundle bleibt
+> unangetastet. Fehlt eine Vorbedingung (kein eindeutiges abgelehntes Bundle, kein
+> abgelehntes Dokument, PDF fehlt oder ist unlesbar), entsteht nichts im Konto — es kommt
+> die Tabelle `Fehlt | Woher` und Exit 1. Ein `--submit` **ohne** `--resubmit` legt in
+> diesem Zustand bewusst nichts an und endet mit Exit 1. Bricht ein Lauf nach dem Anlegen
+> der Kopie ab, nennt die Fehlermeldung die Kopie-SID; der nächste Lauf mit
+> `--resubmit --bundle=BU…` verwendet dieselbe Kopie weiter und legt keine zweite an.
 
 Nach der Freigabe (`status: twilio-approved`) ist die Reihenfolge: DE-**Voice**-Nummer
 kaufen, Nummer in der Admin-Seite „Twilio" **und** in `TWILIO_FROM` der Live-`.env`
@@ -426,6 +442,26 @@ Zeile in `call_attempts`.** Der Ticketstand von #75 ist dafür kein
 Ersatz — #75 ist geschlossen, sobald der Agentenanteil gemessen und dokumentiert ist,
 die gekaufte Nummer kommt erst mit der Betreiber-Sitzung.
 
+#### Was den ersten Anrufversuch technisch nicht aufhält (Ticket #82, am Code gelesen am 2026-10-12)
+
+Die gekaufte Nummer ist Voraussetzung dafür, dass `leads:check-call-setup --production`
+ohne FEHLER läuft — aber **nicht** dafür, dass überhaupt gewählt werden kann.
+`CallService::fromNumber()` (`app/Services/CallService.php:167`) nimmt die Portal-Nummer
+nur aus `twilio.from_number`, ersatzweise `services.twilio.from`, und prüft an keiner
+Stelle, ob sie gekauft oder bloß verifiziert ist; `twilio.from_number_is_owned` wertet
+ausschließlich die Kachel „Probleme?" aus
+(`app/Livewire/Portal/CallerIdVerification.php:307`, Ticket #74). Twilio lässt ausgehende
+Anrufe von einer verifizierten Absendernummer auf einem Full-Konto zu. Ein echter
+Portal-Anruf — und damit die erste Zeile in `call_attempts` — ist deshalb schon heute
+machbar: Absender `+4915115509444`, gewählt über das Anrufpanel eines Käufers mit
+bestätigter Rufnummer, Ziel ein Lead, dessen Telefonnummer dem Betreiber selbst gehört
+(zweites Telefon) — damit ruft der Probeanruf niemand Fremden an.
+
+Am Kriterium oben ändert das **nichts**: scharf gestellt wird erst, wenn *beide*
+Bedingungen erfüllt sind. Es heißt nur, dass die zweite Bedingung nicht auf Twilios
+Prüfzeit wartet und in der Betreiber-Sitzung **vorweg** erledigt werden kann; die
+Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfolge.
+
 #### Reihenfolge beim Scharfstellen
 
 1. `leads:check-call-setup --production` läuft ohne FEHLER (Portal-Nummer gekauft, Bundle freigegeben).
@@ -451,6 +487,13 @@ die gekaufte Nummer kommt erst mit der Betreiber-Sitzung.
    ```
    Jeder Treffer wird nachts als `billable`/`deadline` abgerechnet. Kommt etwas
    Unerwartetes vor, erst den Cutover später legen, dann abrechnen — nie umgekehrt.
+
+   Die Abfrage ist absichtlich wortgleich mit der Trefferbedingung des Befehls
+   (`ResolveExpiredLeads::expiredLeads()`, `app/Console/Commands/ResolveExpiredLeads.php:76`:
+   ohne Mandanten-Scopes, `contact_status = open`, `deadline_at <= now()`,
+   `delivered_at >= enforce_from`; leerer Cutover ⇒ `1 = 0`) — gegengeprüft am
+   2026-10-12. Wird eine der beiden Seiten geändert, die andere mitändern, sonst
+   zählt der Trockenlauf etwas anderes als der Lauf abrechnet.
 5. Nach dem ersten Lauf `wallet:verify` und die Zeile „Fristablauf abgearbeitet" im Log
    gegenprüfen.
 
