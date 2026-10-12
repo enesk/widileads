@@ -295,19 +295,66 @@ class CallerIdVerification extends Component
     }
 
     /**
-     * Die Portalnummer, die der Anfragende sieht. Kanonisch aus der
-     * Twilio-Einstellung; ohne hinterlegte Nummer wird die Kachel nicht
-     * gezeigt, statt eine erfundene zu drucken.
+     * Die Portalnummer, die der Anfragende sieht -- gruppiert fuer Screenreader
+     * und Auge. Gezeigt wird sie nur, wenn die Nummer dem Twilio-Konto
+     * *gehoert* (`twilio.from_number_is_owned`). "Gesetzt" ist nicht "eigen":
+     * solange `TWILIO_FROM` auf eine privat verifizierte Nummer zeigt, waere
+     * jede Anzeige ein falsches Versprechen. Der Schalter kostet bewusst keine
+     * Twilio-Abfrage pro Seitenaufruf.
      */
     private function portalNumber(): ?string
     {
+        if (! config('twilio.from_number_is_owned')) {
+            return null;
+        }
+
         $number = (string) config('twilio.from_number');
 
         if ($number === '') {
             $number = (string) config('services.twilio.from');
         }
 
-        return $number === '' ? null : $number;
+        return $number === '' ? null : $this->groupNumber($number);
+    }
+
+    /** Aus "+4915115509444" wird "+49 151 1550 9444". */
+    private function groupNumber(string $number): string
+    {
+        $digits = $this->digits($number);
+
+        if ($digits === '') {
+            return $number;
+        }
+
+        $countryDigits = $this->digits($this->countryCode);
+        $countryDigits = ($countryDigits !== '' && str_starts_with($digits, $countryDigits))
+            ? $countryDigits
+            : substr($digits, 0, 2);
+
+        $rest = substr($digits, strlen($countryDigits));
+
+        if ($rest === '') {
+            return '+'.$countryDigits;
+        }
+
+        $groups = [substr($rest, 0, 3)];
+        $tail = substr($rest, 3);
+
+        foreach (str_split($tail, 4) as $chunk) {
+            if ($chunk === '') {
+                continue;
+            }
+
+            if (strlen($chunk) === 1) {
+                $groups[count($groups) - 1] .= $chunk;
+
+                continue;
+            }
+
+            $groups[] = $chunk;
+        }
+
+        return '+'.$countryDigits.' '.implode(' ', $groups);
     }
 
     /** Aus "+49172554011 8" wird "172 5540 118" fuer das Eingabefeld. */

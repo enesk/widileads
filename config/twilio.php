@@ -29,4 +29,13 @@ return [
     // sieht, solange die Rufnummernfreigabe nicht erfolgt ist.
     'from_number' => env('TWILIO_FROM'),
 
+    // Gehoert `from_number` dem Twilio-Konto selbst? Solange der Schalter
+    // false ist, zeigt das Portal die Nummer nirgends an (FB-074): heute steht
+    // in TWILIO_FROM eine nur *verifizierte* Privatnummer des Betreibers --
+    // Rueckrufe darauf landen auf einem privaten Telefon. Erst wenn eine eigene
+    // Voice-Nummer gekauft und eingetragen ist, wird TWILIO_FROM_IS_OWNED=true
+    // gesetzt. Bewusst ein Schalter und keine API-Abfrage: die Hilfe-Kachel
+    // darf keinen Twilio-Call pro Seitenaufruf kosten.
+    'from_number_is_owned' => (bool) env('TWILIO_FROM_IS_OWNED', false),
+
 ];

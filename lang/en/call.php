@@ -87,6 +87,7 @@ return [
             'default_label' => 'Default',
             'trouble_heading' => 'Problems?',
             'trouble_text' => 'No call arriving: check whether the number blocks withheld callers. Our number is :number.',
+            'trouble_text_no_number' => 'No call arriving: check whether your line blocks withheld or unknown callers. If you wait longer than a minute, get in touch.',
             'support' => 'Contact support',
 
             'failed' => 'The confirmation failed. Check the number and try again.',

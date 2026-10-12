@@ -99,6 +99,7 @@ return [
             'default_label' => 'Standard',
             'trouble_heading' => 'Probleme?',
             'trouble_text' => 'Anruf kommt nicht an: Prüf, ob die Nummer unterdrückte Anrufe blockiert. Unsere Nummer ist :number.',
+            'trouble_text_no_number' => 'Anruf kommt nicht an: Prüf, ob dein Anschluss unterdrückte oder unbekannte Anrufe blockiert. Wartest du länger als eine Minute, melde dich bei uns.',
             'support' => 'Support schreiben',
 
             'failed' => 'Die Bestätigung ist fehlgeschlagen. Prüfe die Nummer und versuche es erneut.',

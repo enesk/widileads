@@ -263,15 +263,19 @@
             </section>
         @endif
 
-        @if ($portalNumber !== null)
-            <section class="card p-5">
-                <h2 class="text-sm font-medium text-zinc-500">{{ __('call.caller_id.portal.trouble_heading') }}</h2>
-                <p class="mt-2 text-sm text-zinc-700">
+        {{-- Hilfe-Kachel, keine Nummern-Kachel: sie steht immer, auch ohne eigene
+             Portalnummer. Der Support-Link darf nie an der Nummer haengen. --}}
+        <section class="card p-5">
+            <h2 class="text-sm font-medium text-zinc-500">{{ __('call.caller_id.portal.trouble_heading') }}</h2>
+            <p class="mt-2 text-sm text-zinc-700">
+                @if ($portalNumber !== null)
                     {!! __('call.caller_id.portal.trouble_text', ['number' => '<span class="tabular-nums font-medium text-zinc-900">'.e($portalNumber).'</span>']) !!}
-                </p>
-                <a href="mailto:{{ config('app.support_email') }}" class="block text-sm text-brand hover:underline mt-3">{{ __('call.caller_id.portal.support') }}</a>
-            </section>
-        @endif
+                @else
+                    {{ __('call.caller_id.portal.trouble_text_no_number') }}
+                @endif
+            </p>
+            <a href="mailto:{{ config('app.support_email') }}" class="block text-sm text-brand hover:underline mt-3">{{ __('call.caller_id.portal.support') }}</a>
+        </section>
     </aside>
 
     </div>
