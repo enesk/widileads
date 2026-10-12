@@ -322,7 +322,7 @@ wieder `pending-review`. In der Konsole heißt das „Edit and resubmit".
 
 > `leads:submit-de-bundle` hilft hier **nicht**: das Kommando überspringt Bundles im Stand
 > `twilio-rejected` und würde ein zweites Bundle von null anlegen, inklusive erneutem
-> Upload aller drei PDFs (Ticket #76).
+> Upload aller drei PDFs (Ticket #77).
 
 Nach der Freigabe (`status: twilio-approved`) ist die Reihenfolge: DE-**Voice**-Nummer
 kaufen, Nummer in der Admin-Seite „Twilio" **und** in `TWILIO_FROM` der Live-`.env`
