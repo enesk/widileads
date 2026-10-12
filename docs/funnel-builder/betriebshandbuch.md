@@ -479,7 +479,9 @@ Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfol
    sudo -u leads /usr/bin/php8.4 artisan tinker --execute '
    $von = config("lead_calls.enforce_from");
    $f = App\Models\Lead::query()->withoutGlobalScopes(App\Models\Scopes\TenantScopes::names())
-     ->where("contact_status", "open")->whereNotNull("deadline_at")->where("deadline_at","<=",now())
+     ->where("contact_status", "open")
+     ->whereNotIn("lead_state", App\Services\LeadResolver::undecidableStates())
+     ->whereNotNull("deadline_at")->where("deadline_at","<=",now())
      ->whereNotNull("delivered_at")->where("delivered_at",">=",$von)->pluck("id");
    echo "Leads: ", $f->count(), " -> ", $f->toJson(), PHP_EOL;
    $k = DB::table("lead_purchases")->whereIn("lead_id",$f)->where("status","reserved")->get(["id","lead_id","buyer_tenant_id","price_cents"]);
@@ -489,11 +491,23 @@ Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfol
    Unerwartetes vor, erst den Cutover später legen, dann abrechnen — nie umgekehrt.
 
    Die Abfrage ist absichtlich wortgleich mit der Trefferbedingung des Befehls
-   (`ResolveExpiredLeads::expiredLeads()`, `app/Console/Commands/ResolveExpiredLeads.php:76`:
-   ohne Mandanten-Scopes, `contact_status = open`, `deadline_at <= now()`,
+   (`ResolveExpiredLeads::expiredLeads()`, `app/Console/Commands/ResolveExpiredLeads.php:85`:
+   ohne Mandanten-Scopes, `contact_status = open`, `lead_state` nicht in
+   `LeadResolver::undecidableStates()`, `deadline_at <= now()`,
    `delivered_at >= enforce_from`; leerer Cutover ⇒ `1 = 0`) — gegengeprüft am
-   2026-10-12. Wird eine der beiden Seiten geändert, die andere mitändern, sonst
-   zählt der Trockenlauf etwas anderes als der Lauf abrechnet.
+   2026-10-12, Klammer auf `lead_state` nachgezogen am 2026-10-12 (Ticket #92:
+   eine anerkannte Reklamation wechselt den Lead nach `ungueltig`/`unerreichbar`
+   und gibt das Geld zurück, lässt `contact_status` aber auf `open` stehen — er
+   würde sonst mitgezählt und als abgerechnet geführt). Wird eine der beiden
+   Seiten geändert, die andere mitändern, sonst zählt der Trockenlauf etwas
+   anderes als der Lauf abrechnet.
+
+   `erreicht` steht bewusst **nicht** in dieser Ausschlussmenge: Diesen Zustand
+   setzt `app:settle-elapsed-complaint-periods` um 01:00 nach Ablauf der
+   Reklamationsfrist, abgebucht wird der Kaufpreis aber erst durch das
+   `LeadResolved` des 03:00-Laufs. Würde `erreicht` mit ausgeklammert, bliebe
+   die Reservierung für immer stehen und `wallet:verify` liefe auf eine
+   Differenz.
 5. Nach dem ersten Lauf `wallet:verify` und die Zeile „Fristablauf abgearbeitet" im Log
    gegenprüfen.
 

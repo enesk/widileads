@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Constants\CallAttemptOutcome;
 use App\Constants\LeadResolutionReason;
+use App\Constants\LeadState;
 use App\Events\Lead\LeadResolved;
 use App\Models\CallAttempt;
 use App\Models\Lead;
@@ -46,6 +47,34 @@ class LeadResolver
 {
     /** Kalendertage werden in dieser Zone gezaehlt, nicht in UTC. */
     private const CALENDAR_TIMEZONE = 'Europe/Berlin';
+
+    /**
+     * Endzustaende, in denen ueber die Erreichbarkeit nichts mehr zu
+     * entscheiden ist (Ticket #92).
+     *
+     * `ungueltig` und `unerreichbar` entstehen ausschliesslich aus einer
+     * anerkannten Reklamation: Der Kaeufer hat sein Geld zurueck, der Lead ist
+     * abgeschlossen -- ihn nach Fristablauf noch als `billable`/`deadline` zu
+     * fuehren waere eine falsche Datenlage in jeder Auswertung.
+     * `abgelaufen` trifft nie verkaufte Leads, an denen keine Frist laeuft.
+     *
+     * `erreicht` steht bewusst NICHT in dieser Liste: Dieser Zustand ist der
+     * Normalfall des Fristablaufs. `app:settle-elapsed-complaint-periods`
+     * setzt ihn um 01:00, wenn die Reklamationsfrist abgelaufen ist; die
+     * Abbuchung haengt dagegen am LeadResolved des 03:00-Laufs. Wer
+     * `erreicht` mit ausklammert, laesst den Kaufpreis fuer immer reserviert
+     * stehen.
+     *
+     * @return list<LeadState>
+     */
+    public static function undecidableStates(): array
+    {
+        return [
+            LeadState::UNGUELTIG,
+            LeadState::UNERREICHBAR,
+            LeadState::ABGELAUFEN,
+        ];
+    }
 
     /**
      * Einstieg nach einem bewerteten Versuch.
@@ -97,6 +126,12 @@ class LeadResolver
      * Der Scheduler benutzt diesen Weg fuer den Fristablauf (Ticket #11)
      * unmittelbar, ohne den Umweg ueber evaluate().
      *
+     * Steht `lead_state` auf einem der Zustaende aus undecidableStates(),
+     * wird nicht mehr entschieden (Ticket #92): Eine anerkannte Reklamation
+     * hat das Geld zurueckgegeben, laesst `contact_status` aber auf `open`
+     * stehen -- ohne diese Klammer wuerde der Lead nach Fristablauf als
+     * `billable` abgeschlossen.
+     *
      * @return bool Ob dieser Aufruf entschieden hat.
      */
     public function resolve(Lead $lead, LeadResolutionReason $reason, ?int $buyerId = null): bool
@@ -115,7 +150,8 @@ class LeadResolver
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($locked->contact_status->isResolved()) {
+            if ($locked->contact_status->isResolved()
+                || in_array($locked->lead_state, self::undecidableStates(), true)) {
                 return false;
             }
 

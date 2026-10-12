@@ -62,7 +62,8 @@ class ResolveExpiredLeads extends Command
     }
 
     /**
-     * Die faelligen Leads: offen, Frist abgelaufen, vom Regelwerk erfasst.
+     * Die faelligen Leads: offen, noch nicht in einem Endzustand, Frist
+     * abgelaufen, vom Regelwerk erfasst.
      *
      * Ohne Mandanten-Scopes, weil der Lauf ohne Kaeuferkontext auf der Konsole
      * stattfindet -- mit Scope faende er nichts.
@@ -71,6 +72,14 @@ class ResolveExpiredLeads extends Command
      * wie im LeadResolver: Wer vor der Einfuehrung ausgeliefert wurde, hatte
      * nie die Gelegenheit, ueber das Portal anzurufen.
      *
+     * Die Klammer auf `lead_state` haelt Leads heraus, deren Reklamation
+     * anerkannt wurde (Ticket #92): Der LeadComplaintService wechselt sie nach
+     * `ungueltig`/`unerreichbar` und gibt das Geld zurueck, laesst
+     * `contact_status` aber auf `open` stehen. Ohne die Klammer wuerden sie
+     * nachts als `billable`/`deadline` abgeschlossen und waeren in jeder
+     * Auswertung auf der falschen Seite gezaehlt. Welche Zustaende das sind,
+     * steht im LeadResolver -- `erreicht` gehoert ausdruecklich nicht dazu.
+     *
      * @return Builder<Lead>
      */
     private function expiredLeads(): Builder
@@ -78,6 +87,7 @@ class ResolveExpiredLeads extends Command
         $query = Lead::query()
             ->withoutGlobalScopes(TenantScopes::names())
             ->where('contact_status', LeadContactStatus::OPEN)
+            ->whereNotIn('lead_state', LeadResolver::undecidableStates())
             ->whereNotNull('deadline_at')
             ->where('deadline_at', '<=', now());
 
