@@ -86,6 +86,15 @@ sudo -u leads /usr/bin/php8.4 artisan migrate --force
 #    Server gefuellt - ohne diesen Schritt wirkt weder neue Konfiguration noch eine
 #    neue Route.
 sudo -u leads /usr/bin/php8.4 artisan optimize:clear
+
+# 5a. Livewire-Skript als echte Datei ablegen. Auf diesem Server erreicht keine
+#     Adresse, die auf .js endet, jemals PHP - nginx antwortet selbst mit 404 und
+#     Cloudflare speichert die 404 vier Stunden. Livewire liefert sein Skript
+#     sonst ueber eine dynamische Route; ohne diesen Schritt bleibt das Filament-
+#     Panel leer. Gehoert in jedes Release, auch wenn public/vendor/livewire
+#     schon existiert.
+sudo -u leads /usr/bin/php8.4 artisan livewire:publish --assets
+
 sudo -u leads /usr/bin/php8.4 artisan optimize
 
 # 6. Worker neu starten, sonst verarbeitet er Jobs mit dem alten Code
@@ -104,11 +113,16 @@ Gegenprobe nach dem Rollout:
 
 ```bash
 git log --oneline -1                         # steht der erwartete Commit?
-git status --short                           # nur /public/vendor/livewire ist bekannt unverfolgt
+git status --short                           # leer; .env.bak-* und public/vendor/livewire sind ignoriert
 systemctl show -p ActiveEnterTimestamp horizon-widileads   # jung, nicht Wochen alt
 stat -c '%y' public/build/manifest.json      # juenger als der Commit
 curl -sI https://leads.widimedia.com/ | head -1
 ```
+
+Soll nachgewiesen werden, dass ein bestimmtes Stück Frontend-Code wirklich im
+gebauten Bundle steckt, taugt der Name einer lokalen Funktion dafür nicht — esbuild
+benennt sie um. Belastbar sind nur Zeichenketten und globale Namen, etwa
+`grep -rl OTPCredential public/build/assets` für den WebOTP-Pfad der Code-Kästchen.
 
 Der Cron braucht genau einen Eintrag:
 
@@ -350,6 +364,16 @@ jede Fehlermeldung.
 | `app:cleanup-local-subscription-statuses` | stündlich | abgelaufene Abos bleiben aktiv |
 | `app:sync-seat-based-subscription-quantities` | stündlich | Sitzplatzzahlen laufen auseinander |
 | `app:local-subscription-expiring-soon-reminder` | täglich | Erinnerungsmails bleiben aus |
+| `app:auto-purchase-leads` | alle 5 Minuten | Autokauf greift nicht; der Käufer verliert Abschlüsse an frischere Leads |
+| `app:settle-elapsed-complaint-periods` | täglich 01:00 | Käufe nach Ablauf der Reklamationsfrist werden nicht abgeschlossen — **Abrechnung bleibt liegen** |
+| `leads:resolve-expired` | täglich 03:00 | Leads mit abgelaufener Kontaktfrist werden nicht abgerechnet — **Abrechnung bleibt liegen** |
+| `leads:send-deadline-reminders` | stündlich | Käufer werden nicht vor Fristende erinnert und verlieren das Geld ohne Warnung |
+| `wallet:verify` | täglich 04:00 | ein abgewichener Wallet-Saldo fällt niemandem auf |
+| `wallet:settle` | wöchentlich (Wochentag/Zeit aus `config/wallet.php`) | offene Postpaid-Beträge werden nicht eingezogen — **Geld bleibt offen** |
+| `wallet:settle --charge-only` | stündlich | zweiter Einzugsversuch und angekündigte Lastschriften bleiben aus |
+
+Die vollständige, immer aktuelle Liste liefert `php artisan schedule:list` — die Tabelle
+oben nennt die Wirkung, nicht den Zeitplan als Quelle der Wahrheit.
 
 **Erste Prüfung bei „irgendetwas läuft nicht mehr":**
 
