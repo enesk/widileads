@@ -35,7 +35,10 @@
                 <h2 class="text-lg font-semibold text-zinc-900">{{ __('portal.onboarding.activation.activated.heading') }}</h2>
                 <p class="text-zinc-500 mt-1">{{ __('portal.onboarding.activation.activated.text') }}</p>
             </div>
-            <x-ui.illustration name="success" class="hidden sm:block w-28 shrink-0" :decorative="true" />
+            {{-- max-w statt w: Die Regel .illustration {width:100%} aus
+                 illustrations.css ist ungeschichtet und schlaegt jedes w-*;
+                 begrenzen laesst sie sich nur ueber die Hoechstbreite. --}}
+            <x-ui.illustration name="success" class="hidden sm:block max-w-28 shrink-0" :decorative="true" />
         </div>
 
     @else
@@ -64,7 +67,7 @@
                 </div>
             </div>
 
-            <x-ui.illustration name="checklist" class="hidden sm:block w-24 shrink-0" :decorative="true" />
+            <x-ui.illustration name="checklist" class="hidden sm:block max-w-24 shrink-0" :decorative="true" />
         </div>
 
         <ul class="mt-4 space-y-1">

@@ -234,6 +234,37 @@ class CallerIdTest extends FeatureTest
         return $this->withHeader(VerifyTwilioSignature::HEADER, $signature)->post($url, $payload);
     }
 
+    /**
+     * Ticket #96: Die Bestaetigung im Onboarding laeuft ueber Twilio Verify
+     * (SMS-Code) und legt im Twilio-Konto keine Verified Caller ID an. Eine so
+     * uebernommene Zeile steht bei uns auf `verified`, hat aber keinen
+     * Validation Request -- Twilio wuerde den Anruf mit 21210 ablehnen.
+     * Deshalb gilt sie nicht als anrufbereit.
+     */
+    public function test_ohne_validation_request_gilt_die_nummer_nicht_als_anrufbereit(): void
+    {
+        $callerId = $this->pendingCallerId();
+
+        $callerId->forceFill([
+            'status' => CallerIdStatus::VERIFIED,
+            'validation_sid' => null,
+            'validation_code' => null,
+            'verified_at' => now(),
+            'expires_at' => null,
+        ])->save();
+
+        $this->assertTrue($callerId->fresh()->status->isVerified());
+        $this->assertFalse(
+            $callerId->fresh()->isUsableAsCallerId(),
+            'Eine Nummer ohne Validation Request darf nicht als Anrufabsender gelten.',
+        );
+
+        // Mit Vorgang bei Twilio bleibt sie es.
+        $callerId->forceFill(['validation_sid' => 'CAtest'])->save();
+
+        $this->assertTrue($callerId->fresh()->isUsableAsCallerId());
+    }
+
     private function pendingCallerId(): CallerId
     {
         $tenant = Tenant::factory()->create();

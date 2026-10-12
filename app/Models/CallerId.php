@@ -60,12 +60,29 @@ class CallerId extends Model
     }
 
     /**
-     * Bestaetigt und nicht abgelaufen -- nur dann darf die Nummer als
-     * Rufnummernanzeige verwendet werden (FB-081).
+     * Darf diese Nummer als Rufnummernanzeige zum Lead gewaehlt werden?
+     *
+     * Zwei Bedingungen, und die zweite kam mit Ticket #96 dazu: Die Zeile ist
+     * bestaetigt UND es gibt einen Validation Request bei Twilio
+     * (`validation_sid`). Twilio nimmt als Caller-ID ausschliesslich Nummern
+     * an, die dem Konto gehoeren oder dort als Verified Caller ID stehen --
+     * eine bei uns gruene Zeile ohne diesen Vorgang fuehrt beim Anruf zu
+     * Fehler 21210.
+     *
+     * Der Unterschied ist nicht theoretisch: Die Bestaetigung im Onboarding
+     * laeuft ueber Twilio **Verify** (SMS-Code). Verify beweist, dass der
+     * Nutzer die Nummer besitzt, und legt im Konto keinen Caller-ID-Eintrag
+     * an. Solange nicht entschieden ist, wie die Luecke geschlossen wird
+     * (Ticket #96), gilt eine so uebernommene Nummer hier als nicht
+     * anrufbereit -- lieber ein ehrliches "bestaetige zuerst deine Nummer" im
+     * Portal als ein Anruf, den Twilio ablehnt.
+     *
+     * Keine Zusicherung ueber den aktuellen Stand bei Twilio: Wird der
+     * Eintrag dort von Hand geloescht, bleibt `validation_sid` hier stehen.
      */
     public function isUsableAsCallerId(): bool
     {
-        return $this->status->isVerified();
+        return $this->status->isVerified() && $this->validation_sid !== null;
     }
 
     /**
