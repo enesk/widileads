@@ -27,11 +27,19 @@ class EnabledModulesTest extends FeatureTest
         $this->get('/roadmap')->assertSuccessful();
     }
 
+    /**
+     * Die Navigationseintraege sitzen im gemeinsamen Kopf
+     * (`components/layouts/app/header.blade.php`). Geprueft wird deshalb eine
+     * Seite, die diesen Kopf einbindet -- die Startseite laeuft inzwischen auf
+     * `x-layouts.portal` und traegt ihn nicht mehr. Ob sie auf Blog und
+     * Roadmap verweisen soll, ist eine Produktfrage und liegt als eigenes
+     * Ticket bei Uwe.
+     */
     public function test_frontend_navigation_links_to_blog_and_roadmap(): void
     {
         config(['app.roadmap_enabled' => true]);
 
-        $response = $this->get('/')->assertSuccessful();
+        $response = $this->get('/blog')->assertSuccessful();
 
         $response->assertSee(route('blog'), false);
         $response->assertSee(route('roadmap'), false);

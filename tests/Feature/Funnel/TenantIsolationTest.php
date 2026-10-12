@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Models\CallAttempt;
+use App\Models\CallerId;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Funnel;
 use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\LeadWatchlistEntry;
 use App\Models\Tenant;
+use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Model;
 use ReflectionClass;
@@ -103,7 +107,30 @@ class TenantIsolationTest extends FeatureTest
             'funnel_id' => $funnel->getKey(),
         ]);
 
+        // Die Kaeuferseite: eigene Rufnummer und Anrufversuch haengen am
+        // Mandanten, der angerufen hat. Der Kaufbeleg selbst traegt den
+        // Mandanten-Scope nicht (er trennt ueber `ofBuyer`) und gehoert
+        // deshalb nicht in diese Liste.
+        $user = User::factory()->create();
+        $tenant->users()->attach($user);
+
+        $purchase = LeadPurchase::factory()->create([
+            'lead_id' => $lead->getKey(),
+            'buyer_tenant_id' => $tenant->getKey(),
+            'purchased_by_user_id' => $user->getKey(),
+        ]);
+
         return [
+            CallAttempt::class => CallAttempt::factory()->create([
+                'tenant_id' => $tenant->getKey(),
+                'lead_purchase_id' => $purchase->getKey(),
+                'lead_id' => $lead->getKey(),
+                'user_id' => $user->getKey(),
+            ]),
+            CallerId::class => CallerId::factory()->verified()->create([
+                'tenant_id' => $tenant->getKey(),
+                'user_id' => $user->getKey(),
+            ]),
             Funnel::class => $funnel,
             Lead::class => $lead,
             LeadWatchlistEntry::class => LeadWatchlistEntry::query()->create([

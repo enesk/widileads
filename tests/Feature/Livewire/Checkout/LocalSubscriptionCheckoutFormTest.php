@@ -175,7 +175,11 @@ class LocalSubscriptionCheckoutFormTest extends FeatureTest
 
         $email = 'existing+'.rand(1, 1000000).'@gmail.com';
 
-        $user = User::factory()->create([
+        // Ausdruecklich ohne bestaetigte Rufnummer: In Tests sind Benutzer
+        // standardmaessig bestaetigt (UserFactory::$phoneVerifiedByDefault),
+        // und dann fuehrt der Kauf regulaer zur Erfolgsseite. Genau diesen
+        // Fall prueft dieser Test aber nicht.
+        $user = User::factory()->phoneUnverified()->create([
             'email' => $email,
             'password' => bcrypt('password'),
             'name' => 'Name',

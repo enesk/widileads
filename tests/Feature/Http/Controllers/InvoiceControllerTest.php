@@ -4,6 +4,7 @@ namespace Tests\Feature\Http\Controllers;
 
 use App\Constants\OrderStatus;
 use App\Constants\TransactionStatus;
+use App\Models\Config;
 use App\Models\Currency;
 use App\Models\OneTimeProduct;
 use App\Models\Order;
@@ -17,6 +18,7 @@ class InvoiceControllerTest extends FeatureTest
     public function test_generate()
     {
         config(['invoices.enabled' => true]);
+        $this->completeCompanyProfile();
 
         $tenant = $this->createTenant();
         $user = $this->createUser($tenant);
@@ -81,5 +83,20 @@ class InvoiceControllerTest extends FeatureTest
         $this->expectException(NotFoundHttpException::class);
 
         $this->get(route('invoice.generate', ['transactionUuid' => $transaction->uuid]));
+    }
+
+    /**
+     * Firmenstammdaten des Betreibers hinterlegen.
+     *
+     * Seit FB-Ticket #31 erzeugt InvoiceService keine Rechnung, solange Name,
+     * Anschrift und eine Kontaktadresse fehlen (CompanyProfile::isComplete()):
+     * Eine Rechnung ohne Absender ist keine. Quelle ist ausschliesslich die
+     * Tabelle `configs`, deshalb hier Config::set() und nicht config().
+     */
+    private function completeCompanyProfile(): void
+    {
+        Config::set('invoices.seller.attributes.name', 'Widimedia GmbH');
+        Config::set('invoices.seller.attributes.address', 'Teststrasse 1, 76131 Karlsruhe');
+        Config::set('app.support_email', 'support@example.com');
     }
 }

@@ -2,11 +2,19 @@
 
 namespace Tests\Feature\Http\Controllers;
 
+use App\Livewire\Checkout\ProductCheckoutForm;
 use App\Models\Currency;
 use App\Models\OneTimeProduct;
 use App\Models\OneTimeProductPrice;
 use Tests\Feature\FeatureTest;
 
+/**
+ * Die Kaufseite eines Einmalprodukts -- im Portal die Guthabenaufladung.
+ *
+ * Geprueft wird gegen den Uebersetzungsschluessel und nicht gegen den
+ * sichtbaren Text: Die Anwendung liefert auf Deutsch aus, und ein Test, der
+ * eine Zeichenkette erwartet, bricht beim naechsten Textwechsel wieder.
+ */
 class ProductCheckoutControllerTest extends FeatureTest
 {
     public function test_checkout_loads()
@@ -29,8 +37,11 @@ class ProductCheckoutControllerTest extends FeatureTest
 
         $response->assertStatus(200);
 
-        $response->assertSee('Complete your purchase');
-        $response->assertDontSeeHtml('wire:model.blur="quantity"');
+        $response->assertSee(__('marketplace.wallet.top_up.title'));
+        // Die Menge ist aus der Oberflaeche heraus: Aufgeladen wird in festen
+        // Paketen (6c0025e9). Der Wert entscheidet nur noch darueber, welche
+        // Zahlungsanbieter angeboten werden.
+        $response->assertSeeLivewire(ProductCheckoutForm::class);
     }
 
     public function test_checkout_quantity()
@@ -53,7 +64,7 @@ class ProductCheckoutControllerTest extends FeatureTest
 
         $response->assertStatus(200);
 
-        $response->assertSee('Complete your purchase');
-        $response->assertSeeHtml('wire:model.live.blur="quantity"');
+        $response->assertSee(__('marketplace.wallet.top_up.title'));
+        $response->assertSeeLivewire(ProductCheckoutForm::class);
     }
 }
