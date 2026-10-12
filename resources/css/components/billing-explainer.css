@@ -1,0 +1,146 @@
+/*
+ | Der 3-Schritte-Player "So wird abgerechnet" (LP-ONBOARD-011)
+ |--------------------------------------------------------------------------
+ |
+ | Die Bewegung der Abrechnungs-Erklaerung steht hier als CSS und nicht als
+ | Skript: Alpine wechselt nur den sichtbaren Schritt und eine Klasse, alles
+ | Weitere -- Einblenden, Hochschieben, das Pochen der Guthabenzahl -- macht der
+ | Browser. Eine Animationsbibliothek gibt es im Projekt nicht und soll es
+ | dafuer nicht geben.
+ |
+ | Die drei Schritte liegen uebereinander im selben Raster, damit die Hoehe
+ | beim Blaettern nicht springt: Der laengste Satz bestimmt sie, und das Blatt
+ | darunter bleibt stehen, wo es steht.
+ |
+ | Alles unter .billing-explainer, denn der Player steht an drei Stellen
+ | (Abschluss-Screen, Dialog in Wizard-Schritt 3, Rufnummernseite) und darf
+ | keiner davon etwas vorschreiben.
+ */
+
+.billing-explainer__stage {
+    display: grid;
+}
+
+/* Alle Schritte in dieselbe Rasterzelle. grid-area statt position: absolute,
+   damit die Zelle so hoch wird wie der hoechste Schritt -- absolut
+   positioniert traegt keiner von ihnen zur Hoehe bei, und der Kasten waere
+   leer. */
+.billing-explainer__step {
+    grid-area: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    animation: billing-step-in 0.28s ease-out both;
+}
+
+/* Ab 480 Pixeln steht das Bild links neben dem Text. Darunter liegt es
+   darueber und bleibt klein (max-h 9rem am <svg>), damit Ueberschrift und Satz
+   ohne Scrollen zu sehen sind. */
+.billing-explainer__art {
+    width: 7.5rem;
+    flex-shrink: 0;
+}
+
+@media (min-width: 30rem) {
+
+    .billing-explainer__step {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .billing-explainer__art {
+        width: 9rem;
+    }
+}
+
+@keyframes billing-step-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Die Guthabenzahl. Sie steht in einer eigenen Zeile mit Linie darueber: Was
+   abgebucht wird, gehoert nicht in den Erzaehltext, sondern dorthin, wo der
+   Kaeufer sonst seinen Stand liest. */
+.billing-explainer__balance {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.75rem;
+}
+
+.billing-explainer__amount {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+/* Waehrend die Zahl laeuft, pocht sie einmal und faerbt sich in die Marke --
+   sonst zaehlt sie unbemerkt herunter. */
+.billing-explainer__amount.is-counting {
+    color: var(--brand-600);
+    animation: billing-count 0.7s ease-out both;
+}
+
+@keyframes billing-count {
+    0% {
+        transform: scale(1);
+    }
+
+    30% {
+        transform: scale(1.08);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Die Punkte: 44 Pixel Klickflaeche, sichtbar ist der Punkt darin. Ein
+   8-Pixel-Punkt waere auf dem Telefon nicht zu treffen. */
+.billing-explainer__dot {
+    position: relative;
+    width: 1.75rem;
+    height: 2.75rem;
+    display: grid;
+    place-items: center;
+}
+
+.billing-explainer__dot::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--line-strong);
+    transition: background-color 0.2s ease-out, width 0.2s ease-out;
+}
+
+.billing-explainer__dot.is-active::before {
+    width: 1.25rem;
+    background: var(--brand-600);
+}
+
+/* Wer Bewegung abbestellt hat, bekommt dieselben Schritte ohne Weg dorthin.
+   Der Player schaltet seine automatische Vorfuehrung dann ohnehin ab
+   (resources/js/modules/billing-explainer.js) -- hier fallen die Uebergaenge
+   weg. */
+@media (prefers-reduced-motion: reduce) {
+
+    .billing-explainer__step,
+    .billing-explainer__amount.is-counting {
+        animation: none;
+    }
+
+    .billing-explainer__dot::before {
+        transition: none;
+    }
+}

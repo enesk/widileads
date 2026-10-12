@@ -6,7 +6,9 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\OrderService;
 use App\Services\SubscriptionService;
+use App\View\Composers\OnboardingComposer;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class BladeProvider extends ServiceProvider
@@ -63,5 +65,13 @@ class BladeProvider extends ServiceProvider
 
             return $orderService->hasUserOrdered($user, $productSlug, $tenant);
         });
+
+        /*
+         * Der Onboarding-Stand haengt am Rahmen des angemeldeten
+         * Arbeitsbereichs und nicht an jeder einzelnen Seite (LP-ONBOARD-002):
+         * eine Abfrage je Seitenaufbau, 30 Sekunden gemerkt, und alle
+         * Bausteine darin lesen denselben Stand.
+         */
+        View::composer('components.layouts.portal-app', OnboardingComposer::class);
     }
 }

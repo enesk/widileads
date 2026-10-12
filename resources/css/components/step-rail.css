@@ -1,0 +1,154 @@
+/*
+ | Schritt-Leiste und Huelle des Onboarding-Wizards (LP-ONBOARD-007)
+ |--------------------------------------------------------------------------
+ |
+ | Zwei Dinge in einer Datei, weil sie nur zusammen vorkommen: die Leiste aus
+ | vier Symbolen (x-ui.step-rail) und der sanfte Einlauf eines neuen Schritts
+ | (resources/js/modules/wizard.js).
+ |
+ | Die Zustaende stehen als data-state am Eintrag und nicht als Klassenwolke
+ | im Markup: erledigt, aktiv, offen -- drei Zustaende, eine Stelle. Farben und
+ | Radien kommen aus den Tokens in portal.css, hier steht keine Hexzahl.
+ */
+
+.step-rail {
+    display: flex;
+    align-items: flex-start;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.step-rail__item {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+}
+
+/*
+ | Die Verbindungslinie liegt zwischen zwei Kreisen: Sie beginnt in der Mitte
+ | des vorherigen Eintrags und endet in der Mitte des eigenen. Weil alle
+ | Eintraege gleich breit sind, reicht dafuer left: -50% bei voller Breite --
+ | ohne eine zweite Reihe Markup nur fuer Striche.
+ |
+ | Sie liegt hinter dem Kreis (z-index), und der Kreis hat eine eigene
+ | Hintergrundfarbe. Sonst liefe der Strich mitten durch das Symbol.
+ */
+.step-rail__item + .step-rail__item::before {
+    content: '';
+    position: absolute;
+    top: calc(var(--step-rail-dot, 2.5rem) / 2 - 1px);
+    left: -50%;
+    width: 100%;
+    height: 2px;
+    background-color: var(--line);
+}
+
+/* Der Weg bis zum aktiven Schritt ist zurueckgelegt und darf das zeigen. */
+.step-rail__item[data-state='done']::before,
+.step-rail__item[data-state='active']::before {
+    background-color: var(--brand-200);
+}
+
+.step-rail__dot {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--step-rail-dot, 2.5rem);
+    height: var(--step-rail-dot, 2.5rem);
+    border-radius: 9999px;
+    background-color: var(--surface-subtle);
+    color: var(--ink-faint);
+}
+
+.step-rail__item[data-state='done'] .step-rail__dot {
+    background-color: var(--brand-100);
+    color: var(--brand-700);
+}
+
+.step-rail__item[data-state='active'] .step-rail__dot {
+    background-color: var(--brand-600);
+    color: var(--on-brand);
+}
+
+.step-rail__label {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--ink-faint);
+    /* Ein langes Wort darf die Spalte nicht aufziehen -- sonst schiebt es die
+       ganze Leiste ueber den Rand. */
+    overflow-wrap: anywhere;
+}
+
+.step-rail__item[data-state='active'] .step-rail__label {
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.step-rail__item[data-state='done'] .step-rail__label {
+    color: var(--ink-muted);
+}
+
+.step-rail__counter {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--ink-faint);
+}
+
+/*
+ | Auf dem Telefon traegt nur der aktive Schritt Text. Die Grenze liegt bei
+ | 400 statt 360 Pixeln: html.portal rechnet mit 125 % Grundschrift, vier
+ | Beschriftungen passen deshalb auch bei 375 Pixeln nicht nebeneinander. Was
+ | wegfaellt, sagt die Zaehlzeile darunter -- und der Zustand steht fuer die
+ | Vorlesesoftware ohnehin als sr-only im Eintrag.
+ */
+@media (max-width: 400px) {
+    .step-rail__item:not([data-state='active']) .step-rail__label {
+        display: none;
+    }
+}
+
+/*
+ | Der Schrittwechsel
+ |--------------------------------------------------------------------------
+ |
+ | Jeder Schritt ist eine eigene Adresse, der Wechsel also ein Seitenaufbau.
+ | Die Karte laeuft deshalb beim Laden einmal von rechts herein -- kurz (150
+ | ms) und nur, wenn der Nutzer keine ruhige Darstellung verlangt hat. Die
+ | Klasse setzt wizard.js; ohne Skript steht die Karte einfach da.
+ */
+.wizard-step--entering {
+    animation: wizard-step-in 150ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes wizard-step-in {
+    from {
+        opacity: 0;
+        transform: translateX(0.75rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wizard-step--entering {
+        animation: none;
+    }
+}
+
+/* Der Fokus springt auf die Ueberschrift des neuen Schritts. Ein Rahmen um die
+   ganze Zeile ist dort Laerm -- die Ueberschrift ist kein Bedienelement. */
+.wizard-step__heading:focus {
+    outline: none;
+}

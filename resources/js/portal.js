@@ -6,10 +6,26 @@
  | Elemente tragen stattdessen data-Attribute, dieses Skript haengt sich daran.
  */
 
+import { setUpAuthGuard } from './modules/auth-guard.js';
+import { setUpBillingExplainer } from './modules/billing-explainer.js';
+import { setUpCodeInput } from './modules/code-input.js';
+import { setUpCountdown } from './modules/countdown.js';
+import { setUpGermanyMap } from './modules/germany-map.js';
 import { setUpPaymentMethod } from './modules/payment-method.js';
-import { setUpPhoneVerify } from './modules/phone-verify.js';
 import { setUpToasts } from './modules/toasts.js';
+import { setUpTour } from './modules/tour.js';
 import { setUpTopUp } from './modules/topup.js';
+import { setUpWizard } from './modules/wizard.js';
+
+// Die Sperre des Onboardings haengt sich an Livewire und fetch und muss
+// deshalb vor dem ersten Klick stehen -- nicht erst nach DOMContentLoaded.
+setUpAuthGuard();
+
+// Alpine-Komponenten muessen vor alpine:init registriert sein, und Alpine
+// startet mit Livewires Skript am Ende des Dokuments -- also vor
+// DOMContentLoaded.
+setUpCountdown();
+setUpBillingExplainer();
 
 document.addEventListener('DOMContentLoaded', () => {
     setUpMobileMenu();
@@ -18,11 +34,16 @@ document.addEventListener('DOMContentLoaded', () => {
     setUpPasswordToggles();
     setUpScrollTargets();
     setUpTopUp();
-    setUpPhoneVerify();
+    setUpCodeInput();
     setUpPaymentMethod();
     setUpToasts();
     setUpDialogEscape();
     setUpTabStrips();
+    setUpWizard();
+    setUpGermanyMap();
+    // Zuletzt: Die Tour hebt Elemente der Seite hervor und muss sie fertig
+    // gerendert vorfinden -- eine Marke ohne Flaeche laesst sie fallen.
+    setUpTour();
 });
 
 /**

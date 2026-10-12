@@ -1,0 +1,132 @@
+/*
+ | Illustrations-Set (LP-ONBOARD-006)
+ |--------------------------------------------------------------------------
+ |
+ | Die flachen Bilder des Onboardings. Die Motive selbst stehen als Blade-
+ | Partials unter resources/views/partials/illustrations/ und tragen keine
+ | festen Farben -- jede Flaeche greift auf eine Variable zu, die hier gesetzt
+ | wird. Faerbt ein Portal die Marke um, faerben die Bilder mit, ohne dass
+ | neun SVGs angefasst werden.
+ |
+ | Die Namen der Variablen sind absichtlich die Namen der Palette
+ | (brand, zinc-200/400/700) und nicht die Rollennamen aus portal.css
+ | (--line, --ink-faint): In einem Bild ist eine Linie keine Rahmenlinie, und
+ | fill="var(--ill-zinc-400)" sagt beim Lesen mehr als fill="var(--ink-faint)".
+ | Die Zuordnung steht genau hier, einmal.
+ */
+
+.illustration {
+    display: block;
+    width: 100%;
+    height: auto;
+
+    --ill-brand: var(--brand-600);
+    --ill-brand-100: var(--brand-100);
+    --ill-brand-200: var(--brand-200);
+    --ill-brand-700: var(--brand-700);
+    --ill-zinc-200: var(--line);
+    --ill-zinc-400: var(--ink-faint);
+    --ill-zinc-700: var(--ink-muted);
+}
+
+/*
+ | Die drei Zustaende des Motivs "call"
+ |--------------------------------------------------------------------------
+ |
+ | Fuer die Abrechnungs-Erklaerung (LP-ONBOARD-010): es klingelt, der Anruf
+ | wird angenommen (kostet), oder er wird verpasst (kostet nicht). Gewechselt
+ | wird ausschliesslich das Attribut data-state am <svg> -- im Bild steht kein
+ | Skript, und jede Gruppe weiss selbst, in welchem Zustand sie sichtbar ist.
+ |
+ | Angenommen ist Markenfarbe, verpasst ist grau. Kein Gruen und kein Rot:
+ | Das Set soll bei einem Farbwechsel des Portals mitgehen, und die beiden
+ | Zustaende unterscheiden sich schon an der Form (Haken gegen durchgestrichenen
+ | Hoerer) -- das liest auch, wer Farben nicht unterscheidet.
+ */
+
+.illustration [data-when] {
+    display: none;
+}
+
+.illustration[data-state='ringing'] [data-when~='ringing'],
+.illustration[data-state='answered'] [data-when~='answered'],
+.illustration[data-state='missed'] [data-when~='missed'] {
+    display: inline;
+}
+
+/* Das Klingeln ist der einzige Dauerzustand, der sich bewegt: Die Wellen
+   atmen, damit der Screen nicht wie ein Standbild aussieht, solange noch
+   nichts entschieden ist. 400 ms, danach Pause. */
+.illustration[data-state='ringing'] .ill-wave {
+    animation: ill-wave 1.6s ease-out infinite;
+}
+
+.illustration[data-state='ringing'] .ill-wave-2 {
+    animation-delay: 0.2s;
+}
+
+.illustration[data-state='ringing'] .ill-wave-3 {
+    animation-delay: 0.4s;
+}
+
+@keyframes ill-wave {
+    0% {
+        opacity: 0.25;
+    }
+
+    15% {
+        opacity: 1;
+    }
+
+    25%,
+    100% {
+        opacity: 0.25;
+    }
+}
+
+/* Der Zeiger der Stoppuhr laeuft einmal los, wenn der Anruf angenommen ist --
+   das ist der Moment, in dem die Sekunden zaehlen. transform-box muss gesetzt
+   sein: ohne sie bezieht sich transform-origin auf die Bounding-Box des
+   Zeigers selbst, und der Zeiger wandert statt zu drehen. */
+.illustration .ill-hand {
+    transform-box: view-box;
+    transform-origin: 232px 150px;
+}
+
+.illustration[data-state='answered'] .ill-hand {
+    animation: ill-hand 0.4s cubic-bezier(0.4, 0, 0.2, 1) 1 both;
+}
+
+@keyframes ill-hand {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(150deg);
+    }
+}
+
+/* Verpasst ist grau: derselbe Hoerer, dieselbe Uhr, nur ohne Markenfarbe --
+   es ist nichts passiert, was Geld kostet. */
+.illustration[data-state='missed'] .ill-handset {
+    fill: var(--ill-zinc-400);
+}
+
+.illustration[data-state='missed'] .ill-hand {
+    stroke: var(--ill-zinc-400);
+}
+
+/* Wer Bewegung abbestellt hat, bekommt dasselbe Bild ohne Bewegung: Die
+   Zustaende bleiben unterscheidbar, nur der Weg dorthin faellt weg. */
+@media (prefers-reduced-motion: reduce) {
+
+    .illustration .ill-wave,
+    .illustration .ill-hand {
+        animation: none !important;
+    }
+
+    .illustration[data-state='answered'] .ill-hand {
+        transform: rotate(150deg);
+    }
+}

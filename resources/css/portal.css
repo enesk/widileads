@@ -19,6 +19,10 @@
     --brand: #003781;
     --brand-50: color-mix(in oklab, var(--brand) 8%, #fff);
     --brand-100: color-mix(in oklab, var(--brand) 16%, #fff);
+    /* Nur von den Illustrationen gebraucht: Sie brauchen eine Stufe zwischen
+       der Flaeche (100) und der Vollfarbe, um Formen gegeneinander
+       abzusetzen, ohne eine zweite Farbe einzufuehren. */
+    --brand-200: color-mix(in oklab, var(--brand) 30%, #fff);
     --brand-600: var(--brand);
     --brand-700: color-mix(in oklab, var(--brand) 85%, #000);
 
@@ -217,6 +221,9 @@ html.portal {
     .font-portal .btn-outline-white:hover {
         background-color: rgb(255 255 255 / 0.1);
     }
+
+    /* Die Aktionsleiste am unteren Rand steht in
+       resources/css/components/bottom-bar.css (x-app.bottom-bar). */
 
     /* Eingabe */
 

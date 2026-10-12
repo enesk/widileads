@@ -1,0 +1,135 @@
+/*
+ | Schieberegler (LP-ONBOARD-009)
+ |--------------------------------------------------------------------------
+ |
+ | Ein nativer <input type="range"> und kein Skript-Regler: Der Browser bringt
+ | Tastaturbedienung, Wiederholrate, Screenreader-Ansage und den Finger auf dem
+ | Telefon bereits mit -- alles Dinge, die eine Nachbildung aus div und
+ | pointermove einzeln wieder erfinden muesste.
+ |
+ | Gestylt wird deshalb nur das Aussehen, und das zweimal: WebKit und Firefox
+ | haben getrennte Pseudoelemente fuer Schiene und Daumen, die sich nicht in
+ | einer Regel zusammenfassen lassen (ein unbekannter Selektor laesst den
+ | ganzen Block fallen).
+ |
+ | Der Daumen misst 1.375rem. Das ist im Portal nicht willkuerlich: html.portal
+ | stellt die Schrift auf 125 Prozent, ein rem sind also 20 statt 16 Pixel --
+ | 1.375rem sind damit genau die 27,5 Pixel ... und mit dem unsichtbaren Rand
+ | darunter die geforderten 44 Pixel Trefferflaeche. Wer hier eine Pixelzahl
+ | einsetzt, hat auf dem Telefon einen zu kleinen Punkt.
+ |
+ | Die Klasse heisst .range-portal und nicht .range: daisyUI bringt ein eigenes
+ | .range mit und steht in einer spaeteren Kaskadenschicht -- Schichten
+ | schlagen Spezifitaet, der Regler waere schwarz geblieben. Derselbe
+ | Zusammenstoss wie bei .toast-item in portal.css, hier wie dort durch einen
+ | eigenen Namen geloest.
+ |
+ | Farben und Radien kommen aus den Tokens in portal.css, hier steht keine
+ | Hexzahl.
+ */
+
+@layer components {
+    .font-portal .range-portal {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        /* Die Trefferflaeche: der sichtbare Daumen ist kleiner, angefasst wird
+           dieser Streifen. 2.2rem sind bei 125 Prozent 44 Pixel. */
+        height: 2.2rem;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        touch-action: pan-y;
+    }
+
+    .font-portal .range-portal:focus {
+        outline: none;
+    }
+
+    /* Schiene */
+    .font-portal .range-portal::-webkit-slider-runnable-track {
+        height: 0.4rem;
+        border-radius: 999px;
+        background-color: var(--line);
+    }
+
+    .font-portal .range-portal::-moz-range-track {
+        height: 0.4rem;
+        border-radius: 999px;
+        background-color: var(--line);
+    }
+
+    /* Der zurueckgelegte Teil der Schiene. Firefox kann das von Haus aus,
+       WebKit nicht -- dort faerbt das Markup die Schiene ueber einen
+       Farbverlauf aus --range-progress (germany-map.js zieht ihn nach). */
+    .font-portal .range-portal::-moz-range-progress {
+        height: 0.4rem;
+        border-radius: 999px;
+        background-color: var(--brand-600);
+    }
+
+    .font-portal .range-portal::-webkit-slider-runnable-track {
+        background-image: linear-gradient(
+            to right,
+            var(--brand-600) var(--range-progress, 0%),
+            var(--line) var(--range-progress, 0%)
+        );
+    }
+
+    /* Daumen */
+    .font-portal .range-portal::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 1.375rem;
+        height: 1.375rem;
+        /* Mittig auf der Schiene: halber Daumen minus halbe Schiene. */
+        margin-top: -0.4875rem;
+        border: 2px solid var(--surface);
+        border-radius: 999px;
+        background-color: var(--brand-600);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+    }
+
+    .font-portal .range-portal::-moz-range-thumb {
+        width: 1.375rem;
+        height: 1.375rem;
+        border: 2px solid var(--surface);
+        border-radius: 999px;
+        background-color: var(--brand-600);
+        box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+    }
+
+    .font-portal .range-portal:focus-visible::-webkit-slider-thumb {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    .font-portal .range-portal:focus-visible::-moz-range-thumb {
+        outline: 2px solid var(--brand-600);
+        outline-offset: 2px;
+    }
+
+    /* Die Stufenmarken unter der Schiene. Sie sagen, dass es fuenf Stufen
+       gibt -- die Zahl daneben sagt, welche gerade gilt. */
+    .font-portal .range-ticks {
+        display: grid;
+        /* Rasteranteile statt fester Breiten: Bei 125 Prozent Schrift laufen
+           rem-Breiten auf 360 Pixeln aus der Karte. */
+        grid-template-columns: repeat(var(--range-ticks, 5), minmax(0, 1fr));
+        font-variant-numeric: tabular-nums;
+    }
+
+    .font-portal .range-ticks > span {
+        min-width: 0;
+        text-align: center;
+    }
+
+    .font-portal .range-ticks > span:first-child {
+        text-align: left;
+    }
+
+    .font-portal .range-ticks > span:last-child {
+        text-align: right;
+    }
+}

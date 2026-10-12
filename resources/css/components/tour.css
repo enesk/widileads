@@ -1,0 +1,243 @@
+/*
+ | Gefuehrte Touren -- Spotlight und Sprechblase (LP-ONBOARD-013)
+ |--------------------------------------------------------------------------
+ |
+ | Das Verhalten kommt aus driver.js (resources/js/modules/tour.js), das
+ | Aussehen steht hier. driver.js bringt ein eigenes Stylesheet mit (grauer
+ | Rahmen, 5 Pixel Radius, 12-Pixel-Knoepfe) -- das sieht neben jeder
+ | Portalkarte wie ein Fremdkoerper aus. Es wird nicht geloescht, weil es die
+ | Lage der Sprechblase traegt, sondern ueberschrieben.
+ |
+ | Dass hier doppelte Klassen stehen (.driver-popover.tour-popover statt nur
+ | .tour-popover), ist der Grund: Das Stylesheet der Bibliothek haengt am
+ | Skriptbuendel und wird damit NACH app.css geladen. Mit einer einzelnen Klasse
+ | gaebe es ein Wettrennen um die Reihenfolge, das je Build anders ausgehen
+ | kann. "tour-popover" kommt als popoverClass aus dem Skript.
+ |
+ | Masse und Farben kommen aus den Tokens in portal.css (--surface, --line,
+ | --ink, --radius-card, --radius-control, --control-height, --brand); hier
+ | steht keine eigene Farbe. Die vier Werte der Verdunkelung sind in :root
+ | benannt, weil das Skript sie lesen muss -- driver.js nimmt sie nur als
+ | Javascript-Wert an und nicht als CSS-Regel.
+ */
+
+:root {
+    /* Dieselbe Verdunkelung wie hinter den Blaettern des Portals
+       (bg-zinc-900/40), eine Stufe dichter: Hinter einem Blatt steht Inhalt zum
+       Weiterlesen, hinter dem Spotlight soll nur eine Sache leuchten. */
+    --tour-overlay-color: #18181b;
+    --tour-overlay-opacity: 0.55;
+
+    /* Luft um das hervorgehobene Element und die Rundung des Ausschnitts.
+       Unitless, weil driver.js mit Pixelzahlen rechnet -- die einzige Stelle im
+       Portal, die keine rem-Angabe annimmt. */
+    --tour-stage-padding: 8;
+    --tour-stage-radius: 12;
+}
+
+.driver-popover.tour-popover {
+    font-family: inherit;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 22rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background-color: var(--surface);
+    color: var(--ink-muted);
+    /* Die eine Schattenstufe des Portals. Die Sprechblase darf schweben: Sie
+       ist das einzige Element, das waehrend der Tour ueber allem liegt. */
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.tour-popover .driver-popover-title {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.tour-popover .driver-popover-description {
+    margin-top: 0.25rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+    color: var(--ink-muted);
+}
+
+.tour-popover .driver-popover-arrow {
+    border-width: 0.375rem;
+}
+
+.tour-popover .driver-popover-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.tour-popover .driver-popover-progress-text {
+    /* Die Zaehlung steht als eigene Zeile ueber den Knoepfen und nicht neben
+       ihnen: In der Zeile daneben brachen "Ueberspringen", "Zurueck" und
+       "Weiter" um, und die Knopfreihe sprang je Schritt an eine andere
+       Stelle. */
+    order: 0;
+    flex-basis: 100%;
+    font-size: 0.875rem;
+    color: var(--ink-muted);
+}
+
+.tour-popover .driver-popover-navigation-btns {
+    order: 2;
+    display: flex;
+    flex-grow: 0;
+    margin-left: auto;
+    gap: 0.5rem;
+}
+
+/*
+ | Die Knoepfe. Dieselbe Form wie .btn-primary/.btn-secondary/.btn-ghost in
+ | portal.css -- aber eigene Regeln, weil driver.js die Knoepfe selbst baut und
+ | ihnen keine Klasse von aussen mitgeben kann. Geaendert werden darf hier nur,
+ | was dort auch gilt.
+ */
+.tour-popover .driver-popover-footer-btn,
+.tour-popover .tour-skip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--control-height);
+    padding-inline: 1rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    font-family: inherit;
+    font-size: var(--control-font-size);
+    line-height: var(--control-line-height);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 150ms, border-color 150ms;
+}
+
+/* Weiter und Fertig sind die Handlung: Markenfarbe. */
+.tour-popover .driver-popover-next-btn,
+.tour-popover .driver-popover-done-btn {
+    background-color: var(--brand);
+    color: var(--on-brand);
+}
+
+/*
+ | :focus steht hier mit, obwohl der Fokus die Farbe nicht aendern soll:
+ | driver.js faerbt jeden Knopf im Fokus hellgrau (.driver-popover-footer-btn:focus),
+ | und sein Stylesheet wird nach app.css geladen. Ohne diese Regel stuende
+ | weisse Schrift auf weissem Grund, sobald "Weiter" den Fokus bekommt -- und
+ | den bekommt es bei jedem Schritt.
+ */
+.tour-popover .driver-popover-next-btn:hover,
+.tour-popover .driver-popover-done-btn:hover {
+    background-color: var(--brand-700);
+}
+
+.tour-popover .driver-popover-next-btn:focus,
+.tour-popover .driver-popover-done-btn:focus {
+    background-color: var(--brand);
+    color: var(--on-brand);
+}
+
+.tour-popover .driver-popover-next-btn:focus:hover,
+.tour-popover .driver-popover-done-btn:focus:hover {
+    background-color: var(--brand-700);
+}
+
+/* Zurueck und Ueberspringen treten zurueck. */
+.tour-popover .driver-popover-prev-btn {
+    border-color: var(--line-strong);
+    background-color: var(--surface);
+    color: var(--ink);
+}
+
+.tour-popover .driver-popover-prev-btn:hover,
+.tour-popover .driver-popover-prev-btn:focus {
+    background-color: var(--surface-subtle);
+    color: var(--ink);
+}
+
+.tour-popover .tour-skip {
+    order: 1;
+    padding-inline: 0.75rem;
+    background-color: transparent;
+    color: var(--ink-muted);
+}
+
+.tour-popover .tour-skip:hover {
+    background-color: var(--surface-subtle);
+}
+
+/* Der Fokusring des Portals, auch auf fremd gebauten Knoepfen. */
+.tour-popover .driver-popover-footer-btn:focus-visible,
+.tour-popover .tour-skip:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+}
+
+.tour-popover .driver-popover-btn-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/*
+ | Auf dem Telefon ist die Sprechblase ein Blatt am unteren Rand, nicht ein
+ | Kaestchen neben dem Element: Auf 360 Pixeln bleibt neben einer Lead-Karte
+ | kein Platz, und eine Sprechblase, die halb aus dem Bild haengt, verschiebt
+ | die Seite. driver.js setzt Lage und Groesse als Inline-Stil, deshalb geht das
+ | nur mit !important.
+ |
+ | Der Umbruchpunkt ist derselbe wie beim Kaufblatt des Marktplatzes (sm,
+ | 40rem).
+ */
+@media (max-width: 39.9375rem) {
+    .driver-popover.tour-popover {
+        position: fixed !important;
+        inset: auto 0 0 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+        margin: 0 !important;
+        transform: none !important;
+        border-width: 1px 0 0 0;
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Ein Pfeil, der auf nichts zeigt, verwirrt mehr als er hilft. */
+    .driver-popover.tour-popover .driver-popover-arrow {
+        display: none !important;
+    }
+
+    /* Volle Breite fuer die Knoepfe, damit sie unter dem Daumen liegen. */
+    .tour-popover .driver-popover-navigation-btns {
+        flex-grow: 1;
+    }
+
+    .tour-popover .driver-popover-navigation-btns button {
+        flex: 1 1 0;
+    }
+
+    /* Der Ausstieg bekommt eine eigene Zeile ueber den Knoepfen: Neben einem
+       Knopf in voller Breite steht er sonst allein und angeschnitten am Rand. */
+    .tour-popover .tour-skip {
+        flex-basis: 100%;
+    }
+}
+
+/*
+ | Wer keine Bewegung will, bekommt keine. Das Skript schaltet das Ein- und
+ | Ausblenden ohnehin ab (animate: false); diese Regel deckt den Fall ab, dass
+ | die Bibliothek ihre Klasse trotzdem setzt.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .driver-fade .driver-overlay,
+    .driver-fade .driver-popover {
+        animation: none !important;
+    }
+}

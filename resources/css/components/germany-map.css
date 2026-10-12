@@ -1,0 +1,105 @@
+/*
+ | Deutschland-Karte und Regionsfelder (LP-ONBOARD-009)
+ |--------------------------------------------------------------------------
+ |
+ | Die Karte beantwortet eine einzige Frage: "Wie viel von Deutschland ist
+ | das?" Deshalb hat sie keine Beschriftung, keine Staedte und keine Legende --
+ | nur Flaeche, Pin und Kreis. Die Pfade liegen in
+ | resources/views/partials/maps/germany.blade.php, bewegt werden Pin und Kreis
+ | von resources/js/modules/germany-map.js.
+ |
+ | Der Zustand steht als data-state am <svg> und nicht als Klassenwolke im
+ | Markup: deutschlandweit oder Umkreis -- zwei Zustaende, eine Stelle. Dass
+ | der Wechsel eine Ueberblendung ist und kein Neuzeichnen, haengt genau daran.
+ |
+ | Farben kommen aus den Tokens in portal.css, hier steht keine Hexzahl.
+ */
+
+@layer components {
+    .font-portal .germany-map {
+        display: block;
+        width: 100%;
+        height: auto;
+        /* Auf dem Telefon darf die Karte die Karte nicht fuellen: Darunter
+           stehen Regler und Zahl, und die sollen ohne Scrollen sichtbar
+           bleiben. 12rem sind bei 125 Prozent Schrift 240 Pixel. */
+        max-height: 12rem;
+    }
+
+    @media (min-width: 768px) {
+        .font-portal .germany-map {
+            max-height: 20rem;
+        }
+    }
+
+    .font-portal .germany-map__state {
+        fill: var(--line);
+        stroke: var(--surface);
+        stroke-width: 1;
+        stroke-linejoin: round;
+        transition: fill 400ms ease;
+    }
+
+    /* Deutschlandweit: alles in der Marke. Die Einblendung ist der Unterschied
+       zwischen "ausgewaehlt" und "angeklickt" -- sie macht aus zwei Karten
+       eine Bewegung. */
+    .font-portal .germany-map[data-state='nationwide'] .germany-map__state {
+        fill: var(--brand-200);
+    }
+
+    /* Das hidden-Attribut wirkt im SVG nicht von selbst: Die Regel der
+       Browser (`[hidden] { display: none }`) gilt dem HTML-Namensraum. */
+    .font-portal .germany-map__area[hidden] {
+        display: none;
+    }
+
+    .font-portal .germany-map__circle {
+        fill: var(--brand-600);
+        fill-opacity: 0.18;
+        stroke: var(--brand-600);
+        stroke-width: 2;
+        transition: r 250ms ease, cx 250ms ease, cy 250ms ease;
+    }
+
+    .font-portal .germany-map__pin {
+        fill: var(--brand-600);
+        stroke: var(--surface);
+        stroke-width: 2;
+        transition: cx 250ms ease, cy 250ms ease;
+    }
+
+    /* Die Regionsfelder fahren auf, wenn "Nur in meiner Region" gewaehlt ist.
+       Eine Hoehe in Pixeln statt auto, weil ein Uebergang auf auto nur in
+       neueren Browsern laeuft -- und die Felder sind hier nie hoeher. */
+    .font-portal .region-fields {
+        overflow: hidden;
+        animation: region-fields-in 250ms ease-out;
+    }
+
+    @keyframes region-fields-in {
+        from {
+            opacity: 0;
+            transform: translateY(-0.5rem);
+            max-height: 0;
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 30rem;
+        }
+    }
+}
+
+/* Wer es ruhig will, bekommt denselben Inhalt ohne Bewegung. */
+@media (prefers-reduced-motion: reduce) {
+    .font-portal .germany-map__state,
+    .font-portal .germany-map__circle,
+    .font-portal .germany-map__pin {
+        transition: none;
+    }
+
+    .font-portal .region-fields {
+        animation: none;
+    }
+}

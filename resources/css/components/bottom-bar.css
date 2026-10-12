@@ -1,0 +1,219 @@
+/*
+ | Aktionsleiste am unteren Rand (x-app.bottom-bar, LP-ONBOARD-019)
+ |--------------------------------------------------------------------------
+ |
+ | Ein Baustein, zwei Erscheinungen: Auf dem Telefon ist er die festgeheftete
+ | Leiste am unteren Rand -- dort ist der Daumen, und ein "Weiter" am Ende
+ | eines langen Formulars findet niemand. Ab 768 Pixeln loest sich die
+ | Fixierung auf, und dieselben Knoepfe stehen rechtsbuendig im Fluss, also
+ | innerhalb der Karte, in der sie aufgerufen werden.
+ |
+ | Dass es nur eine Erscheinung ist und nicht zwei Knopfreihen im Markup, ist
+ | der Zweck der Komponente: Vorher hat jeder Screen seine Leiste selbst
+ | gebaut, mit eigener Hoehe und eigenem Abstand, und die Knoepfe standen
+ | zweimal im Markup (einmal versteckt).
+ |
+ | Masse und Farben kommen ausschliesslich aus den Tokens in portal.css
+ | (--control-height, --radius-control, --line, --surface, --ink-muted); hier
+ | steht keine Hexzahl und kein Pixelwert ausser der Haarlinie des Rands und
+ | dem Umbruchpunkt selbst.
+ */
+
+:root {
+    --bottom-bar-pad: 0.75rem;
+    --bottom-bar-gap: 0.5rem;
+
+    /* Die Hoehe, die die Leiste dem Seiteninhalt wegnimmt. Sie wird unten als
+       Abstand am Seitenende zurueckgegeben -- einmal gerechnet, damit Leiste
+       und Reservierung nicht auseinanderlaufen koennen. */
+    --bottom-bar-height: calc(
+        var(--control-height) + 2 * var(--bottom-bar-pad) + env(safe-area-inset-bottom, 0px)
+    );
+
+    /* Mit Zusatzzeile ("Spaeter einrichten") eine Zeile Kleinschrift mehr. */
+    --bottom-bar-height-note: calc(var(--bottom-bar-height) + 1.75rem);
+}
+
+.bottom-bar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    /* Unter den Kurzmeldungen (60) und dem Mobil-Menue (50), ueber dem
+       Seiteninhalt. */
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: var(--bottom-bar-gap);
+    padding: var(--bottom-bar-pad);
+    /* Auf Geraeten mit Gestenleiste sitzt die Leiste sonst darunter. */
+    padding-bottom: calc(var(--bottom-bar-pad) + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background-color: var(--surface);
+}
+
+.bottom-bar__note {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    /* --ink-faint ist Linien- und Symbolfarbe, keine Textfarbe (Leitfaden 5). */
+    color: var(--ink-muted);
+    text-align: center;
+}
+
+.bottom-bar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--bottom-bar-gap);
+}
+
+/* Die Breiten stehen hier und nicht als flex-Klasse am Knopf im Markup:
+   Der Primaerknopf traegt zwei Anteile, der Sekundaerknopf einen -- also
+   zwei Drittel fuer die Hauptsache, mehr als die geforderten 60 %. Ohne
+   Sekundaerknopf nimmt der Primaerknopf die ganze Breite. */
+.bottom-bar__secondary {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.bottom-bar__primary {
+    flex: 2 1 0;
+    min-width: 0;
+}
+
+/* Die Knoepfe fuellen ihren Platz aus; welcher Knopf es ist, entscheidet der
+   Aufrufer (btn-ghost links, btn-primary rechts).
+
+   Die schmalere Polsterung und das overflow sind das Sicherheitsnetz gegen
+   waagerechtes Scrollen: Bei 360 Pixeln und 125 % Grundschrift bleiben fuer
+   den Primaerknopf rund 14rem -- ein langer Text ("Weiter zum Checkout")
+   sprengt sonst die Leiste und damit die ganze Seite. Lieber ein knapper
+   Knopf als eine Seite, die sich schieben laesst. */
+.bottom-bar__secondary > *,
+.bottom-bar__primary > * {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.75rem;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/*
+ | Die Seite gibt den Platz zurueck
+ |--------------------------------------------------------------------------
+ |
+ | Eine fixierte Leiste nimmt dem Fluss keine Hoehe weg -- ohne Abstand am
+ | Seitenende liegt sie dauerhaft ueber der letzten Zeile. Den Abstand setzt
+ | nicht der Screen (das war vorher ein pb-28, das jeder selbst treffen
+ | musste), sondern diese Datei: :has am Seitenkoerper sieht, ob eine Leiste
+ | im Dokument steht. Damit stimmt die Reservierung auch dann noch, wenn
+ | Livewire die Leiste nachtraeglich einhaengt oder entfernt.
+ */
+@media (max-width: 767px) {
+    body:has(.bottom-bar:not(.bottom-bar--inline)) {
+        padding-bottom: var(--bottom-bar-height);
+    }
+
+    body:has(.bottom-bar--with-note:not(.bottom-bar--inline)) {
+        padding-bottom: var(--bottom-bar-height-note);
+    }
+
+    /* Fixiert ist immer nur ein Element. Steht die Leiste unten, scrollt die
+       Kopfzeile mit -- zwei festgeheftete Streifen fressen auf einem Telefon
+       ein Viertel des Bildes. Das steht hier als Regel und nicht nur als
+       Bitte im Kommentar der Komponente: x-layouts.portal-app klebt seine
+       Kopfzeile mit Tailwinds .sticky fest. */
+    body:has(.bottom-bar:not(.bottom-bar--inline)) header.sticky {
+        position: static;
+    }
+}
+
+/*
+ | Ab md: dieselben Knoepfe, im Fluss
+ |--------------------------------------------------------------------------
+ |
+ | Rand, Flaeche, Polsterung und Fixierung entfallen vollstaendig -- die
+ | Leiste ist dort nur noch eine rechtsbuendige Knopfzeile am Ende der Karte.
+ | Die Trennlinie darueber ist Zugabe (--divider) und gehoert dem Aufrufer,
+ | weil sie nur in einer Karte Sinn hat.
+ */
+@media (min-width: 768px) {
+    .bottom-bar {
+        position: static;
+        padding: 0;
+        border-top: 0;
+        background-color: transparent;
+        z-index: auto;
+        gap: var(--bottom-bar-pad);
+    }
+
+    .bottom-bar--divider {
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--line);
+    }
+
+    .bottom-bar__note {
+        text-align: right;
+    }
+
+    .bottom-bar__actions {
+        justify-content: flex-end;
+        gap: var(--bottom-bar-pad);
+    }
+
+    /* Knoepfe in ihrer natuerlichen Breite; die Zweidrittelregel gilt nur auf
+       dem Telefon. */
+    .bottom-bar__secondary,
+    .bottom-bar__primary {
+        flex: 0 0 auto;
+    }
+
+    .bottom-bar__secondary > *,
+    .bottom-bar__primary > * {
+        width: auto;
+        padding-inline: 1.25rem;
+        overflow: visible;
+    }
+}
+
+/*
+ | Variante "inline": nie fixiert
+ |--------------------------------------------------------------------------
+ |
+ | Dieselbe Knopfreihe, aber auch auf dem Telefon im Fluss -- fuer Karten, die
+ | mehrfach auf einer Seite stehen (Styleguide) oder deren Knoepfe zu einem
+ | Abschnitt gehoeren und nicht zum ganzen Screen. Sie reserviert folglich
+ | keinen Platz am Seitenende.
+ */
+.bottom-bar--inline {
+    position: static;
+    padding: 0;
+    border-top: 0;
+    background-color: transparent;
+    z-index: auto;
+    gap: var(--bottom-bar-pad);
+}
+
+.bottom-bar--inline.bottom-bar--divider {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+}
+
+.bottom-bar--inline .bottom-bar__note {
+    text-align: right;
+}
+
+.bottom-bar--inline .bottom-bar__actions {
+    justify-content: flex-end;
+    gap: var(--bottom-bar-pad);
+}
+
+.bottom-bar--inline .bottom-bar__secondary,
+.bottom-bar--inline .bottom-bar__primary {
+    flex: 0 0 auto;
+}
+
+.bottom-bar--inline .bottom-bar__secondary > *,
+.bottom-bar--inline .bottom-bar__primary > * {
+    width: auto;
+    padding-inline: 1.25rem;
+    overflow: visible;
+}

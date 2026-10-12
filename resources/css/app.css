@@ -3,6 +3,15 @@
 @import './styles.css';
 @import './portal.css';
 @import './components/postpaid.css';
+@import './components/billing-explainer.css';
+@import './components/bottom-bar.css';
+@import './components/code-input.css';
+@import './components/germany-map.css';
+@import './components/illustrations.css';
+@import './components/progress-ring.css';
+@import './components/range.css';
+@import './components/step-rail.css';
+@import './components/tour.css';
 @plugin "daisyui" {
     themes: light --default;
 }
