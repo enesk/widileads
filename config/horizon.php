@@ -182,7 +182,10 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            // 'mail' traegt die Onboarding-Strecke (LP-ONBOARD-014). Ohne
+            // sie in dieser Liste laegen die Jobs in Redis und niemand
+            // holte sie ab.
+            'queue' => ['default', 'mail'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,

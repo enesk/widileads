@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Constants\PhoneVerificationChannel;
 use App\Notifications\Auth\QueuedVerifyEmail;
 use App\Services\OrderService;
 use App\Services\SubscriptionService;
@@ -43,7 +44,10 @@ class User extends Authenticatable implements FilamentUser, HasTenants, MustVeri
         'is_blocked',
         'notes',
         'phone_number',
+        'phone_e164',
         'phone_number_verified_at',
+        'phone_verification_channel',
+        'onboarding_mails_opt_out',
         'last_seen_at',
     ];
 
@@ -65,6 +69,10 @@ class User extends Authenticatable implements FilamentUser, HasTenants, MustVeri
     protected $casts = [
         'email_verified_at' => 'datetime',
         'phone_number_verified_at' => 'datetime',
+        'phone_verification_channel' => PhoneVerificationChannel::class,
+        // Nur die Onboarding-Strecke (LP-ONBOARD-014). Transaktionsmails
+        // haengen nicht daran.
+        'onboarding_mails_opt_out' => 'boolean',
         'password' => 'hashed',
         'last_seen_at' => 'datetime',
     ];
