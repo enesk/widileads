@@ -156,6 +156,10 @@ class LeadResolver
      * ueber das Portal anzurufen -- ihn nachtraeglich als unerreichbar
      * abzuschliessen waere eine Gutschrift ohne Grundlage. Ohne
      * `delivered_at` laeuft gar keine Frist.
+     *
+     * Ohne gesetzten Cutover unterliegt kein Lead dem Regelwerk. Das ist die
+     * sichere Seite: Die Gegenrichtung wuerde bei einer fehlenden Zeile in der
+     * `.env` den gesamten Bestand abrechnen.
      */
     private function isSubjectToRules(Lead $lead): bool
     {
@@ -166,7 +170,7 @@ class LeadResolver
         $enforceFrom = config('lead_calls.enforce_from');
 
         if ($enforceFrom === null || $enforceFrom === '') {
-            return true;
+            return false;
         }
 
         return $lead->delivered_at !== null

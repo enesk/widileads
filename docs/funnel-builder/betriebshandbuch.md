@@ -152,6 +152,7 @@ Vorlage ist `.env.example`. Für den Betrieb gilt zusätzlich:
 | `TRUSTED_PROXIES` | Cloudflare-Netze oder `*` | hinter Cloudflare sieht Laravel sonst `http` — dann scheitert jede Twilio-Signaturprüfung (FB-084) |
 | `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` | aus der Twilio-Konsole, `TWILIO_FROM` in E.164 | Anrufe und SMS |
 | `TWILIO_VERIFY_SID` | `VA…` des Verify-Service | ohne sie bricht jede echte Rufnummernbestätigung ab; kommt **nur** aus der `.env`, die Admin-Seite pflegt sie nicht (Ticket #63) |
+| `LEAD_CALLS_ENFORCE_FROM` | Datum, ab dem Käufer über das Portal anrufen konnten — oder leer | Cutover der Erreichbarkeitsprüfung. **Leer heißt: Regelwerk aus**, `leads:resolve-expired` und `leads:send-deadline-reminders` finden nichts (Ticket #73) |
 | `FUNNEL_ALLOW_DESTRUCTIVE` | **nicht gesetzt** | siehe unten |
 
 Die Feature-Flags der mitgelieferten SaaSykit-Module (`FUNNEL_FEATURE_BLOG_ENABLED`,
@@ -182,6 +183,7 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 | `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
 | `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
 | `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
+| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus |
 
 ### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
 
@@ -280,6 +282,33 @@ auf dem privaten Anschluss des Betreibers, nicht im Portal. Dazu kommt, dass das
 deutsche Regulatory Bundle im Stand `twilio-rejected` steht und so lange kein
 Nummernkauf möglich ist. `leads:check-call-setup --production` meldet beides als FEHLER.
 
+### Cutover der Erreichbarkeitsprüfung (Ticket #73, Stand 2026-10-12)
+
+`LEAD_CALLS_ENFORCE_FROM` entscheidet, **ab welchem `delivered_at` ein Lead dem
+Anruf-Regelwerk unterliegt**. Nur erfasste Leads schließt `leads:resolve-expired` nach
+Fristablauf als `billable` ab — und genau das bucht beim Käufer ab.
+
+Seit Ticket #73 gilt: **ohne Wert ist das Regelwerk aus.** Vorher bedeutete ein fehlender
+Eintrag das Gegenteil (alle Leads erfasst); eine fehlende Zeile in der `.env` hätte den
+gesamten Bestand abgerechnet, obwohl dessen Käufer das Anrufpanel nie hatten.
+
+Die Live-`.env` trägt deshalb vorläufig
+
+```
+# Cutover der Erreichbarkeitspruefung: leer = Regelwerk aus (Ticket #73).
+# Eintragen, sobald Kaeufer ueber das Portal tatsaechlich anrufen koennen.
+LEAD_CALLS_ENFORCE_FROM=""
+```
+
+Scharf gestellt wird erst, wenn Portal-Anrufe live funktionieren — dazu fehlt noch eine
+gekaufte Twilio-Rufnummer (Ticket #72). Dann hier das Datum des ersten Tages eintragen,
+an dem das Anrufpanel erreichbar war, und `optimize:clear` + `optimize` hinterher.
+
+> Nebenwirkung: Vier Bestandsleads (326, 1026, 1311, 1316) haben eine abgelaufene Frist
+> und bleiben dauerhaft `open`; bei 1311 und 1316 bleibt je eine Reservierung des Käufers
+> (Tenant 2) stehen. Das ist gewollt — abrechnen wäre falsch —, muss aber bei der
+> Entscheidung über den Cutover mitbedacht werden.
+
 ### Rollback
 
 Es gibt **keinen** Rollback-Mechanismus mit vorgehaltenen Releases: ausgerollt wird mit
@@ -366,7 +395,7 @@ jede Fehlermeldung.
 | `app:local-subscription-expiring-soon-reminder` | täglich | Erinnerungsmails bleiben aus |
 | `app:auto-purchase-leads` | alle 5 Minuten | Autokauf greift nicht; der Käufer verliert Abschlüsse an frischere Leads |
 | `app:settle-elapsed-complaint-periods` | täglich 01:00 | Käufe nach Ablauf der Reklamationsfrist werden nicht abgeschlossen — **Abrechnung bleibt liegen** |
-| `leads:resolve-expired` | täglich 03:00 | Leads mit abgelaufener Kontaktfrist werden nicht abgerechnet — **Abrechnung bleibt liegen** |
+| `leads:resolve-expired` | täglich 03:00 | Leads mit abgelaufener Kontaktfrist werden nicht abgerechnet — **Abrechnung bleibt liegen**. Ohne `LEAD_CALLS_ENFORCE_FROM` findet der Lauf nichts (Ticket #73) |
 | `leads:send-deadline-reminders` | stündlich | Käufer werden nicht vor Fristende erinnert und verlieren das Geld ohne Warnung |
 | `wallet:verify` | täglich 04:00 | ein abgewichener Wallet-Saldo fällt niemandem auf |
 | `wallet:settle` | wöchentlich (Wochentag/Zeit aus `config/wallet.php`) | offene Postpaid-Beträge werden nicht eingezogen — **Geld bleibt offen** |

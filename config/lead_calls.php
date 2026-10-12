@@ -50,9 +50,15 @@ return [
     'unreachable_rate_flag_points' => (int) env('LEAD_CALLS_UNREACHABLE_RATE_FLAG_POINTS', 20),
 
     // Cutover fuer Bestandsleads: Nur Leads mit delivered_at ab diesem
-    // Zeitpunkt unterliegen dem Regelwerk. null = keine Einschraenkung,
-    // alle Leads sind erfasst. Format: ein von Carbon lesbares Datum,
-    // z. B. "2026-10-01" oder "2026-10-01 00:00:00".
+    // Zeitpunkt unterliegen dem Regelwerk. Format: ein von Carbon lesbares
+    // Datum, z. B. "2026-10-01" oder "2026-10-01 00:00:00".
+    //
+    // Ohne Wert (null oder leer) ist das Regelwerk aus: Es wird kein Lead
+    // automatisch abgeschlossen und damit auch keiner abgerechnet. Der
+    // umgekehrte Vorgabewert waere teuer -- eine fehlende Zeile in der `.env`
+    // wuerde saemtliche Bestandsleads abrechnen, obwohl ihre Kaeufer das
+    // Anrufpanel nie hatten. Scharf stellt das Regelwerk erst, wer das Datum
+    // der Einfuehrung der Portal-Anrufe eintraegt.
     'enforce_from' => env('LEAD_CALLS_ENFORCE_FROM'),
 
 ];

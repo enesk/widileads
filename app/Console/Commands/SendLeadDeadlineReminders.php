@@ -94,12 +94,15 @@ class SendLeadDeadlineReminders extends Command
 
         $enforceFrom = config('lead_calls.enforce_from');
 
-        if ($enforceFrom !== null && $enforceFrom !== '') {
-            $query->whereNotNull('delivered_at')
-                ->where('delivered_at', '>=', Carbon::parse((string) $enforceFrom));
+        // Ohne Cutover ist das Regelwerk aus und der Lauf findet nichts --
+        // besser als der Gegenfall, in dem eine fehlende Zeile in der `.env`
+        // den gesamten Bestand erfasst.
+        if ($enforceFrom === null || $enforceFrom === '') {
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query;
+        return $query->whereNotNull('delivered_at')
+            ->where('delivered_at', '>=', Carbon::parse((string) $enforceFrom));
     }
 
     /**
