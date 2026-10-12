@@ -103,10 +103,10 @@ class CallerIdVerification extends Component
 
         return view('livewire.portal.caller-id-verification', [
             'callerId' => $callerId,
-            // Solange die Sperre greift, ist diese Seite die einzige
-            // erreichbare: Dann traegt sie die Erklaerung und keinen Weg
-            // zurueck (App\Support\PortalCallerIdLock).
-            'locked' => PortalCallerIdLock::locks($this->portalUser(), $this->portalTenant()),
+            // Fehlt eine nutzbare Nummer, steht der Grund oben auf der Seite
+            // (App\Support\PortalCallerIdLock). Eine Sperre ist das seit
+            // Ticket #49 nicht mehr -- der Weg zurueck bleibt daneben stehen.
+            'missingNumber' => PortalCallerIdLock::locks($this->portalUser(), $this->portalTenant()),
             'displayNumber' => $this->displayNumber($callerId),
             'expectedCode' => $callerId?->status === CallerIdStatus::PENDING ? $callerId->validation_code : null,
             'verified' => $this->verifiedNumbers(),

@@ -12,22 +12,22 @@
 --}}
 <div>
 
-    @if ($locked)
-        {{-- Waehrend der Sperre gibt es keinen Weg zurueck: Jede andere
-             Portalseite kaeme hierher zurueck. Statt des Verweises steht der
-             Grund. --}}
-        <div role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+    {{-- Der Weg zurueck steht immer da: Seit Ticket #49 haelt die fehlende
+         Rufnummernanzeige niemanden mehr auf dieser Seite fest, und ein
+         Hinweis ohne Ausweg waere eine Falle, die es nicht gibt. --}}
+    <a href="{{ $backUrl }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline">
+        <x-app.icon name="arrow-left" class="size-4 shrink-0" />
+        {{ __('call.caller_id.portal.back') }}
+    </a>
+
+    @if ($missingNumber)
+        <div role="status" class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
             <p class="font-semibold text-amber-900 flex items-center gap-2">
                 <x-app.icon name="alert" class="size-4 shrink-0" />
                 {{ __('call.caller_id.portal.locked_title') }}
             </p>
             <p class="text-sm text-amber-900 mt-1">{{ __('call.caller_id.portal.locked_text') }}</p>
         </div>
-    @else
-        <a href="{{ $backUrl }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline">
-            <x-app.icon name="arrow-left" class="size-4 shrink-0" />
-            {{ __('call.caller_id.portal.back') }}
-        </a>
     @endif
 
     <div class="mt-3">
@@ -230,6 +230,20 @@
                     </li>
                 @endforeach
             </ul>
+        </section>
+
+        {{-- "So wird abgerechnet" als 3-Schritte-Player (LP-ONBOARD-011).
+             Dieselbe Komponente steht auf dem Abschluss-Screen des Onboardings
+             und im Dialog von Wizard-Schritt 3. Hier gehoert sie hin, weil die
+             Frage "und was kostet mich das?" genau beim Bestaetigen der eigenen
+             Nummer aufkommt -- direkt davor erklaert die Liste oben, wozu die
+             Nummer gebraucht wird.
+
+             Ohne automatische Vorfuehrung: Diese Seite hat mit dem Anruf ihre
+             eigene Bewegung, zwei nebeneinander ziehen den Blick auseinander.
+             --}}
+        <section class="card p-5">
+            @livewire('portal.onboarding.billing-explainer', ['autoplay' => false])
         </section>
 
         @if ($verified !== [])
