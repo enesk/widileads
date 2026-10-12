@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Constants\PaymentMode;
 use App\Constants\PurchaseStatus;
@@ -15,6 +14,7 @@ use App\Models\PostpaidApplication;
 use App\Models\Settlement;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\LeadStateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -160,15 +160,11 @@ class ResetWalletLedger extends Command
      * Loescht alle Kaufbelege und fuehrt die betroffenen Leads wieder als
      * verfuegbar.
      *
-     * Die Zustandsspalten werden hier ausnahmsweise direkt gesetzt und nicht
-     * ueber LeadStateService bzw. LeadResolver. Das ist Absicht: Ein Reset ist
-     * kein fachlicher Uebergang, er soll keine Ereignisse feuern und keine
-     * Buchung ausloesen -- sonst raeumte der Lauf auf und buchte im selben
-     * Atemzug neu.
-     *
-     * Unangetastet bleiben Leads in `neu`, `ungueltig` und `abgelaufen` sowie
-     * anonymisierte Leads: Sie waren nie verkaeuflich oder duerfen es nicht
-     * mehr werden.
+     * Zurueckgesetzt wird ueber LeadStateService::resetSoldLeadsToAvailable()
+     * und nicht mit einem eigenen update(): Die Zustandsspalten haben genau
+     * einen Eigentuemer (Architekturleitsatz 2 und 4). Dass der Reset dabei
+     * kein fachlicher Uebergang ist -- kein Ereignis, keine Buchung, kein
+     * Eintrag im Zustandsprotokoll -- steht dort begruendet.
      */
     private function deletePurchasesAndFreeLeads(): void
     {
@@ -176,32 +172,9 @@ class ResetWalletLedger extends Command
         // Kaufbeleg und gehen mit ihm (cascadeOnDelete).
         LeadPurchase::query()->delete();
 
-        Lead::query()
-            ->withoutGlobalScopes()
-            ->whereNull('anonymized_at')
-            ->whereIn('lead_state', [
-                LeadState::RESERVIERT->value,
-                LeadState::VERKAUFT->value,
-                LeadState::ERREICHT->value,
-                LeadState::UNERREICHBAR->value,
-            ])
-            ->update([
-                'lead_state' => LeadState::VERFUEGBAR->value,
-                'reserved_by' => null,
-                'reserved_until' => null,
-                'settled_price' => null,
-                'settled_at' => null,
-                'delivered_at' => null,
-                'deadline_at' => null,
-                // Die Erreichbarkeit haengt an den Anrufversuchen, und die sind
-                // mit den Kaufbelegen weg. `open` ist ihr Ausgangswert, die
-                // Spalte ist nicht nullbar.
-                'contact_status' => LeadContactStatus::OPEN->value,
-                'resolved_at' => null,
-                'resolved_by' => null,
-                'phone_revealed_at' => null,
-                'reminder_sent_at' => null,
-            ]);
+        // Die Zustandsspalten gehoeren dem LeadStateService -- auch beim
+        // Reset. Dort steht auch, warum dieser Weg kein Uebergang ist.
+        app(LeadStateService::class)->resetSoldLeadsToAvailable();
     }
 
     /**

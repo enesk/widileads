@@ -77,6 +77,15 @@ class LeadReceived extends Mailable implements ShouldQueue
 
         foreach ($lead->answers as $answer) {
             /** @var LeadAnswer $answer */
+            // Die reservierten Kontaktfelder bleiben draussen: Name, E-Mail,
+            // Telefon und PLZ stehen in dieser Mail als eigener Block, den der
+            // LeadContactResolver gefuellt hat. Ein zweites Mal in der
+            // Antwortliste waeren sie eine Doppelung -- und ein Weg an der
+            // Entscheidung vorbei, wer sie sehen darf (Architekturleitsatz 5).
+            if ($answer->isPersonal()) {
+                continue;
+            }
+
             $value = $answer->value;
 
             $readable = static fn (mixed $single): string => $optionLabels[$answer->field_key][(string) $single]

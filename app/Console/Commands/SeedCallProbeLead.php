@@ -465,7 +465,7 @@ class SeedCallProbeLead extends Command
                 $purchase->status->value,
                 $this->euro((int) $purchase->price_cents + (int) $purchase->surcharge_cents),
             ));
-        $this->line(sprintf('  %-16s%s   -- dieses Telefon klingelt', 'Zielnummer', (string) $lead->phone_e164));
+        $this->line(sprintf('  %-16s%s   -- dieses Telefon klingelt', 'Zielnummer', (string) $lead->dialablePhone()));
         $this->line(sprintf(
             '  %-16s%s  (Workspace %s)',
             'Kaeufer',

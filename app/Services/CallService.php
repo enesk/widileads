@@ -125,9 +125,9 @@ class CallService
         // verkuerzte Fassung (FB-085). Dieser Wert bleibt serverseitig -- er
         // wandert in den Versuch und von dort in die Bridge, nie in den
         // Browser des Kaeufers.
-        $leadNumber = $lead->phone_e164;
+        $leadNumber = $lead->dialablePhone();
 
-        if ($leadNumber === null || trim($leadNumber) === '') {
+        if ($leadNumber === null) {
             throw CallNotPossible::because('call.attempt.errors.lead_number_missing');
         }
 
@@ -291,7 +291,7 @@ class CallService
         $response = new VoiceResponse;
 
         $lead = $attempt->lead;
-        $leadNumber = (string) ($lead->phone_e164 ?? '');
+        $leadNumber = (string) ($lead->dialablePhone() ?? '');
 
         // Zwischen Klick und Bridge koennen Minuten liegen. Ist die
         // Erreichbarkeit inzwischen entschieden, wird nicht mehr gewaehlt --

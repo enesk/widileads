@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Funnel;
 
 use App\Actions\CreateLeadFromSession;
+use App\Console\Commands\CleanupOrphanedRows;
+use App\Console\Commands\SeedCallProbeLead;
 use App\Dto\LeadContact;
 use App\Marketplace\MatchableLead;
 use App\Models\Lead;
@@ -71,8 +73,16 @@ class ArchitectureTest extends TestCase
         'addHours', 'subHours',
         'addMinutes', 'subMinutes',
         'addSeconds', 'subSeconds',
-        'take', 'limit', 'chunk', 'chunkById',
+        'take', 'limit',
     ];
+
+    /**
+     * Nicht in der Liste: `chunk` und `chunkById`. Die Stapelgroesse eines
+     * Stapellaufs ist eine Entscheidung ueber Speicher und Abfragelast, keine
+     * fachliche. Sie aendert am Ergebnis nichts -- 200 oder 500 Zeilen je
+     * Runde liefern dieselben Leads. `take` und `limit` bleiben drin: Dort
+     * entscheidet die Zahl, wie viel der Benutzer zu sehen bekommt.
+     */
 
     /**
      * Zahlenliterale, die in einer Datei ausnahmsweise stehen duerfen, weil sie
@@ -87,6 +97,11 @@ class ArchitectureTest extends TestCase
         // sRGB-Linearisierung sind Mathematik, und 4.5 bzw. 3.0 definieren die
         // Stufe AA. Waeren sie konfigurierbar, waere die Angabe "AA" eine
         // Behauptung statt einer Zusicherung.
+        // Die Hundert ist hier keine Grenze, sondern die Einheit: Aus einem
+        // Verhaeltnis wird ein Prozentwert. Der Trichter zeigt Anteile an,
+        // und ein voller Anteil ist 100 -- das steht nicht zur Wahl.
+        'app/Services/Onboarding/OnboardingFunnelQuery.php' => [100.0],
+
         'app/Funnel/Theme/ContrastRatio.php' => [
             4.5, 3.0,                      // Schwellwerte AA (Text, grosser Text/Bedienelemente)
             0.05,                          // Offset der Kontrastformel
@@ -216,6 +231,14 @@ class ArchitectureTest extends TestCase
                 LeadDataRequestService::class,
                 LeadAnonymizer::class,
                 CreateLeadFromSession::class,
+
+                // Legt den Uebungs-Lead samt seiner Antworten an -- dieselbe
+                // Rolle wie CreateLeadFromSession, nur von Hand angestossen.
+                SeedCallProbeLead::class,
+
+                // Loescht verwaiste Zeilen anhand von Tabellennamen. Die
+                // Antworten werden dort nie gelesen, nur mitgeloescht.
+                CleanupOrphanedRows::class,
             ],
         );
     }
@@ -286,9 +309,24 @@ class ArchitectureTest extends TestCase
         )));
     }
 
+    /**
+     * Filtert diese Datei die reservierten Kontaktfelder -- selbst oder durch
+     * Weiterreichen?
+     *
+     * Seit die Aufbereitung der Antworten an einer Stelle liegt
+     * (App\Services\LeadAnswerPresenter, FB-030d/FB-030e), steht der Filter
+     * nicht mehr in jeder Ausgabestelle, sondern genau einmal -- im
+     * Aufbereiter. Wer ihn benutzt, hat die Entscheidung nicht umgangen,
+     * sondern an die zustaendige Stelle abgegeben. Die Regel wird damit
+     * genauer, nicht milder: Sie verlangt weiterhin einen Filter, erkennt aber
+     * auch den, der eine Ebene tiefer liegt.
+     */
     private function filtersReservedFieldKeys(string $code): bool
     {
-        return preg_match('/FunnelFieldKey::isReserved\s*\(|->\s*isPersonal\s*\(/', $code) === 1;
+        return preg_match(
+            '/FunnelFieldKey::isReserved\s*\(|->\s*isPersonal\s*\(|\bLeadAnswerPresenter\b/',
+            $code,
+        ) === 1;
     }
 
     /**
@@ -352,6 +390,29 @@ class ArchitectureTest extends TestCase
 
         $this->assertSame([], $this->fromLeadCalls($presenterCode), 'Der Weg ueber contactFor() ist kein Verstoss.');
         $this->assertSame([], $this->rawContactReads($presenterCode));
+
+        // Dieselben Spaltennamen an einem anderen Gegenstand: die bestaetigte
+        // Rufnummer des Kaeufers, die Nummer in der laufenden Bestaetigung und
+        // der Suchmittelpunkt der Kaufkriterien. Alle drei sind kein
+        // Lead-Kontakt und duerfen die Regel nicht ausloesen (Ticket #42).
+        $buyerCode = $this->stripComments(<<<'PHP'
+        <?php
+        $own = $user->phone_e164;
+        $pending = $attempt->phone_e164;
+        $centre = $profile->postal_code;
+        PHP);
+
+        $this->assertSame([], $this->rawContactReads($buyerCode), 'Die Rufnummer des Kaeufers ist kein Lead-Kontakt.');
+
+        // Eine Stapelgroesse ist eine Entscheidung ueber Speicher, kein
+        // Schwellwert; eine neutrale Null ist "noch nichts gemessen".
+        $technicalCode = $this->stripComments(<<<'PHP'
+        <?php
+        $query->chunkById(200, fn ($rows) => $rows);
+        $rate = $total === 0 ? 0.0 : $part / $total;
+        PHP);
+
+        $this->assertSame([], $this->thresholdLiterals($technicalCode), 'Stapelgroesse und neutrale Null sind keine Schwellwerte.');
 
         $answerLeak = $this->stripComments(<<<'PHP'
         <?php
@@ -428,8 +489,13 @@ class ArchitectureTest extends TestCase
             }
 
             // Jede Kommazahl im Funnel-Code ist ein Preis, eine Quote oder ein
-            // Faktor -- und damit ein Schwellwert.
-            if ($token[0] === T_DNUMBER) {
+            // Faktor -- und damit ein Schwellwert. Ausser der Null: Sie ist
+            // das neutrale Element und steht fuer "noch nichts gemessen" --
+            // als Ergebnis einer Division durch null, als Startwert einer
+            // Abweichung, als Untergrenze eines max(). Eine Null in die
+            // Konfiguration zu heben, hiesse die Frage zu stellen, ob eine
+            // Quote ohne Grundgesamtheit auch 0,3 sein darf.
+            if ($token[0] === T_DNUMBER && (float) $token[1] !== 0.0) {
                 $findings[$token[2]] = [
                     'value' => (float) $token[1],
                     'reason' => "Kommazahl {$token[1]} -- Preise und Quoten gehoeren in die Konfiguration",
@@ -570,13 +636,29 @@ class ArchitectureTest extends TestCase
     }
 
     /**
-     * Direkte Lesezugriffe auf die Kontaktspalten eines Leads.
+     * Direkte Lesezugriffe auf die Kontaktspalten eines **Leads**.
+     *
+     * Entscheidend ist der Gegenstand, nicht der Spaltenname: Geschuetzt sind
+     * die Kontaktdaten des Leads, nicht jede Zeichenkette, die zufaellig so
+     * heisst. Dieselben Namen tragen auch Gegenstaende, die mit dem Lead
+     * nichts zu tun haben und zu Recht im Klartext verarbeitet werden --
+     * `$user->phone_e164` ist die bestaetigte Rufnummer des Kaeufers,
+     * `$attempt->phone_e164` die Nummer in der laufenden Bestaetigung, und
+     * `$profile->postal_code` ist der Suchmittelpunkt der Kaufkriterien.
+     * Wuerde die Regel sie mitzaehlen, waere sie nicht strenger, sondern nur
+     * ungenauer -- und jede neue Fundstelle muesste in eine Ausnahmeliste.
+     *
+     * Gemeldet wird deshalb nur, was erkennbar an einem Lead haengt: `$lead`,
+     * `->lead` und das Ergebnis von `firstOrFail()` auf einem Lead-Ausdruck.
      *
      * @return list<int>
      */
     private function rawContactReads(string $code): array
     {
-        return $this->matchLines($code, '/->\s*(?:email_normalized|phone_e164|postal_code)\b/');
+        return $this->matchLines(
+            $code,
+            '/(?:\$leads?\b|->\s*lead\b)[^;]{0,120}?->\s*(?:email_normalized|phone_e164|postal_code)\b/s',
+        );
     }
 
     /**

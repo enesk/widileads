@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Constants\LeadTransitionReason;
 use App\Constants\LeadTransitions;
@@ -141,6 +142,55 @@ class LeadStateService
     public function allowedTargetsFor(Lead $lead): array
     {
         return LeadTransitions::allowedFrom($lead->lead_state);
+    }
+
+    /**
+     * Setzt verkaufte Leads auf "verfuegbar" zurueck -- ohne Uebergang.
+     *
+     * Der Weg fuer `wallet:reset` (Ticket #42): Ein Reset ist kein fachlicher
+     * Uebergang. Er soll kein Ereignis feuern, keine Buchung ausloesen und
+     * nicht im Zustandsprotokoll stehen -- sonst raeumte der Lauf auf und
+     * buchte im selben Atemzug neu. Trotzdem gehoert das Schreiben hierher:
+     * `lead_state`, `settled_price` und `settled_at` haben genau einen
+     * Eigentuemer (Architekturleitsatz 2 und 4), und ein zweiter Schreibweg
+     * im Kommando waere der Anfang einer Ausnahmeliste.
+     *
+     * Unangetastet bleiben Leads in `neu`, `ungueltig` und `abgelaufen` sowie
+     * anonymisierte: Sie waren nie verkaeuflich oder duerfen es nicht mehr
+     * werden. Die Felder aus Auslieferung und Erreichbarkeitspruefung werden
+     * mit geleert -- die Belege dazu haengen an den Kaufbelegen, und die sind
+     * zu diesem Zeitpunkt weg.
+     *
+     * @return int Zahl der zurueckgesetzten Leads
+     */
+    public function resetSoldLeadsToAvailable(): int
+    {
+        return Lead::query()
+            ->withoutGlobalScopes()
+            ->whereNull('anonymized_at')
+            ->whereIn('lead_state', [
+                LeadState::RESERVIERT->value,
+                LeadState::VERKAUFT->value,
+                LeadState::ERREICHT->value,
+                LeadState::UNERREICHBAR->value,
+            ])
+            ->update([
+                'lead_state' => LeadState::VERFUEGBAR->value,
+                'reserved_by' => null,
+                'reserved_until' => null,
+                'settled_price' => null,
+                'settled_at' => null,
+                'delivered_at' => null,
+                'deadline_at' => null,
+                // Die Erreichbarkeit haengt an den Anrufversuchen, und die sind
+                // mit den Kaufbelegen weg. `open` ist ihr Ausgangswert, die
+                // Spalte ist nicht nullbar.
+                'contact_status' => LeadContactStatus::OPEN->value,
+                'resolved_at' => null,
+                'resolved_by' => null,
+                'phone_revealed_at' => null,
+                'reminder_sent_at' => null,
+            ]);
     }
 
     /**

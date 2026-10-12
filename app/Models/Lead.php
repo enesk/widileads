@@ -317,6 +317,23 @@ class Lead extends Model
     }
 
     /**
+     * Die Rufnummer zum Waehlen -- serverseitig, nie fuer eine Anzeige.
+     *
+     * Der einzige Weg an die rohe Spalte ausserhalb von LeadContact, und er
+     * hat einen eigenen Namen, damit an der Aufrufstelle steht, wozu: Die
+     * Bridge waehlt die Nummer im Auftrag des Kaeufers (FB-081), und das
+     * Probekommando nennt sie dem Betreiber, der sie selbst eingetragen hat.
+     * Wer eine Nummer anzeigen will, nimmt maskedPhone() oder den Resolver --
+     * dieser Rueckgabewert darf nicht in den Browser.
+     */
+    public function dialablePhone(): ?string
+    {
+        $phone = $this->phone_e164;
+
+        return $phone === null || trim($phone) === '' ? null : $phone;
+    }
+
+    /**
      * Der Stand der Rufnummernfreigabe fuer diesen Kaeufer (FB-085, Ticket #5).
      *
      * Die Frage haengt am Kaeufer und nicht am Lead: Freigegeben wird auch
