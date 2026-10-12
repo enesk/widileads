@@ -41,6 +41,7 @@
                         size="lg"
                         class="w-full sm:w-auto"
                         :disabled="! $this->canCall()"
+                        @if (! $this->canCall()) aria-disabled="true" @endif
                     >
                         {{ __('call.panel.action') }}
                     </x-filament::button>
@@ -55,7 +56,22 @@
                     <span>{{ $calling }}</span>
                 </div>
             @elseif ($blocked = $this->blockedReason())
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $blocked }}</p>
+                @if ($callerIdUrl = $this->callerIdUrl())
+                    {{-- Fehlende eigene Rufnummernanzeige: seit Ticket #49 keine
+                         Sperre mehr vor dem Portal, also muss der Weg dorthin
+                         hier stehen -- sonst erfaehrt der Kaeufer erst am
+                         Knopf, dass er nicht telefonieren kann. --}}
+                    <div class="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+                        <p>{{ $blocked }}</p>
+                        {{-- min-h-11 = 44 px Trefferflaeche auf dem Telefon. --}}
+                        <a href="{{ $callerIdUrl }}" class="inline-flex min-h-11 items-center gap-1 py-2 text-sm text-primary-600 hover:underline dark:text-primary-400">
+                            {{ __('portal.dashboard.caller_id.verify') }}
+                            <x-filament::icon icon="heroicon-m-arrow-right" class="h-4 w-4 shrink-0" />
+                        </a>
+                    </div>
+                @else
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $blocked }}</p>
+                @endif
             @endif
 
             {{-- Das Regelwerk im Klartext, damit der Kaeufer weiss, woran er ist. --}}

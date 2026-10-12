@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Constants\CallAttemptOutcome;
 use App\Constants\CallAttemptStatus;
+use App\Events\Call\CallAttemptCompleted;
 use App\Models\CallAttempt;
 use App\Models\LeadPurchase;
 use App\Models\Tenant;
@@ -469,6 +470,12 @@ class CallService
         $attempt = $this->classifier->classify($attempt);
 
         $this->resolver->resolveAfter($attempt);
+
+        // Erst jetzt, mit Bewertung und entschiedener Erreichbarkeit: Wer am
+        // Versuch haengt (LP-ONBOARD-012 hakt den ersten Anruf ab), soll ihn
+        // fertig vorfinden und nicht auf halbem Weg. Die Zuhoerer laufen in der
+        // Queue -- Twilio wartet auf die Antwort dieses Rueckrufs.
+        event(new CallAttemptCompleted($attempt));
 
         return $attempt;
     }

@@ -7,6 +7,7 @@ namespace App\Listeners\Order;
 use App\Constants\WalletTransactionType;
 use App\Events\Order\Ordered;
 use App\Events\Order\OrderRefunded;
+use App\Events\Wallet\WalletToppedUp;
 use App\Mail\Wallet\WalletTopupConfirmedMail;
 use App\Models\OneTimeProduct;
 use App\Models\Order;
@@ -104,6 +105,11 @@ class CreditWalletAfterPayment
         }
 
         $this->sendConfirmation($order, $tenant, $transaction);
+
+        // Und die Meldung, dass aufgeladen wurde (LP-ONBOARD-012). Sie steht
+        // hinter derselben Bedingung wie die Mail: Was keine neue Buchung ist,
+        // ist auch keine neue Aufladung.
+        event(new WalletToppedUp($tenant, $transaction));
     }
 
     /**

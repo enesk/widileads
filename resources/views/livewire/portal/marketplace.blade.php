@@ -8,9 +8,15 @@
     fuer welches Firmenprofil. Unter "Alle Funnels" laesst sich die Liste nach
     Funnel gruppieren.
 
-    Masse stehen in Pixeln wie im Entwurf und nicht in rem: Der Entwurf rechnet
-    mit 18 Pixeln Grundschrift, das Portal mit 20. In rem waere jedes Mass um
-    ein Neuntel groesser ausgefallen.
+    Masse: Huelle, Kopfzeile, Funnel-Reiter, Filterzeile und Karte stehen auf
+    den Tokens aus portal.css und den Schriftstufen der Tailwind-Skala
+    (Gestaltungsleitfaden 1.3) -- keine Pixelwerte aus dem Entwurfsexport mehr.
+    Die Ueberschrift traegt dieselben Stufen wie jede andere Portalseite
+    (text-3xl md:text-4xl), anfassbare Flaechen --control-height, Flaechen
+    --radius-card und --radius-control, Filter- und Sortierknopf .btn-secondary.
+    Der Entwurf ist auf 18 Pixel Grundschrift gezeichnet, das Portal laeuft auf
+    20 -- das Bild verschiebt sich dabei zwangslaeufig um einige Pixel je Stufe.
+    Der Umbruch bleibt bei 900 Pixeln.
 
     Aeltere Fassung: Listenfassung (Entwurf `marktplatz-v2.html`).
 
@@ -43,19 +49,28 @@
       $funnelTabs        id, name, icon, count, active -- erster Reiter "Alle"
       $groups            nach Funnel gruppierte Karten, oder null fuer die Liste
 --}}
-<div class="text-[18px] leading-normal">
+<div>
 
     {{-- Kopf: Titel und die Guthabenkachel. --}}
-    <div class="flex flex-wrap items-center justify-between gap-[16px] mb-[24px]">
-        <h1 class="m-0 text-[36px] font-bold tracking-[-0.02em] text-zinc-900 leading-tight">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900">
             {{ __('marketplace.listing.heading') }}
         </h1>
 
-        <div class="flex items-center gap-[10px] rounded-[16px] border border-zinc-200 bg-white px-[14px] py-[10px] text-zinc-500">
+        {{-- Erster Halt der gefuehrten Tour (LP-ONBOARD-013). Titel und Text
+             stehen als Attribut am Element und nicht im Skript. --}}
+        <div
+            class="flex items-center gap-2 rounded-(--radius-card) border border-zinc-200 bg-white px-3 py-2 text-zinc-500"
+            data-tour="marketplace:1"
+            data-tour-title="{{ __('tour.marketplace.balance.title') }}"
+            data-tour-text="{{ __('tour.marketplace.balance.text') }}"
+            data-tour-side="bottom"
+            data-tour-align="end"
+        >
             {{ __('portal.balance') }}
-            <b class="text-[19.8px] font-bold text-zinc-900 tabular-nums">{{ $balance }}</b>
-            <a href="{{ $topUpUrl }}" class="grid size-[32px] place-items-center rounded-[8px] bg-zinc-100 text-zinc-900" aria-label="{{ __('marketplace.wallet.top_up.title') }}">
-                <x-app.icon name="plus" class="size-[22.5px]" />
+            <b class="text-lg font-bold text-zinc-900 tabular-nums">{{ $balance }}</b>
+            <a href="{{ $topUpUrl }}" class="grid size-9 place-items-center rounded-(--radius-control) bg-zinc-100 text-zinc-900" aria-label="{{ __('marketplace.wallet.top_up.title') }}">
+                <x-app.icon name="plus" class="size-5" />
             </a>
         </div>
     </div>
@@ -91,7 +106,7 @@
     @endunless
 
     {{-- Erste Ebene: die Funnels. --}}
-    <div class="mb-[20px] flex flex-wrap gap-[8px]" role="group" aria-label="{{ __('marketplace.listing.funnels.label') }}">
+    <div class="mb-5 flex flex-wrap gap-2" role="group" aria-label="{{ __('marketplace.listing.funnels.label') }}">
         @foreach ($funnelTabs as $tab)
             <button
                 type="button"
@@ -99,21 +114,21 @@
                 wire:click="setFunnel('{{ $tab['id'] }}')"
                 aria-pressed="{{ $tab['active'] ? 'true' : 'false' }}"
                 @class([
-                    'flex min-h-[56px] items-center gap-[12px] rounded-[16px] border px-[16px] py-[12px] text-left transition-colors max-[900px]:flex-[1_1_45%]',
+                    'flex min-h-(--control-height) items-center gap-3 rounded-(--radius-card) border px-4 py-3 text-left transition-colors max-[900px]:flex-[1_1_45%]',
                     'border-brand bg-brand text-white' => $tab['active'],
                     'border-zinc-200 bg-white text-zinc-900 hover:border-zinc-400' => ! $tab['active'],
                 ])
             >
                 <span @class([
-                    'grid size-[32px] shrink-0 place-items-center rounded-[10px]',
+                    'grid size-8 shrink-0 place-items-center rounded-(--radius-control)',
                     'bg-white/15 text-white' => $tab['active'],
                     'bg-zinc-100 text-zinc-700' => ! $tab['active'],
                 ])>
-                    <x-app.icon :name="$tab['icon']" class="size-[19.8px]" />
+                    <x-app.icon :name="$tab['icon']" class="size-5" />
                 </span>
                 <span>
-                    <b class="block font-semibold leading-[1.2]">{{ $tab['name'] }}</b>
-                    <small @class(['block text-[14.4px]', 'text-white/75' => $tab['active'], 'text-zinc-500' => ! $tab['active']])>
+                    <b class="block font-semibold leading-snug">{{ $tab['name'] }}</b>
+                    <small @class(['block text-xs', 'text-white/75' => $tab['active'], 'text-zinc-500' => ! $tab['active']])>
                         {{ trans_choice('marketplace.listing.funnels.count', $tab['count'], ['count' => $tab['count']]) }}
                     </small>
                 </span>
@@ -122,18 +137,28 @@
     </div>
 
     {{-- Zweite Ebene: Filter, Sortierung, Zahl, Darstellung. --}}
-    <div class="mb-[12px] flex flex-wrap items-center gap-[12px]">
-        <button type="button" class="inline-flex min-h-[44px] items-center gap-[8px] whitespace-nowrap rounded-[12px] border border-zinc-200 bg-white px-[16px] py-[10px] text-zinc-900 transition-colors hover:border-zinc-400" x-data x-on:click="$refs.filters.hidden = ! $refs.filters.hidden">
-            <x-app.icon name="filter" class="size-[22.5px]" />
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+        <button
+            type="button"
+            class="btn-secondary whitespace-nowrap"
+            x-data
+            x-on:click="$refs.filters.hidden = ! $refs.filters.hidden"
+            data-tour="marketplace:3"
+            data-tour-title="{{ __('tour.marketplace.filters.title') }}"
+            data-tour-text="{{ __('tour.marketplace.filters.text') }}"
+            data-tour-side="bottom"
+            data-tour-align="start"
+        >
+            <x-app.icon name="filter" class="size-5" />
             {{ __('portal.filters.label') }}
             @if ($activeFilterCount > 0)
-                <span class="grid size-[20px] place-items-center rounded-full bg-brand text-[13px] font-semibold text-white">{{ $activeFilterCount }}</span>
+                <span class="grid size-5 place-items-center rounded-full bg-brand text-xs font-semibold text-white">{{ $activeFilterCount }}</span>
             @endif
         </button>
 
         <x-app.dropdown align="left" :label="__('portal.filters.sort')">
-            <x-slot:trigger class="inline-flex min-h-[44px] items-center gap-[8px] whitespace-nowrap rounded-[12px] border border-zinc-200 bg-white px-[16px] py-[10px] text-zinc-900 transition-colors hover:border-zinc-400">
-                <x-app.icon name="sort" class="size-[22.5px]" />
+            <x-slot:trigger class="btn-secondary whitespace-nowrap">
+                <x-app.icon name="sort" class="size-5" />
                 {{ $sortLabel }}
             </x-slot:trigger>
 
@@ -154,28 +179,28 @@
             @endforeach
         </x-app.dropdown>
 
-        <span class="ml-[4px] text-[16.2px] text-zinc-500">
+        <span class="ml-1 text-sm text-zinc-500">
             {{ trans_choice('marketplace.listing.fits_count', $resultCount, ['count' => $resultCount]) }}
         </span>
 
         {{-- Darstellung. Nach Funnel gruppiert wird nur unter "Alle Funnels". --}}
-        <div class="ml-auto inline-flex overflow-hidden rounded-[12px] border border-zinc-200 bg-white max-[900px]:ml-0" role="group" aria-label="{{ __('marketplace.listing.view.label') }}">
+        <div class="ml-auto inline-flex overflow-hidden rounded-(--radius-control) border border-zinc-200 bg-white max-[900px]:ml-0" role="group" aria-label="{{ __('marketplace.listing.view.label') }}">
             <button
                 type="button"
                 wire:click="setView('liste')"
                 aria-pressed="{{ $view === 'liste' ? 'true' : 'false' }}"
-                @class(['flex min-h-[44px] items-center gap-[8px] px-[14px] py-[10px]', 'bg-brand-50 font-medium text-brand' => $view === 'liste', 'text-zinc-500' => $view !== 'liste'])
+                @class(['flex min-h-(--control-height) items-center gap-2 px-3 text-sm', 'bg-brand-50 font-medium text-brand' => $view === 'liste', 'text-zinc-500' => $view !== 'liste'])
             >
-                <x-app.icon name="list" class="size-[22.5px]" />
+                <x-app.icon name="list" class="size-5" />
                 {{ __('marketplace.listing.view.list') }}
             </button>
             <button
                 type="button"
                 wire:click="setView('funnel')"
                 aria-pressed="{{ $view === 'funnel' ? 'true' : 'false' }}"
-                @class(['flex min-h-[44px] items-center gap-[8px] px-[14px] py-[10px]', 'bg-brand-50 font-medium text-brand' => $view === 'funnel', 'text-zinc-500' => $view !== 'funnel'])
+                @class(['flex min-h-(--control-height) items-center gap-2 px-3 text-sm', 'bg-brand-50 font-medium text-brand' => $view === 'funnel', 'text-zinc-500' => $view !== 'funnel'])
             >
-                <x-app.icon name="rows" class="size-[22.5px]" />
+                <x-app.icon name="rows" class="size-5" />
                 {{ __('marketplace.listing.view.by_funnel') }}
             </button>
         </div>
@@ -183,7 +208,7 @@
 
     {{-- Filterfelder. Zugeklappt, solange nichts gesetzt ist. Der Funnel steht
          oben als Reiter und fehlt deshalb hier. --}}
-    <div x-ref="filters" @if ($activeFilterCount === 0) hidden @endif class="mb-[12px] grid gap-[12px] sm:grid-cols-3">
+    <div x-ref="filters" @if ($activeFilterCount === 0) hidden @endif class="mb-3 grid gap-3 sm:grid-cols-3">
         <div>
             <label for="filter-region" class="block text-sm text-zinc-500 mb-1">{{ __('marketplace.listing.filters.region') }}</label>
             <select id="filter-region" wire:model.live="region" class="input">
@@ -211,49 +236,61 @@
         </div>
     </div>
 
-    <p class="mb-[12px] flex items-center gap-[6px] text-[16.2px] text-zinc-500">
-        <x-app.icon name="lock" class="size-[18px]" />
+    <p class="mb-3 flex items-center gap-1.5 text-sm text-zinc-500">
+        <x-app.icon name="lock" class="size-4" />
         {{ __('marketplace.listing.contact_after_purchase_sentence') }}
     </p>
 
     @if ($leads === [])
-        {{-- Leerer Zustand: gestrichelt, damit er nicht wie eine Karte aussieht. --}}
-        <div class="rounded-[16px] border border-dashed border-zinc-300 bg-white p-[40px] text-center text-zinc-500">
-            <b class="mb-[6px] block text-[19.8px] text-zinc-900">
-                {{ $funnelTabs[0]['active'] ?? true ? __('marketplace.listing.empty') : __('marketplace.listing.funnels.empty_title') }}
-            </b>
-            {{ $funnelTabs[0]['active'] ?? true ? __('marketplace.listing.empty_hint') : __('marketplace.listing.funnels.empty_text') }}
-        </div>
+        {{-- Leerer Zustand wie in jeder anderen Portalliste
+             (Gestaltungsleitfaden 3.3): derselbe Baustein, dasselbe Symbol.
+             Unter "Alle Funnels" ist gar nichts da, unter einem Reiter nur in
+             diesem Funnel nichts -- zwei Texte, eine Huelle. --}}
+        @php($allFunnels = $funnelTabs[0]['active'] ?? true)
+
+        <x-app.empty-state
+            icon="leads"
+            :title="$allFunnels ? __('marketplace.listing.empty') : __('marketplace.listing.funnels.empty_title')"
+            :description="$allFunnels ? __('marketplace.listing.empty_hint') : __('marketplace.listing.funnels.empty_text')"
+        />
     @else
         @if ($groups !== null)
             @foreach ($groups as $group)
                 <div wire:key="group-{{ $group['id'] }}">
-                    <h2 @class(['mb-[12px] flex items-center gap-[10px] text-[20.7px] font-semibold text-zinc-900', 'mt-[8px]' => $loop->first, 'mt-[28px]' => ! $loop->first])>
-                        <span class="grid size-[28px] place-items-center rounded-[8px] bg-brand-50 text-brand">
-                            <x-app.icon :name="$group['icon']" class="size-[18px]" />
+                    <h2 @class(['mb-3 flex items-center gap-2 text-lg font-semibold text-zinc-900', 'mt-2' => $loop->first, 'mt-6' => ! $loop->first])>
+                        <span class="grid size-7 place-items-center rounded-(--radius-control) bg-brand-50 text-brand">
+                            <x-app.icon :name="$group['icon']" class="size-4" />
                         </span>
                         {{ $group['name'] }}
-                        <span class="text-[17.1px] font-normal text-zinc-500">{{ $group['count'] }}</span>
+                        <span class="text-sm font-normal text-zinc-500">{{ $group['count'] }}</span>
                     </h2>
 
-                    <div class="flex flex-col gap-[12px]">
+                    <div class="flex flex-col gap-3">
                         @foreach ($group['cards'] as $lead)
-                            @include('livewire.portal.partials.marketplace-card', ['lead' => $lead])
+                            {{-- Die Tour erklaert genau eine Karte: die erste
+                                 im Bild. --}}
+                            @include('livewire.portal.partials.marketplace-card', [
+                                'lead' => $lead,
+                                'tourStep' => $loop->first && $loop->parent->first,
+                            ])
                         @endforeach
                     </div>
                 </div>
             @endforeach
         @else
-            <div class="flex flex-col gap-[12px]">
+            <div class="flex flex-col gap-3">
                 @foreach ($leads as $lead)
-                    @include('livewire.portal.partials.marketplace-card', ['lead' => $lead])
+                    @include('livewire.portal.partials.marketplace-card', [
+                        'lead' => $lead,
+                        'tourStep' => $loop->first,
+                    ])
                 @endforeach
             </div>
         @endif
 
         @if ($remaining > 0)
-            <div class="mt-[16px] text-center">
-                <button type="button" wire:click="loadMore" class="inline-flex min-h-[44px] items-center gap-[8px] whitespace-nowrap rounded-[12px] border border-zinc-200 bg-white px-[16px] py-[10px] text-zinc-900 hover:border-zinc-400">
+            <div class="mt-4 text-center">
+                <button type="button" wire:click="loadMore" class="btn-secondary">
                     {{ trans_choice('marketplace.listing.load_more', $nextBatch, ['count' => $nextBatch]) }}
                 </button>
             </div>

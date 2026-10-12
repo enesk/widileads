@@ -17,6 +17,7 @@ use App\Services\CallerIdService;
 use App\Services\CallNotPossible;
 use App\Services\CallService;
 use App\Services\Twilio\OutboundCallFailed;
+use App\Support\PortalCallerIdLock;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
@@ -277,27 +278,54 @@ class LeadCallPanel extends Component
      */
     public function blockedReason(): ?string
     {
+        $reason = $this->blockedReasonKey();
+
+        return $reason === null ? null : __('call.attempt.errors.'.$reason[0], $reason[1]);
+    }
+
+    /**
+     * Die Adresse der Rufnummernseite -- aber nur, wenn genau die fehlende
+     * Rufnummernanzeige der angezeigte Grund ist (Ticket #49). Dann wird aus
+     * dem grauen Satz eine Handlungsaufforderung; sonst bleibt er, wie er ist.
+     */
+    public function callerIdUrl(): ?string
+    {
+        if (($this->blockedReasonKey()[0] ?? null) !== 'caller_id_missing') {
+            return null;
+        }
+
+        return route(PortalCallerIdLock::ALLOWED_ROUTE, ['tenant' => $this->tenant()->uuid]);
+    }
+
+    /**
+     * Derselbe Grund als Schluessel, damit die Oberflaeche einen einzelnen
+     * davon erkennen kann, ohne uebersetzte Saetze zu vergleichen.
+     *
+     * @return array{0: string, 1: array<string, string>}|null
+     */
+    private function blockedReasonKey(): ?array
+    {
         if (! $this->lead()->isOpen()) {
-            return __('call.attempt.errors.lead_resolved');
+            return ['lead_resolved', []];
         }
 
         if ($this->runningAttempt() !== null) {
-            return __('call.attempt.errors.already_running');
+            return ['already_running', []];
         }
 
         $user = $this->viewer();
         $callerId = $user instanceof User ? app(CallerIdService::class)->forUser($user) : null;
 
         if ($callerId === null || ! $callerId->isUsableAsCallerId()) {
-            return __('call.attempt.errors.caller_id_missing');
+            return ['caller_id_missing', []];
         }
 
         $nextAllowedAt = $this->nextAllowedAt();
 
         if ($nextAllowedAt !== null) {
-            return __('call.attempt.errors.too_soon', [
+            return ['too_soon', [
                 'time' => $nextAllowedAt->timezone(config('app.timezone'))->format('H:i'),
-            ]);
+            ]];
         }
 
         return null;

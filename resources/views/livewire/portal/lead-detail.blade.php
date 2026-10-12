@@ -16,6 +16,21 @@
     das Portal wuerde nur Gebuehren kosten.
 --}}
 <div @if ($this->shouldPoll()) wire:poll.5s="refreshStatus" @endif>
+    @php
+        /*
+         | Der zweite Halt der gefuehrten Tour (LP-ONBOARD-013). Als Attributbuendel
+         | und nicht zweimal im Markup: Den Knopf "Jetzt anrufen" gibt es in zwei
+         | Fassungen (Bridge-Anruf oder tel:-Verweis), und zwei Kopien derselben
+         | Marke laufen beim naechsten Umbau auseinander.
+         */
+        $tourCall = new Illuminate\View\ComponentAttributeBag([
+            'data-tour' => 'lead_detail:2',
+            'data-tour-title' => __('tour.lead_detail.call.title'),
+            'data-tour-text' => __('tour.lead_detail.call.text'),
+            'data-tour-side' => 'bottom',
+            'data-tour-align' => 'end',
+        ]);
+    @endphp
 
     @if ($notice !== null)
         <div role="status" class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -61,14 +76,18 @@
 
             {{-- Ist die Nummer frei, waehlt der Kaeufer selbst. Ein Anruf
                  ueber die Bridge kostet Gebuehren und aendert nichts mehr:
-                 Mit der Freigabe steht die Erreichbarkeit fest. --}}
+                 Mit der Freigabe steht die Erreichbarkeit fest.
+
+                 Beide Zweige tragen denselben Halt der Tour: Welcher von beiden
+                 im Dokument steht, haengt an der Freigabe -- die Tour soll in
+                 jedem Fall den Weg zum Anruf zeigen. --}}
             @if ($phoneLink !== null)
-                <a href="{{ $phoneLink }}" class="btn-primary">
+                <a href="{{ $phoneLink }}" class="btn-primary" {{ $tourCall }}>
                     <x-app.icon name="phone" />
                     <span class="tabular-nums">{{ $phone }}</span>
                 </a>
             @else
-                <button type="button" class="btn-primary" wire:click="startCall" @disabled(! $canCall) @if (! $canCall) title="{{ $blockedReason }}" @endif>
+                <button type="button" class="btn-primary" wire:click="startCall" @disabled(! $canCall) @if (! $canCall) title="{{ $blockedReason }}" @endif {{ $tourCall }}>
                     <x-app.icon name="phone" />
                     {{ __('marketplace.purchased.portal.deadline.call') }}
                 </button>
@@ -84,7 +103,14 @@
                 <h2 class="text-lg font-semibold text-zinc-900">{{ __('marketplace.purchased.portal.contact') }}</h2>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div class="rounded-xl bg-zinc-50 border border-zinc-200 p-4">
+                    <div
+                        class="rounded-xl bg-zinc-50 border border-zinc-200 p-4"
+                        data-tour="lead_detail:1"
+                        data-tour-title="{{ __('tour.lead_detail.contact.title') }}"
+                        data-tour-text="{{ __('tour.lead_detail.contact.text') }}"
+                        data-tour-side="bottom"
+                        data-tour-align="start"
+                    >
                         <p class="text-sm text-zinc-500 flex items-center gap-2">
                             <x-app.icon name="lock" class="size-4 shrink-0" />
                             {{ __('leads.contact.phone') }}
@@ -169,7 +195,14 @@
 
             {{-- Das Herzstueck: was mit Frist und Geld passiert, und was der
                  naechste Schritt daran aendert. --}}
-            <section @class(['card p-5', 'border-amber-200' => $deadlineToday && ! $deadlinePassed])>
+            <section
+                @class(['card p-5', 'border-amber-200' => $deadlineToday && ! $deadlinePassed])
+                data-tour="lead_detail:3"
+                data-tour-title="{{ __('tour.lead_detail.deadline.title') }}"
+                data-tour-text="{{ __('tour.lead_detail.deadline.text') }}"
+                data-tour-side="left"
+                data-tour-align="start"
+            >
                 <h2 class="text-sm font-medium text-zinc-500">{{ __('marketplace.purchased.portal.deadline.heading') }}</h2>
 
                 <p class="mt-1 text-2xl font-semibold text-zinc-900 tabular-nums">
@@ -227,6 +260,22 @@
 
                 @if ($callingHint !== null)
                     <p class="mt-3 text-sm text-zinc-500">{{ $callingHint }}</p>
+                @elseif ($blockedReason !== null && $callerIdUrl !== null)
+                    {{-- Fehlt die eigene Rufnummernanzeige, ist das kein
+                         Zustandssatz, sondern eine Aufgabe: Seit die
+                         Caller-Id-Sperre entfallen ist (Ticket #49), erfaehrt
+                         der Kaeufer es hier -- also steht der Weg dorthin
+                         daneben. Kein Tooltip am Knopf: Auf dem Telefon gibt es
+                         keinen Hover. --}}
+                    <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                        <p>{{ $blockedReason }}</p>
+                        {{-- min-h-11 = 44 px: py-2 plus Zeilenhoehe ergibt nur 36 px, und der
+                             Link ist auf dem Telefon die eigentliche Handlung. --}}
+                        <a href="{{ $callerIdUrl }}" class="inline-flex items-center gap-1 min-h-11 py-2 text-sm text-brand hover:underline">
+                            {{ __('portal.dashboard.caller_id.verify') }}
+                            <x-app.icon name="arrow-right" class="size-4 shrink-0" />
+                        </a>
+                    </div>
                 @elseif ($blockedReason !== null)
                     <p class="mt-3 text-sm text-zinc-500">{{ $blockedReason }}</p>
                 @endif
@@ -237,7 +286,13 @@
                         <span class="tabular-nums">{{ $phone }}</span>
                     </a>
                 @else
-                    <button type="button" class="btn-primary w-full mt-4" wire:click="startCall" @disabled(! $canCall)>
+                    <button
+                        type="button"
+                        class="btn-primary w-full mt-4"
+                        wire:click="startCall"
+                        @disabled(! $canCall)
+                        @if (! $canCall) aria-disabled="true" @endif
+                    >
                         <x-app.icon name="phone" />
                         {{ __('marketplace.purchased.portal.deadline.call') }}
                     </button>
@@ -250,7 +305,15 @@
                 </a>
             </section>
 
-            <section class="card p-5" id="anrufe">
+            <section
+                class="card p-5"
+                id="anrufe"
+                data-tour="lead_detail:4"
+                data-tour-title="{{ __('tour.lead_detail.history.title') }}"
+                data-tour-text="{{ __('tour.lead_detail.history.text') }}"
+                data-tour-side="left"
+                data-tour-align="start"
+            >
                 <h2 class="text-lg font-semibold text-zinc-900">{{ __('marketplace.purchased.portal.calls.heading') }}</h2>
 
                 @if ($attempts === [])

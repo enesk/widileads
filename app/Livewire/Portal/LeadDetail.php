@@ -26,6 +26,7 @@ use App\Services\LeadComplaintService;
 use App\Services\PhoneReleaseRule;
 use App\Services\Twilio\OutboundCallFailed;
 use App\Support\Money;
+use App\Support\PortalCallerIdLock;
 use App\Support\PostpaidTerms;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -157,6 +158,11 @@ class LeadDetail extends Component
             'nextAllowedAt' => $nextAllowedAt,
             'canCall' => $this->blockedReason() === null,
             'blockedReason' => $this->blockedReason(),
+            // Fehlt die eigene Rufnummernanzeige, bleibt der Satz nicht allein
+            // stehen: Seit die Caller-Id-Sperre entfallen ist (Ticket #49), ist
+            // das Lead-Detail die Stelle, an der ein Kaeufer davon erfaehrt --
+            // also gehoert der Weg dorthin daneben.
+            'callerIdUrl' => $this->callerIdUrlForBlockedReason(),
             'callingHint' => $this->callingHint(),
             'isOpen' => $lead->isOpen(),
             // Der Preis, den dieser Kaeufer traegt: bei Pay as you go der
@@ -604,29 +610,56 @@ class LeadDetail extends Component
      */
     private function blockedReason(): ?string
     {
+        $reason = $this->blockedReasonKey();
+
+        return $reason === null ? null : __('call.attempt.errors.'.$reason[0], $reason[1]);
+    }
+
+    /**
+     * Die Adresse der Rufnummernseite -- aber nur, wenn genau die fehlende
+     * Rufnummernanzeige der angezeigte Grund ist.
+     */
+    private function callerIdUrlForBlockedReason(): ?string
+    {
+        if (($this->blockedReasonKey()[0] ?? null) !== 'caller_id_missing') {
+            return null;
+        }
+
+        return route(PortalCallerIdLock::ALLOWED_ROUTE, ['tenant' => $this->portalTenant()->uuid]);
+    }
+
+    /**
+     * Derselbe Grund als Schluessel, damit die Oberflaeche einen einzelnen
+     * davon erkennen kann, ohne uebersetzte Saetze zu vergleichen (Ticket #49:
+     * bei `caller_id_missing` steht statt der grauen Zeile der Weg zur Loesung).
+     *
+     * @return array{0: string, 1: array<string, string>}|null
+     */
+    private function blockedReasonKey(): ?array
+    {
         $lead = $this->purchase()->lead;
 
         if (! $lead->isOpen()) {
-            return __('call.attempt.errors.lead_resolved');
+            return ['lead_resolved', []];
         }
 
         if ($this->runningAttempt() !== null) {
-            return __('call.attempt.errors.already_running');
+            return ['already_running', []];
         }
 
         $user = $this->portalUser();
         $callerId = $user instanceof User ? app(CallerIdService::class)->forUser($user) : null;
 
         if ($callerId === null || ! $callerId->isUsableAsCallerId()) {
-            return __('call.attempt.errors.caller_id_missing');
+            return ['caller_id_missing', []];
         }
 
         $nextAllowedAt = $this->nextAllowedAt();
 
         if ($nextAllowedAt !== null) {
-            return __('call.attempt.errors.too_soon', [
+            return ['too_soon', [
                 'time' => $nextAllowedAt->timezone(config('app.timezone'))->format('H:i'),
-            ]);
+            ]];
         }
 
         return null;

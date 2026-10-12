@@ -35,6 +35,14 @@
         </div>
     @endif
 
+    {{-- Die Aktivierungskarte steht ueber den Kennzahlen und damit auf dem
+         Telefon als erstes Element (LP-ONBOARD-012). Sie zeigt sich selbst
+         nur, solange sie etwas zu sagen hat -- wer seinen ersten Anruf
+         gefuehrt hat, sieht sie einmal im Abschluss-Zustand und danach nie
+         wieder. Kennzahlen stehen bewusst darunter: Statistik hilft niemandem,
+         der noch keinen Lead gekauft hat. --}}
+    @livewire('portal.onboarding-card')
+
     {{-- Bei Pay as you go tritt der offene Betrag samt Kreditrahmen an die
          Stelle der Guthabenkarte: "Verfuegbar" allein verschwiege, dass am
          naechsten Einzugstermin abgebucht wird (LP-POSTPAID-010). --}}
@@ -210,7 +218,11 @@
 
         </div>
 
-        <aside class="space-y-4">
+        {{-- flex statt space-y-4: Im missing-Fall zieht `order-first` die
+             Rufnummernkarte nach oben (Ticket #49), und `gap` haelt die
+             Abstaende dabei richtig -- space-y-* haengt am DOM und nicht an der
+             sichtbaren Reihenfolge. --}}
+        <aside class="flex flex-col gap-4">
 
             <section class="card p-5">
                 <h2 class="text-sm font-medium text-zinc-500">{{ __('portal.dashboard.criteria.heading') }}</h2>
@@ -261,11 +273,16 @@
                 <a href="{{ $urls['transactions'] }}" class="block text-sm text-brand hover:underline mt-3">{{ __('portal.dashboard.activity.all') }}</a>
             </section>
 
-            <section class="card p-5">
+            {{-- Ohne nutzbare Nummer ist das keine Information, sondern der
+                 Zustand, der einen Kauf wertlos macht: Seit Ticket #49 haelt
+                 keine Sperre den Kaeufer mehr davon ab, vorher zu kaufen.
+                 Deshalb Warnrahmen wie auf der Fristenkarte -- und die Karte
+                 steht als erste ihrer Spalte, auf dem Telefon also oben. --}}
+            <section @class(['card p-5', 'border-amber-200 order-first' => $callerId === null])>
                 <h2 class="text-sm font-medium text-zinc-500">{{ __('portal.dashboard.caller_id.heading') }}</h2>
 
                 @if ($callerId === null)
-                    <p class="mt-2 text-sm text-zinc-700">{{ __('portal.dashboard.caller_id.missing') }}</p>
+                    <p class="mt-2 text-sm text-amber-900">{{ __('portal.dashboard.caller_id.missing') }}</p>
                     <a href="{{ $urls['callerId'] }}" class="inline-flex items-center gap-1 text-sm text-brand hover:underline mt-3">
                         {{ __('portal.dashboard.caller_id.verify') }}
                         <x-app.icon name="arrow-right" class="size-4 shrink-0" />
