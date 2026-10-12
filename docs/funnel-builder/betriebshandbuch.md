@@ -183,7 +183,7 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 | `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
 | `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
 | `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
-| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:check-call-setup --production` ohne FEHLER laeuft **und** `call_attempts` mindestens eine Zeile hat (Ticket #76) — am 2026-10-12 dreimal gemessen (Tickets #76, #85): beides nicht erfuellt, und live hat **kein einziges Konto eine bestaetigte Rufnummer** — damit kann niemand das Anrufpanel ueberhaupt oeffnen |
+| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:cutover-status` ohne FEHLER laeuft (Ticket #94: check-call-setup --production ohne FEHLER, mindestens eine Zeile in `call_attempts`, mindestens ein Konto mit bestaetigter Rufnummer) — am 2026-10-12 dreimal gemessen (Tickets #76, #85): nichts davon erfuellt, und live hat **kein einziges Konto eine bestaetigte Rufnummer** — damit kann niemand das Anrufpanel ueberhaupt oeffnen |
 
 ### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
 
@@ -437,9 +437,11 @@ hinterher.
 
 Die dritte Zeile ist das eigentliche Kriterium: Solange es keinen einzigen Anrufversuch
 gibt, gibt es auch keinen „ersten Tag, an dem das Anrufpanel erreichbar war", und jedes
-Datum wäre geraten. **Deshalb bleibt der Wert leer, solange eine der beiden messbaren
-Bedingungen fehlt: `leads:check-call-setup --production` ohne FEHLER, und mindestens eine
-Zeile in `call_attempts`.** Der Ticketstand von #75 ist dafür kein
+Datum wäre geraten. **Deshalb bleibt der Wert leer, solange eine der drei messbaren
+Vorbedingungen fehlt: `leads:check-call-setup --production` ohne FEHLER, mindestens eine
+Zeile in `call_attempts`, mindestens ein Konto mit bestätigter Rufnummer.** Alle drei
+zusammen misst `leads:cutover-status` (Ticket #94, siehe „Reihenfolge beim
+Scharfstellen"). Der Ticketstand von #75 ist dafür kein
 Ersatz — #75 ist geschlossen, sobald der Agentenanteil gemessen und dokumentiert ist,
 die gekaufte Nummer kommt erst mit der Betreiber-Sitzung.
 
@@ -490,50 +492,58 @@ Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfol
 
 #### Reihenfolge beim Scharfstellen
 
-1. `leads:check-call-setup --production` läuft ohne FEHLER (Portal-Nummer gekauft, Bundle freigegeben).
-2. Ersten Tag mit einem echten Anrufversuch feststellen:
-   ```bash
-   sudo -u leads /usr/bin/php8.4 artisan tinker --execute \
-     'echo DB::table("call_attempts")->min("created_at"), PHP_EOL;'
-   ```
-   Dieses Datum (Europe/Berlin, Form `YYYY-MM-DD`) ist der Cutover.
-3. `LEAD_CALLS_ENFORCE_FROM="<Datum>"` in die Live-`.env`, dann `optimize:clear` +
-   `optimize` und `systemctl restart horizon-widileads`.
-4. **Trockenlauf vor dem ersten 03:00-Lauf** — zählen, was `leads:resolve-expired`
-   greifen würde, und was das in Geld heißt:
-   ```bash
-   sudo -u leads /usr/bin/php8.4 artisan tinker --execute '
-   $von = config("lead_calls.enforce_from");
-   $f = App\Models\Lead::query()->withoutGlobalScopes(App\Models\Scopes\TenantScopes::names())
-     ->where("contact_status", "open")
-     ->whereNotIn("lead_state", App\Services\LeadResolver::undecidableStates())
-     ->whereNotNull("deadline_at")->where("deadline_at","<=",now())
-     ->whereNotNull("delivered_at")->where("delivered_at",">=",$von)->pluck("id");
-   echo "Leads: ", $f->count(), " -> ", $f->toJson(), PHP_EOL;
-   $k = DB::table("lead_purchases")->whereIn("lead_id",$f)->where("status","reserved")->get(["id","lead_id","buyer_tenant_id","price_cents"]);
-   echo "Kaeufe: ", $k->count(), ", Summe ", $k->sum("price_cents")/100, " EUR", PHP_EOL, $k->toJson(), PHP_EOL;'
-   ```
+Den Stand aller Vorbedingungen misst **ein Befehl** (Ticket #94) — er ersetzt die beiden
+`tinker`-Blocks, die hier früher standen:
+
+```bash
+sudo -u leads /usr/bin/php8.4 artisan leads:cutover-status
+```
+
+Er zeigt in einer Tabelle:
+
+1. **Einrichtung des Anrufwegs** — er ruft `leads:check-call-setup --production`
+   selbst auf (stumm) und übernimmt dessen Urteil; Einzelbefunde liefert ein eigener
+   Aufruf von `leads:check-call-setup --production`. Mit `--skip-setup-check` bleibt die
+   Twilio-Abfrage aus.
+2. **Erster echter Anrufversuch** — Zeilen in `call_attempts` samt `min(created_at)`
+   als Vorschlag für das Cutover-Datum.
+3. **Konto mit bestätigter Rufnummer** — ohne ein Konto mit
+   `users.phone_number_verified_at` sperrt `EnsurePhoneVerified` jeden angemeldeten
+   Screen, und das Anrufpanel ist für niemanden erreichbar (Ticket #85: live 0 von 4).
+4. **Frühestes zulässiges Datum** — ein Tag nach der letzten Auslieferung eines Leads
+   mit offener Reservierung. Ein Cutover darunter rechnet Leads ab, zu denen kein
+   Anrufversuch existiert.
+5. **Trockenlauf** — was `leads:resolve-expired` mit diesem Cutover greifen würde:
+   Leads, Kaufbelege in Reservierung und Geldsumme. Das Datum kommt aus `--date=`,
+   ersatzweise aus dem gesetzten `LEAD_CALLS_ENFORCE_FROM`, ersatzweise aus Punkt 2.
+   Mit `--at=` wird gegen einen anderen Stichtag gerechnet — so beantwortet man „was
+   greift der erste Lauf **nach** Fristablauf?", statt nur den heutigen Stand zu sehen.
+
+Der Trockenlauf rechnet gegen `ResolveExpiredLeads::expiredLeadsQuery()` selbst
+(`app/Console/Commands/ResolveExpiredLeads.php`) — dieselbe Methode, die der
+03:00-Lauf benutzt. Die Bedingung steht damit an **einer** Stelle: ohne
+Mandanten-Scopes, `contact_status = open`, `lead_state` nicht in
+`LeadResolver::undecidableStates()`, `deadline_at <= Stichtag`,
+`delivered_at >= enforce_from`; leerer Cutover ⇒ `1 = 0`. Hier ist nichts mehr
+nachzuziehen, wenn sich die Bedingung ändert.
+
+`erreicht` steht bewusst **nicht** in dieser Ausschlussmenge: Diesen Zustand setzt
+`app:settle-elapsed-complaint-periods` um 01:00 nach Ablauf der Reklamationsfrist,
+abgebucht wird der Kaufpreis aber erst durch das `LeadResolved` des 03:00-Laufs. Würde
+`erreicht` mit ausgeklammert, bliebe die Reservierung für immer stehen und
+`wallet:verify` liefe auf eine Differenz.
+
+Die Sitzung selbst:
+
+1. `leads:cutover-status` läuft ohne FEHLER (Vorbedingungen 1 bis 3).
+2. Datum wählen: der Vorschlag aus Punkt 2, nie früher als Punkt 4.
+3. Trockenlauf mit genau diesem Datum ansehen:
+   `leads:cutover-status --date=<Datum> --at=<Datum des ersten Laufs nach Fristablauf>`.
    Jeder Treffer wird nachts als `billable`/`deadline` abgerechnet. Kommt etwas
    Unerwartetes vor, erst den Cutover später legen, dann abrechnen — nie umgekehrt.
-
-   Die Abfrage ist absichtlich wortgleich mit der Trefferbedingung des Befehls
-   (`ResolveExpiredLeads::expiredLeads()`, `app/Console/Commands/ResolveExpiredLeads.php:85`:
-   ohne Mandanten-Scopes, `contact_status = open`, `lead_state` nicht in
-   `LeadResolver::undecidableStates()`, `deadline_at <= now()`,
-   `delivered_at >= enforce_from`; leerer Cutover ⇒ `1 = 0`) — gegengeprüft am
-   2026-10-12, Klammer auf `lead_state` nachgezogen am 2026-10-12 (Ticket #92:
-   eine anerkannte Reklamation wechselt den Lead nach `ungueltig`/`unerreichbar`
-   und gibt das Geld zurück, lässt `contact_status` aber auf `open` stehen — er
-   würde sonst mitgezählt und als abgerechnet geführt). Wird eine der beiden
-   Seiten geändert, die andere mitändern, sonst zählt der Trockenlauf etwas
-   anderes als der Lauf abrechnet.
-
-   `erreicht` steht bewusst **nicht** in dieser Ausschlussmenge: Diesen Zustand
-   setzt `app:settle-elapsed-complaint-periods` um 01:00 nach Ablauf der
-   Reklamationsfrist, abgebucht wird der Kaufpreis aber erst durch das
-   `LeadResolved` des 03:00-Laufs. Würde `erreicht` mit ausgeklammert, bliebe
-   die Reservierung für immer stehen und `wallet:verify` liefe auf eine
-   Differenz.
+4. `LEAD_CALLS_ENFORCE_FROM="<Datum>"` in die Live-`.env`, dann `optimize:clear` +
+   `optimize` und `systemctl restart horizon-widileads`. Danach denselben Befehl noch
+   einmal ohne `--date` — er rechnet jetzt gegen den gesetzten Wert.
 5. Nach dem ersten Lauf `wallet:verify` und die Zeile „Fristablauf abgearbeitet" im Log
    gegenprüfen.
 

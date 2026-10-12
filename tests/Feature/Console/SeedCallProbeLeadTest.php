@@ -141,6 +141,83 @@ class SeedCallProbeLeadTest extends FeatureTest
     }
 
     /**
+     * Ticket #93: Die Telefonsperre steht vor dem Anrufpanel. Ist
+     * `phone_number_verified_at` offen, darf kein Uebungs-Lead entstehen --
+     * sonst laeuft dessen Frist, waehrend der Kaeufer nicht hineinkommt.
+     */
+    public function test_it_refuses_when_the_calling_user_has_no_verified_phone(): void
+    {
+        $scene = $this->scene(callerIdNumber: '+4930111222333', phoneVerified: false);
+
+        $this->artisan('leads:call-probe', $scene['options'])->assertExitCode(1);
+
+        $this->assertSame(0, $this->probeLeads()->count());
+        $this->assertSame(0, LeadPurchase::query()->withoutGlobalScopes()->count());
+    }
+
+    /**
+     * Ticket #93: Ist die Rufnummernanzeige des Nutzers die Portal-Nummer,
+     * waehlt CallService From gleich To und Twilio weist ab. Der Uebungs-Lead
+     * darf dafuer nicht angelegt werden.
+     */
+    public function test_it_refuses_when_the_caller_id_equals_the_platform_number(): void
+    {
+        $scene = $this->scene(callerIdNumber: '+493012345678');
+
+        $this->artisan('leads:call-probe', $scene['options'])->assertExitCode(1);
+
+        $this->assertSame(0, $this->probeLeads()->count());
+        $this->assertSame(0, LeadPurchase::query()->withoutGlobalScopes()->count());
+    }
+
+    /**
+     * Der vollstaendige Aufbau eines gelingenden Laufs -- Verkaeufer, Funnel,
+     * Kaeufer samt Guthaben, Admin fuer den Zwangswechsel.
+     *
+     * @return array{user: User, buyer: Tenant, options: array<string, string>}
+     */
+    private function scene(string $callerIdNumber, bool $phoneVerified = true): array
+    {
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => 1500,
+        ]);
+
+        $funnel = Funnel::factory()->published()->forTenant($operator)->create();
+
+        $buyer = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
+        $user = $this->createUser($buyer, [], [
+            'email' => 'probe@widimedia.com',
+            'phone_number_verified_at' => $phoneVerified ? now() : null,
+        ]);
+
+        CallerId::factory()->verified()->create([
+            'tenant_id' => $buyer->getKey(),
+            'user_id' => $user->getKey(),
+            'phone_number' => $callerIdNumber,
+        ]);
+
+        User::factory()->create(['is_admin' => true]);
+
+        app(WalletService::class)->post(
+            wallet: Wallet::forBuyer($buyer),
+            type: WalletTransactionType::TOPUP,
+            amountCents: 5000,
+            description: 'Aufladung',
+        );
+
+        return [
+            'user' => $user,
+            'buyer' => $buyer,
+            'options' => [
+                '--to' => '+4915112345678',
+                '--buyer' => $user->email,
+                '--funnel' => (string) $funnel->getKey(),
+            ],
+        ];
+    }
+
+    /**
      * @return Builder<Lead>
      */
     private function probeLeads()

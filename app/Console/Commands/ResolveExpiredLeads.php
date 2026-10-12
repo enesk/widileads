@@ -65,6 +65,16 @@ class ResolveExpiredLeads extends Command
      * Die faelligen Leads: offen, noch nicht in einem Endzustand, Frist
      * abgelaufen, vom Regelwerk erfasst.
      *
+     * @return Builder<Lead>
+     */
+    private function expiredLeads(): Builder
+    {
+        return self::expiredLeadsQuery((string) config('lead_calls.enforce_from'));
+    }
+
+    /**
+     * Die Trefferbedingung des Fristablaufs, abfragbar ohne den Lauf.
+     *
      * Ohne Mandanten-Scopes, weil der Lauf ohne Kaeuferkontext auf der Konsole
      * stattfindet -- mit Scope faende er nichts.
      *
@@ -80,18 +90,23 @@ class ResolveExpiredLeads extends Command
      * Auswertung auf der falschen Seite gezaehlt. Welche Zustaende das sind,
      * steht im LeadResolver -- `erreicht` gehoert ausdruecklich nicht dazu.
      *
+     * Ticket #94: Die Methode ist statisch und nimmt Cutover und Stichtag als
+     * Parameter, damit `leads:cutover-status` den Trockenlauf gegen genau diese
+     * Bedingung rechnet, statt sie abzuschreiben. Wird hier etwas geaendert,
+     * aendert sich der Trockenlauf mit.
+     *
+     * @param  string|null  $enforceFrom  Cutover; leer heisst Regelwerk aus
+     * @param  Carbon|null  $at  Stichtag des Laufs; Vorgabe ist jetzt
      * @return Builder<Lead>
      */
-    private function expiredLeads(): Builder
+    public static function expiredLeadsQuery(?string $enforceFrom, ?Carbon $at = null): Builder
     {
         $query = Lead::query()
             ->withoutGlobalScopes(TenantScopes::names())
             ->where('contact_status', LeadContactStatus::OPEN)
             ->whereNotIn('lead_state', LeadResolver::undecidableStates())
             ->whereNotNull('deadline_at')
-            ->where('deadline_at', '<=', now());
-
-        $enforceFrom = config('lead_calls.enforce_from');
+            ->where('deadline_at', '<=', $at ?? now());
 
         // Ohne Cutover ist das Regelwerk aus und der Lauf findet nichts --
         // besser als der Gegenfall, in dem eine fehlende Zeile in der `.env`
@@ -101,6 +116,6 @@ class ResolveExpiredLeads extends Command
         }
 
         return $query->whereNotNull('delivered_at')
-            ->where('delivered_at', '>=', Carbon::parse((string) $enforceFrom));
+            ->where('delivered_at', '>=', Carbon::parse($enforceFrom));
     }
 }

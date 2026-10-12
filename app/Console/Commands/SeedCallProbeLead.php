@@ -545,6 +545,11 @@ class SeedCallProbeLead extends Command
     /**
      * Dieselben Bedingungen, die CallService::start() prueft -- damit der
      * Betreiber nicht erst am Anruf-Knopf merkt, dass etwas fehlt.
+     *
+     * Die Telefonsperre und From==To (#93) gehoeren dazu, obwohl CallService
+     * sie nicht selbst prueft: Die Sperre steht als Middleware vor dem
+     * Anrufpanel, und From==To weist Twilio beim Waehlen ab -- beide halten den
+     * Probeanruf auf, nachdem der Uebungs-Lead schon offen steht.
      */
     private function assertCallSetup(?User $user): void
     {
@@ -558,10 +563,22 @@ class SeedCallProbeLead extends Command
         );
 
         if ($user === null) {
+            $this->pending('Telefon des Anrufenden', 'erst muss --buyer aufgeloest sein');
             $this->pending('Rufnummernanzeige', 'erst muss --buyer aufgeloest sein');
+            $this->pending('Absender ungleich Rufnummernanzeige', 'erst muss --buyer aufgeloest sein');
 
             return;
         }
+
+        // Die bestaetigte Caller-Id allein genuegt nicht: EnsurePhoneVerified
+        // (#3) haengt an users.phone_number_verified_at und sperrt jeden
+        // eingeloggten Screen, also auch das Anrufpanel.
+        $this->assert(
+            'Telefon des Anrufenden',
+            $user->phone_number_verified_at !== null,
+            'Fuer "'.$user->email.'" ist die Rufnummernbestaetigung offen -- im Portal nachholen, sonst sperrt EnsurePhoneVerified das Anrufpanel.',
+            'bestaetigt am '.$user->phone_number_verified_at?->format('d.m.Y H:i'),
+        );
 
         $callerId = $this->callerIds->forUser($user);
 
@@ -572,6 +589,23 @@ class SeedCallProbeLead extends Command
                 ? 'Fuer "'.$user->email.'" ist keine Rufnummer bestaetigt -- im Portal unter "Eigene Rufnummer". Pruefen mit: php artisan leads:check-call-setup --user='.$user->email
                 : 'Die Rufnummer '.$callerId->phone_number.' hat den Stand "'.$callerId->status->value.'" -- nutzbar ist nur eine bestaetigte. Pruefen mit: php artisan leads:check-call-setup --user='.$user->email,
             (string) $callerId?->phone_number.' bestaetigt',
+        );
+
+        if ($callerId === null) {
+            $this->pending('Absender ungleich Rufnummernanzeige', 'erst muss eine Rufnummernanzeige stehen');
+
+            return;
+        }
+
+        // CallService::start() waehlt die Caller-Id des Mitarbeiters von der
+        // Portal-Nummer aus (CallService.php:144). Sind beide gleich, weist
+        // Twilio den Anruf ab und der Versuch landet in FAILED_IGNORED.
+        $this->assert(
+            'Absender ungleich Rufnummernanzeige',
+            $platformNumber === '' || $callerId->phone_number !== $platformNumber,
+            'Portal-Nummer und Rufnummernanzeige sind beide '.$platformNumber
+                .' -- Twilio laesst From gleich To nicht zu. Einen Nutzer mit anderer Rufnummernanzeige waehlen oder die gekaufte Nummer als TWILIO_FROM setzen.',
+            $platformNumber.' waehlt '.$callerId->phone_number,
         );
     }
 
