@@ -71,6 +71,11 @@ info:
     Liste steht unter der Erweiterung `x-abilities` am Ende dieses Dokuments
     und entspricht `App\Constants\TenantApiAbility`.
 
+    Die Berechtigung allein genuegt nicht ueberall: Endpunkte mit
+    Lead-Kontaktdaten verlangen zusaetzlich, dass mindestens ein Mitglied des
+    Workspaces eine bestaetigte Rufnummer hat -- sonst `403` mit
+    `/problems/phone-unverified` (LP-ONBOARD-027).
+
     ## Kontaktdaten von Leads
 
     Vor dem Kauf eines Leads sind seine Kontaktdaten maskiert, nach dem Kauf im
@@ -1226,6 +1231,9 @@ paths:
         Kaufstatus - nicht der Client, und nicht ueber einen Parameter. Eine
         Liste kann beide Auspraegungen mischen: gekaufte Leads im Klartext, die
         uebrigen maskiert.
+
+        **Telefonhuerde:** Ohne eine bestaetigte Rufnummer im Workspace
+        antwortet der Endpunkt mit 403 und `/problems/phone-unverified`.
       x-status: implemented
       x-ticket: FB-030d
       x-required-abilities: ['leads:read']
@@ -1319,7 +1327,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/LeadsForbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -1335,7 +1343,9 @@ paths:
       description: |
         Ein einzelner Lead. Fuer die Maskierung gilt dasselbe wie bei
         `GET /leads`: Der Server entscheidet, ob `LeadMasked` oder `LeadFull`
-        ausgeliefert wird.
+        ausgeliefert wird. Es gilt dieselbe Telefonhuerde: ohne
+        bestaetigte Rufnummer im Workspace 403 mit
+        `/problems/phone-unverified`.
       x-status: implemented
       x-ticket: FB-030d
       x-required-abilities: ['leads:read']
@@ -1353,7 +1363,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          $ref: '#/components/responses/LeadsForbidden'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -2176,6 +2186,35 @@ components:
                 title: Berechtigung fehlt
                 status: 403
                 detail: Dieses Token traegt die Berechtigung "funnels:write" nicht.
+
+    LeadsForbidden:
+      description: |
+        Das Token traegt nicht die verlangte Berechtigung - oder die
+        Telefonhuerde ist nicht genommen: Lead-Daten gibt die API erst heraus,
+        wenn mindestens ein Mitglied des Workspaces eine bestaetigte Rufnummer
+        hat (LP-ONBOARD-027). Beides ist ein 403; unterscheidbar sind sie am
+        `type`. Die Pruefung laeuft bei jeder Anfrage frisch gegen die
+        Mitglieder, ein Zuruecksetzen der Bestaetigung wirkt also auch auf
+        bestehende Tokens ab dem naechsten Request.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            fehlendeBerechtigung:
+              summary: Berechtigung fehlt
+              value:
+                type: /problems/insufficient-ability
+                title: Berechtigung fehlt
+                status: 403
+                detail: Dieses Token traegt die Berechtigung "leads:read" nicht.
+            rufnummerNichtBestaetigt:
+              summary: Telefonhuerde nicht genommen
+              value:
+                type: /problems/phone-unverified
+                title: Rufnummer nicht bestaetigt
+                status: 403
+                detail: In diesem Workspace hat kein Mitglied eine bestaetigte Rufnummer. Lead-Daten gibt die API erst danach heraus.
 
     NotFound:
       description: |

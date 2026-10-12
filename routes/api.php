@@ -159,7 +159,19 @@ Route::middleware([
 
         // FB-030d: Leads lesen. Die Maskierung entscheidet der Server je Lead
         // ueber Lead::contactFor() -- nicht der Client und nicht ein Parameter.
-        Route::middleware('ability:'.TenantApiAbility::LEADS_READ->value)->group(function () {
+        //
+        // LP-ONBOARD-027: Zusaetzlich die Telefonhuerde. Sie haengt genau hier
+        // und nicht an der ganzen v1-Gruppe, weil nur Lead-Daten davon
+        // betroffen sind -- /me und die Funnel-Endpunkte geben keine
+        // Kontaktdaten heraus. Geprueft wird auf Workspace-Ebene, weil das
+        // Token dem Tenant gehoert und nicht einem User; die Antwort ist ein
+        // 403 nach RFC 9457 statt einer Umleitung auf den Portal-Screen.
+        // Jeder kuenftige Endpunkt, der Lead-Kontaktdaten herausgibt, gehoert
+        // in diese Gruppe und traegt damit dieselbe Huerde.
+        Route::middleware([
+            'ability:'.TenantApiAbility::LEADS_READ->value,
+            'api.phone-verified',
+        ])->group(function () {
             Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
             Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('leads.show');
         });

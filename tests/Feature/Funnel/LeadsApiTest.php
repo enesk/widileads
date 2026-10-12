@@ -10,6 +10,7 @@ use App\Constants\TenantType;
 use App\Models\Lead;
 use App\Models\LeadAnswer;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\LeadPurchaseLookup;
 use Tests\Feature\FeatureTest;
 
@@ -26,9 +27,18 @@ class LeadsApiTest extends FeatureTest
 
     private const PHONE = '+493012345678';
 
+    /**
+     * Ein Workspace, der die Telefonhuerde der API genommen hat
+     * (LP-ONBOARD-027): mindestens ein Mitglied mit bestaetigter Rufnummer.
+     * In Tests ist die Bestaetigung die Vorgabe der UserFactory.
+     */
     private function operator(): Tenant
     {
-        return Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        $tenant = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+
+        $this->createUser($tenant);
+
+        return $tenant;
     }
 
     private function lead(Tenant $tenant): Lead
@@ -152,5 +162,52 @@ class LeadsApiTest extends FeatureTest
         $this->getJson('/api/v1/leads', ['Accept' => 'application/json'])
             ->assertUnauthorized()
             ->assertJsonPath('type', '/problems/unauthenticated');
+    }
+
+    public function test_lead_data_stays_closed_without_a_verified_phone_number_in_the_workspace(): void
+    {
+        $tenant = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+
+        // Das Mitglied gibt es, seine Nummer ist aber nicht bestaetigt --
+        // genau der Zustand nach einem Zuruecksetzen im Admin.
+        $this->createUser($tenant, attributes: ['phone_number_verified_at' => null]);
+
+        $lead = $this->lead($tenant);
+
+        $this->withExceptionHandling();
+        $headers = $this->headers($this->tokenFor($tenant));
+
+        foreach (['/api/v1/leads', '/api/v1/leads/'.$lead->uuid] as $url) {
+            $this->getJson($url, $headers)
+                ->assertForbidden()
+                ->assertHeader('Content-Type', 'application/problem+json')
+                ->assertJsonPath('type', '/problems/phone-unverified')
+                ->assertJsonPath('status', 403)
+                // Kein Redirect auf den Portal-Screen: Der waere fuer einen
+                // Maschinen-Aufrufer wertlos.
+                ->assertJsonMissingPath('redirect');
+        }
+    }
+
+    public function test_resetting_the_confirmation_closes_an_existing_token_on_the_next_request(): void
+    {
+        $tenant = $this->operator();
+        $lead = $this->lead($tenant);
+
+        $this->withExceptionHandling();
+
+        // Dasselbe Token vor und nach dem Zuruecksetzen -- es wird nicht
+        // widerrufen, die Pruefung laeuft bei jeder Anfrage frisch.
+        $headers = $this->headers($this->tokenFor($tenant));
+
+        $this->getJson('/api/v1/leads/'.$lead->uuid, $headers)->assertOk();
+
+        $tenant->users()->each(
+            static fn (User $member) => $member->forceFill(['phone_number_verified_at' => null])->save()
+        );
+
+        $this->getJson('/api/v1/leads/'.$lead->uuid, $headers)
+            ->assertForbidden()
+            ->assertJsonPath('type', '/problems/phone-unverified');
     }
 }

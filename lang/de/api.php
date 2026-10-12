@@ -25,6 +25,10 @@ return [
             'title' => 'Berechtigung fehlt',
             'detail' => 'Dieses Token trägt die verlangte Berechtigung nicht.',
         ],
+        'phone_unverified' => [
+            'title' => 'Rufnummer nicht bestätigt',
+            'detail' => 'In diesem Workspace hat kein Mitglied eine bestätigte Rufnummer. Lead-Daten gibt die API erst danach heraus.',
+        ],
         'not_found' => [
             'title' => 'Nicht gefunden',
             'detail' => 'Unter dieser Adresse gibt es nichts, was dieses Token sehen darf.',

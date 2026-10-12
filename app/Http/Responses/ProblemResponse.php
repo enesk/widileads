@@ -26,6 +26,8 @@ class ProblemResponse
 
     public const TYPE_INSUFFICIENT_ABILITY = '/problems/insufficient-ability';
 
+    public const TYPE_PHONE_UNVERIFIED = '/problems/phone-unverified';
+
     public const TYPE_NOT_FOUND = '/problems/not-found';
 
     public const TYPE_FUNNEL_HAS_LEADS = '/problems/funnel-has-leads';

@@ -25,6 +25,10 @@ return [
             'title' => 'Missing ability',
             'detail' => 'This token does not carry the required ability.',
         ],
+        'phone_unverified' => [
+            'title' => 'Phone number not verified',
+            'detail' => 'No member of this workspace has a verified phone number. The API releases lead data only after that.',
+        ],
         'not_found' => [
             'title' => 'Not found',
             'detail' => 'There is nothing at this address that this token may see.',
