@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -22,6 +23,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $commission_percent Abweichender Provisionssatz; null = config('wallet.commission_percent')
  * @property string|null $payout_iban Bankverbindung des Verkaeufers, verschluesselt (LP-WALLET-010)
  * @property-read string|null $payout_iban_last4
+ * @property Carbon|null $onboarding_completed_at Abschluss des Einrichtungs-Wizards (LP-ONBOARD-002)
+ * @property Carbon|null $onboarding_skipped_at Wizard uebersprungen; nicht abgeschlossen
+ * @property Carbon|null $onboarding_card_hidden_until Aktivierungskarte bis dahin ausgeblendet (LP-ONBOARD-012)
+ * @property Carbon|null $onboarding_card_done_seen_at Abschluss-Zustand der Aktivierungskarte wurde gezeigt
  */
 #[ObservedBy(TenantObserver::class)]
 class Tenant extends Model
@@ -55,6 +60,10 @@ class Tenant extends Model
         return [
             'type' => TenantType::class,
             'lead_price_cents' => 'integer',
+            'onboarding_completed_at' => 'datetime',
+            'onboarding_skipped_at' => 'datetime',
+            'onboarding_card_hidden_until' => 'datetime',
+            'onboarding_card_done_seen_at' => 'datetime',
             // Verschluesselt in der Datenbank (LP-WALLET-010): ausgezahlt
             // werden kann nur mit der ganzen Nummer, angezeigt wird nirgends
             // mehr als payout_iban_last4.
@@ -116,6 +125,21 @@ class Tenant extends Model
     public function buyerProfile(): HasOne
     {
         return $this->hasOne(BuyerProfile::class);
+    }
+
+    /**
+     * Die abgehakten Onboarding-Schritte dieses Workspaces (LP-ONBOARD-002).
+     *
+     * Nur lesen: Geschrieben wird ausschliesslich im
+     * App\Services\Onboarding\OnboardingService, weil dort Ereignis,
+     * Wizard-Abschluss und das Verwerfen des Fortschritts-Caches zusammen
+     * haengen.
+     *
+     * @return HasMany<TenantOnboardingStep, $this>
+     */
+    public function onboardingSteps(): HasMany
+    {
+        return $this->hasMany(TenantOnboardingStep::class);
     }
 
     /**
