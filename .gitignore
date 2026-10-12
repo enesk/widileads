@@ -22,3 +22,9 @@ yarn-error.log
 .idea
 /.vscode
 .DS_Store
+
+# Live-Reste, die nicht ins Repo gehoeren: Hand-Sicherungen der .env und die
+# von livewire:publish erzeugten Assets (public/vendor/horizon und -/telescope
+# sind dagegen versioniert).
+.env.bak-*
+/public/vendor/livewire
