@@ -327,7 +327,8 @@ class CheckCallSetup extends Command
             $this->assert(
                 'Portal-Nummer als Absender',
                 $owned !== [] || $verified !== [],
-                'Die Portal-Nummer gehoert diesem Twilio-Konto nicht und ist dort auch nicht verifiziert -- Twilio lehnt sie als Absender ab.',
+                'Die Portal-Nummer gehoert diesem Twilio-Konto nicht und ist dort auch nicht verifiziert -- Twilio lehnt sie als Absender ab. '
+                    .$this->numberPurchasePath(),
                 $owned !== [] ? 'eigene Nummer des Kontos' : 'verifizierte Absendernummer (nicht gekauft)',
             );
 
@@ -337,7 +338,8 @@ class CheckCallSetup extends Command
             $this->assert(
                 'Portal-Nummer gekauft',
                 $owned !== [],
-                'Die Portal-Nummer ist nur eine verifizierte Absendernummer -- Rueckrufe des Leads landen nicht im Portal. Deutsche Voice-Nummer kaufen und im Admin-Panel "Twilio" eintragen.',
+                'Die Portal-Nummer ist nur eine verifizierte Absendernummer -- Rueckrufe des Leads landen nicht im Portal. '
+                    .$this->numberPurchasePath(),
                 'eigene Nummer des Kontos',
                 warnOnly: ! $this->isProductionCheck(),
             );
@@ -346,6 +348,22 @@ class CheckCallSetup extends Command
         } catch (Throwable $exception) {
             $this->assert('Twilio-Konto', false, 'Abfrage gescheitert: '.$exception->getMessage(), '');
         }
+    }
+
+    /**
+     * Ticket #88: Der Weg zur eigenen Portal-Nummer, Schritt fuer Schritt.
+     * Wichtig ist die Vorrangfolge: platformNumber() liest zuerst
+     * config('twilio.from_number') (nur TWILIO_FROM aus der .env) und erst bei
+     * leerem Wert den Rueckfall config('services.twilio.from') aus der
+     * Admin-Seite "Twilio". Auf einem Server mit gefuellter .env-Zeile aendert
+     * das Admin-Panel die Portal-Nummer also nicht.
+     */
+    private function numberPurchasePath(): string
+    {
+        return 'Weg: 1) deutsche Voice-Nummer in der Twilio-Konsole kaufen. '
+            .'2) TWILIO_FROM in der .env auf die gekaufte Nummer setzen -- eine gefuellte .env-Zeile schlaegt die Admin-Seite "Twilio", nur bei leerer Zeile wirkt das Panel. '
+            .'3) TWILIO_FROM_IS_OWNED=true ergaenzen, sonst verschweigt die Hilfe-Kachel "Probleme?" die Portal-Nummer weiter. '
+            .'4) Danach "optimize:clear" und "optimize" laufen lassen und den Worker neu starten (systemctl restart horizon-widileads).';
     }
 
     /**
