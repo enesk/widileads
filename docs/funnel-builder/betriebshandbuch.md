@@ -183,7 +183,7 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 | `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
 | `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
 | `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
-| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus |
+| `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:check-call-setup --production` ohne FEHLER laeuft **und** `call_attempts` mindestens eine Zeile hat (Ticket #76) — am 2026-10-12 erneut gemessen: beides nicht erfuellt |
 
 ### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
 
