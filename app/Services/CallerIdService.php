@@ -131,6 +131,99 @@ class CallerIdService
     }
 
     /**
+     * Uebernimmt eine anderweitig bestaetigte Nummer als Rufnummernanzeige
+     * (LP-ONBOARD-004).
+     *
+     * Der Weg fuer die Rufnummernbestaetigung des Onboardings: Twilio Verify
+     * hat dort bereits bewiesen, dass der Nutzer die Nummer in der Hand hat.
+     * Ein zweiter Bestaetigungsanruf wuerde dieselbe Tatsache ein zweites Mal
+     * nachweisen und dem Kaeufer einen weiteren Abbruchgrund geben.
+     *
+     * Deshalb steht die Methode hier und nicht beim Aufrufer: Der Stand einer
+     * Rufnummer entsteht ausschliesslich in diesem Dienst. Eine Stelle, die
+     * `verified` selbst in die Tabelle schreibt, waere genau die Luecke, die
+     * die Bestaetigung schliessen soll.
+     *
+     * **Eine vorhandene Zeile wird erneuert, wenn sie dieselbe Nummer traegt
+     * und unbrauchbar ist** (`failed` oder `expired`, Ticket #49): Genau dieser
+     * Nutzer wurde sonst nach der Telefonbestaetigung in einen zweiten
+     * Bestaetigungsanruf fuer dieselbe Nummer geschickt -- auf einem
+     * Twilio-Trial-Konto in eine Sackgasse. Der frische Verify-Nachweis sagt
+     * ueber diese Nummer dasselbe, was der Anruf sagen wuerde.
+     *
+     * Nur dieselbe Nummer: Steht in der Zeile eine andere (etwa eine
+     * Firmennummer, deren Bestaetigungsanruf scheiterte), ist das eine bewusste
+     * Entscheidung des Nutzers oder des Supports. Der Nachweis gilt nur fuer
+     * seine eigene Nummer und raeumt die fremde nicht weg. `pending` bleibt
+     * ebenfalls stehen -- dort klingelt gerade ein Telefon.
+     *
+     * Null heisst: nichts getan -- der Nutzer hat schon eine nutzbare oder eine
+     * andere Nummer, oder die Nummer ist bei einem anderen Nutzer bestaetigt.
+     */
+    public function adoptVerifiedNumber(Tenant $tenant, User $user, string $phoneNumber): ?CallerId
+    {
+        $normalized = $this->normalizeQuietly($phoneNumber);
+        $existing = $this->forUser($user);
+
+        if ($existing instanceof CallerId && ! $this->isRenewable($existing, $normalized)) {
+            return null;
+        }
+
+        try {
+            $this->guardAgainstForeignClaim($normalized, $user);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+
+        $isRenewal = $existing instanceof CallerId;
+        $callerId = $existing ?? new CallerId;
+
+        // Bei der Erneuerung bleiben `tenant_id` und `requested_at` stehen: Die
+        // Zeile gehoert weiter dem Workspace, in dem sie angefordert wurde, und
+        // wann das war, ist Teil ihrer Geschichte.
+        $callerId->forceFill(array_merge($isRenewal ? [] : [
+            'tenant_id' => $tenant->getKey(),
+            'user_id' => $user->getKey(),
+            'phone_number' => $normalized,
+            'requested_at' => now(),
+        ], [
+            'status' => CallerIdStatus::VERIFIED,
+            'validation_sid' => null,
+            'validation_code' => null,
+            'verified_at' => now(),
+            'expires_at' => null,
+        ]))->save();
+
+        $this->auditLogger->log(
+            AuditAction::CALLER_ID_VERIFIED,
+            $callerId,
+            [
+                'phone_number' => $normalized,
+                'source' => $isRenewal ? 'phone_verification_renewal' : 'phone_verification',
+            ],
+            $tenant,
+            $user,
+        );
+
+        return $callerId;
+    }
+
+    /**
+     * Darf diese vorhandene Zeile vom Verify-Nachweis gehoben werden?
+     *
+     * Nur eine unbrauchbare Zeile mit genau dieser Nummer. Verglichen wird
+     * gegen die normalisierte Fassung, weil in der Tabelle immer E.164 steht.
+     */
+    private function isRenewable(CallerId $callerId, string $normalized): bool
+    {
+        if ($callerId->phone_number !== $normalized) {
+            return false;
+        }
+
+        return in_array($callerId->status, [CallerIdStatus::FAILED, CallerIdStatus::EXPIRED], true);
+    }
+
+    /**
      * Ergebnis des Bestaetigungsanrufs, wie Twilio es zurueckmeldet.
      *
      * Zugeordnet wird ueber die Nummer: Der Rueckruf traegt keine unserer
