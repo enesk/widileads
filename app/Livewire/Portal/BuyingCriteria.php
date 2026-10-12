@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire\Portal;
 
 use App\Constants\BuyerNotifyInterval;
+use App\Constants\BuyerRadius;
+use App\Constants\BuyerRegion;
 use App\Funnel\Snapshots\SnapshotLabels;
 use App\Livewire\Portal\Concerns\InteractsWithPortalTenant;
 use App\Livewire\Portal\Concerns\ShowsToasts;
@@ -14,6 +16,7 @@ use App\Models\BuyerProfile;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\Scopes\TenantScopes;
+use App\Support\Geo\PlzDirectory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -48,6 +51,24 @@ class BuyingCriteria extends Component
 
     /** @var list<string> */
     public array $postalPrefixes = [];
+
+    /**
+     * `nationwide` oder `radius` -- derselbe Umkreis wie in Wizard-Schritt 2.
+     *
+     * Der Umkreis steht ueber den Praefixen: Er ist die grobe Festlegung, die
+     * Praefixe sind die Feinkorrektur. Gesetzt gelten beide zusammen (UND),
+     * und genau das sagt der Hinweis in Karte 2.
+     */
+    public string $region = BuyerRegion::NATIONWIDE->value;
+
+    /** Die Postleitzahl des Mittelpunkts, fuenf Ziffern. */
+    public string $postalCode = '';
+
+    /**
+     * Die Stufe des Schiebereglers, nicht der Umkreis selbst -- wie in
+     * StepRegion: Die Stufen liegen nicht gleich weit auseinander.
+     */
+    public int $radiusIndex = BuyerRadius::DEFAULT_INDEX;
 
     public string $prefixInput = '';
 
@@ -105,9 +126,24 @@ class BuyingCriteria extends Component
     {
         $fields = $this->availableFields();
         $matching = $this->matchingLeads();
+        $isRadius = $this->isRadius();
+        $centre = $this->centre();
 
         return view('livewire.portal.buying-criteria', [
             'funnels' => $this->funnels(),
+            'isRadius' => $isRadius,
+            'steps' => BuyerRadius::steps(),
+            'radius' => $this->radiusKm(),
+            'place' => $centre['place'] ?? null,
+            // Die unvollstaendige Postleitzahl bleibt ohne rote Meldung: Wer
+            // gerade die dritte von fuenf Ziffern tippt, hat nichts falsch
+            // gemacht. Erst fuenf Ziffern, die wir nicht kennen, sind ein
+            // Fehler.
+            'plzError' => $this->getErrorBag()->first('postalCode')
+                ?: ($isRadius && mb_strlen(trim($this->postalCode)) === 5 && $centre === null
+                    ? __('marketplace.profile.portal.region.errors.unknown_plz')
+                    : null),
+            'showBothApply' => $isRadius && $this->postalPrefixes !== [],
             'funnelSuggestions' => $this->funnelSuggestions(),
             'fields' => $fields,
             'matchCount' => $matching->count(),
@@ -308,11 +344,33 @@ class BuyingCriteria extends Component
 
     public function save(): void
     {
+        $region = BuyerRegion::fromValue($this->region);
+        $this->region = $region->value;
+        $isRadius = $region === BuyerRegion::RADIUS;
+
+        // Ohne gueltigen Mittelpunkt wird gar nicht gespeichert: Ein Umkreis
+        // ohne Postleitzahl waere ein Kriterium, das der Matcher stillschweigend
+        // uebergeht -- der Kaeufer saehe einen gesetzten Umkreis und einen
+        // Marktplatz, der ihn nicht beachtet.
+        if ($isRadius && $this->resolvedPostalCode() === null) {
+            $this->addError('postalCode', __('marketplace.profile.portal.region.errors.unknown_plz'));
+
+            return;
+        }
+
+        $this->resetErrorBag();
+
         $profile = $this->profile();
 
         $profile->fill([
             'funnel_ids' => array_values(array_map('intval', $this->funnelIds)),
             'postal_prefixes' => $this->postalPrefixes,
+            'region' => $region->value,
+            // Deutschlandweit raeumt Postleitzahl und Umkreis weg -- dieselbe
+            // Regel wie in StepRegion: Was nicht mehr gilt, darf nicht stehen
+            // bleiben.
+            'postal_code' => $isRadius ? $this->resolvedPostalCode() : null,
+            'radius_km' => $isRadius ? $this->radiusKm() : null,
             // Filter ohne Antworten schraenken nicht ein und fallen weg -- sie
             // wuerden sonst jeden Lead ausschliessen.
             'answer_filters' => $this->parsedFilters(),
@@ -359,9 +417,16 @@ class BuyingCriteria extends Component
      */
     private function matchingLeads(): Collection
     {
+        $isRadius = $this->isRadius();
+
         $draft = new BuyerProfile([
             'funnel_ids' => array_values(array_map('intval', $this->funnelIds)),
             'postal_prefixes' => $this->postalPrefixes,
+            // Der Umkreis gehoert in den Entwurf, sonst zaehlt die Vorschau
+            // mehr Leads als der Marktplatz zeigt.
+            'region' => $this->region,
+            'postal_code' => $isRadius ? $this->resolvedPostalCode() : null,
+            'radius_km' => $isRadius ? $this->radiusKm() : null,
             'answer_filters' => $this->parsedFilters(),
             'min_score' => $this->intOrNull($this->minScore),
         ]);
@@ -428,11 +493,30 @@ class BuyingCriteria extends Component
             'label' => $names === [] ? __('marketplace.profile.portal.match.all_funnels') : __('marketplace.profile.funnels'),
             'value' => implode(', ', $names),
             'active' => $names !== [],
-        ], [
-            'label' => $this->postalPrefixes === [] ? __('marketplace.profile.portal.match.all_regions') : __('marketplace.profile.portal.match.postcodes'),
-            'value' => implode(', ', $this->postalPrefixes),
-            'active' => $this->postalPrefixes !== [],
         ]];
+
+        $centre = $this->isRadius() ? $this->centre() : null;
+
+        if ($centre !== null) {
+            $lines[] = [
+                'label' => __('marketplace.profile.portal.region.radius.label'),
+                'value' => __('marketplace.profile.portal.match.radius', [
+                    'radius' => $this->radiusKm(),
+                    'plz' => $centre['postal_code'].' '.$centre['place'],
+                ]),
+                'active' => true,
+            ];
+        }
+
+        // "Ganz Deutschland" nur, wenn weder Umkreis noch Praefixe
+        // einschraenken -- sonst widerspraeche die Zeile der Zeile darueber.
+        if ($this->postalPrefixes !== [] || $centre === null) {
+            $lines[] = [
+                'label' => $this->postalPrefixes === [] ? __('marketplace.profile.portal.match.all_regions') : __('marketplace.profile.portal.match.postcodes'),
+                'value' => implode(', ', $this->postalPrefixes),
+                'active' => $this->postalPrefixes !== [],
+            ];
+        }
 
         foreach ($this->parsedFilters() as $fieldKey => $values) {
             $labels = array_map(
@@ -476,6 +560,10 @@ class BuyingCriteria extends Component
         $this->funnelIds = $profile->funnelIds();
         $this->postalPrefixes = $profile->postalPrefixes();
 
+        $this->region = ($profile->region ?? BuyerRegion::NATIONWIDE)->value;
+        $this->postalCode = (string) ($profile->postal_code ?? '');
+        $this->radiusIndex = BuyerRadius::indexFor($profile->radius_km ?? BuyerRadius::DEFAULT_KM);
+
         $this->filters = [];
 
         foreach ($profile->answerFilters() as $fieldKey => $values) {
@@ -518,6 +606,9 @@ class BuyingCriteria extends Component
         return [
             'funnelIds' => $this->funnelIds,
             'postalPrefixes' => $this->postalPrefixes,
+            'region' => $this->region,
+            'postalCode' => $this->postalCode,
+            'radiusIndex' => $this->radiusIndex,
             'filters' => $this->parsedFilters(),
             'minScore' => $this->minScore,
             'maxPrice' => $this->maxPrice,
@@ -527,6 +618,50 @@ class BuyingCriteria extends Component
             'notifyEmail' => $this->notifyEmail,
             'notifyInterval' => $this->notifyInterval,
         ];
+    }
+
+    /**
+     * Die Meldung eines abgebrochenen Speicherns gehoert zur Eingabe von
+     * damals. Tippt der Kaeufer weiter oder waehlt er deutschlandweit, ist sie
+     * ueberholt -- stehen bleiben wuerde sie bis zum naechsten Speichern.
+     */
+    public function updatedPostalCode(): void
+    {
+        $this->resetValidation('postalCode');
+    }
+
+    public function updatedRegion(): void
+    {
+        $this->resetValidation('postalCode');
+    }
+
+    private function isRadius(): bool
+    {
+        return BuyerRegion::fromValue($this->region) === BuyerRegion::RADIUS;
+    }
+
+    /** Der gewaehlte Umkreis in Kilometern. */
+    private function radiusKm(): int
+    {
+        return BuyerRadius::kmForIndex($this->radiusIndex);
+    }
+
+    /**
+     * Die eingegebene Postleitzahl, sofern wir sie kennen -- sonst null.
+     * Geprueft wird gegen dieselbe Quelle wie im Wizard, nicht gegen eine
+     * eigene Regel.
+     */
+    private function resolvedPostalCode(): ?string
+    {
+        return $this->centre()['postal_code'] ?? null;
+    }
+
+    /**
+     * @return array{postal_code: string, place: string, lat: float, lon: float}|null
+     */
+    private function centre(): ?array
+    {
+        return app(PlzDirectory::class)->find($this->postalCode);
     }
 
     private function intOrNull(string $value): ?int

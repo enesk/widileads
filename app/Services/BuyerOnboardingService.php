@@ -8,6 +8,7 @@ use App\Constants\AuditAction;
 use App\Constants\BuyerRegistrationStatus;
 use App\Constants\TenancyPermissionConstants;
 use App\Constants\TenantType;
+use App\Models\BuyerProfile;
 use App\Models\BuyerRegistration;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,18 @@ class BuyerOnboardingService
      * Kaeufer-Mandanten ohne Registrierungssatz gaebe es sonst, und der haette
      * keinen Freischaltungsstand -- also auch keine wirksame Sperre.
      *
-     * @param  array{company_name: string, contact_name: string, contact_email: string, contact_phone?: string|null, broker_register_number?: string|null, vat_id: string}  $data
+     * Die Branche aus der Registrierung (LP-PORTAL-004) landet als erster
+     * Eintrag in den Kaufkriterien des neuen Workspaces
+     * (`buyer_profiles.funnel_ids`) und nicht in einer eigenen Spalte am
+     * Registrierungssatz. Grund: Der Marktplatz filtert auf genau dieses Feld,
+     * und der erste Wizard-Schritt liest seine Vorauswahl daraus. Eine zweite
+     * Spalte daneben waere eine Angabe, die den Marktplatz nicht veraendert --
+     * und zwei Wahrheiten, die auseinanderlaufen koennen.
+     *
+     * Das Profil entsteht in derselben Transaktion wie Mandant und
+     * Registrierungssatz: Es ist Teil des Vorgangs, nicht ein Nachtrag.
+     *
+     * @param  array{company_name: string, contact_name: string, contact_email: string, contact_phone?: string|null, broker_register_number?: string|null, vat_id: string, funnel_id?: int|null}  $data
      */
     public function register(User $user, array $data): BuyerRegistration
     {
@@ -70,6 +82,15 @@ class BuyerOnboardingService
 
             $registration->status = BuyerRegistrationStatus::PENDING;
             $registration->save();
+
+            $funnelId = $data['funnel_id'] ?? null;
+
+            if ($funnelId !== null) {
+                BuyerProfile::query()->updateOrCreate(
+                    ['tenant_id' => $tenant->getKey()],
+                    ['funnel_ids' => [(int) $funnelId]],
+                );
+            }
 
             return $registration;
         });

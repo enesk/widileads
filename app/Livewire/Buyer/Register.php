@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire\Buyer;
 
+use App\Marketplace\MarketplaceCatalog;
 use App\Models\BuyerRegistration;
 use App\Models\User;
 use App\Services\BuyerOnboardingService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 /**
@@ -40,6 +42,17 @@ class Register extends Component
     public string $vatId = '';
 
     /**
+     * Die Branche, in der der Kaeufer Anfragen sucht -- die Kennung eines
+     * veroeffentlichten Funnels (LP-PORTAL-004).
+     *
+     * Als String, weil ein <select> genau das schickt. Sie landet nicht am
+     * Registrierungssatz, sondern als erster Eintrag in den Kaufkriterien des
+     * neuen Workspaces (BuyerProfile::funnel_ids) -- dort liest sie der erste
+     * Wizard-Schritt wieder (App\Livewire\Portal\Onboarding\StepIndustries).
+     */
+    public string $industryFunnelId = '';
+
+    /**
      * Zustimmung zum Auftragsverarbeitungsvertrag. Pflicht: ohne sie entsteht
      * keine Registrierung.
      */
@@ -50,6 +63,13 @@ class Register extends Component
      * Danach zeigt die Seite die Bestaetigung statt des Formulars.
      */
     public ?BuyerRegistration $registration = null;
+
+    /**
+     * Das Angebot, innerhalb einer Anfrage einmal geholt.
+     *
+     * @var array<int, string>|null
+     */
+    private ?array $industries = null;
 
     public function mount(): void
     {
@@ -85,12 +105,15 @@ class Register extends Component
                 ? null
                 : $data['brokerRegisterNumber'],
             'vat_id' => $data['vatId'],
+            'funnel_id' => $this->chosenFunnelId($data['industryFunnelId']),
         ]);
     }
 
     public function render(): View
     {
-        return view('livewire.buyer.register');
+        return view('livewire.buyer.register', [
+            'industries' => $this->industries(),
+        ]);
     }
 
     /**
@@ -111,6 +134,8 @@ class Register extends Component
             // Regel sperrt zulaessige Kaeufer aus.
             'vatId' => ['required', 'string', 'max:20', 'regex:/^[A-Za-z]{2}[A-Za-z0-9]{2,18}$/'],
 
+            'industryFunnelId' => $this->industryRules(),
+
             'avAccepted' => ['accepted'],
         ];
     }
@@ -126,6 +151,8 @@ class Register extends Component
             'email' => __('marketplace.buyer.validation.email'),
             'max' => __('marketplace.buyer.validation.max'),
             'vatId.regex' => __('marketplace.buyer.validation.vat_id'),
+            'industryFunnelId.required' => __('marketplace.buyer.validation.industry'),
+            'industryFunnelId.in' => __('marketplace.buyer.validation.industry'),
         ];
     }
 
@@ -141,8 +168,61 @@ class Register extends Component
             'contactPhone' => __('marketplace.buyer.form.contact_phone'),
             'brokerRegisterNumber' => __('marketplace.buyer.form.broker_register_number'),
             'vatId' => __('marketplace.buyer.form.vat_id'),
+            'industryFunnelId' => __('marketplace.buyer.form.industry'),
             'avAccepted' => __('marketplace.buyer.form.av_accepted'),
         ];
+    }
+
+    /**
+     * Pflichtfeld -- aber nur, solange es ueberhaupt etwas zu waehlen gibt.
+     *
+     * Ohne veroeffentlichten Funnel waere die Pflicht eine Sperre, an der
+     * niemand vorbeikaeme: Es gibt dann keine zulaessige Antwort, und die
+     * Registrierung liesse sich nicht absenden. Derselbe Gedanke wie im ersten
+     * Wizard-Schritt, der die Branchenpflicht aus demselben Grund aussetzt.
+     *
+     * @return list<mixed>
+     */
+    private function industryRules(): array
+    {
+        $industries = $this->industries();
+
+        if ($industries === []) {
+            return ['nullable'];
+        }
+
+        return [
+            'required',
+            Rule::in(array_map('strval', array_keys($industries))),
+        ];
+    }
+
+    /**
+     * Die gewaehlte Branche als Funnel-Kennung -- oder null.
+     *
+     * Gegen das Angebot geprueft und nicht nur umgewandelt: Steht nichts zur
+     * Wahl, laesst die Pruefung jeden Wert durch (siehe industryRules), und
+     * eine Kennung aus dem Browser landete sonst ungeprueft in den
+     * Kaufkriterien.
+     */
+    private function chosenFunnelId(string $value): ?int
+    {
+        if ($value === '' || ! array_key_exists((int) $value, $this->industries())) {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    /**
+     * Das Angebot als Funnel-Kennung => Name. MarketplaceCatalog zieht dabei
+     * die Grenze dessen, was ein Kaeufer vom Angebot sehen darf.
+     *
+     * @return array<int, string>
+     */
+    private function industries(): array
+    {
+        return $this->industries ??= app(MarketplaceCatalog::class)->publishedFunnels();
     }
 
     /**

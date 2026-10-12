@@ -98,6 +98,111 @@
                     </div>
                 </div>
                 <div class="mt-5 space-y-5">
+
+                    {{-- Der Umkreis steht ueber den Praefixen: Er ist die
+                         grobe Festlegung ("wo arbeite ich"), die Praefixe die
+                         Feinkorrektur. Muster und Felder wie in
+                         Wizard-Schritt 2 -- nur ohne Deutschland-Karte und
+                         ohne "Empfohlen"-Pille: Hier wird keine
+                         Erstentscheidung gelenkt, sondern eine getroffene
+                         gepflegt. --}}
+                    <div>
+                        <p class="text-sm font-medium text-zinc-700 mb-1">{{ __('marketplace.profile.portal.region.mode_label') }}</p>
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            @foreach ([
+                                \App\Constants\BuyerRegion::NATIONWIDE->value => 'nationwide',
+                                \App\Constants\BuyerRegion::RADIUS->value => 'radius',
+                            ] as $value => $key)
+                                @php($isChosen = $region === $value)
+
+                                <button
+                                    type="button"
+                                    wire:click="$set('region', '{{ $value }}')"
+                                    aria-pressed="{{ $isChosen ? 'true' : 'false' }}"
+                                    @class([
+                                        'card-interactive flex min-h-11 flex-col items-start gap-1 p-4 text-left',
+                                        'border-brand bg-brand-50' => $isChosen,
+                                    ])
+                                >
+                                    <x-app.icon :name="$key === 'nationwide' ? 'grid' : 'pin'" class="size-6 text-brand" />
+
+                                    <span class="mt-1 font-semibold text-zinc-900">{{ __('marketplace.profile.portal.region.mode.'.$key.'.title') }}</span>
+                                    <span class="text-sm text-zinc-500">{{ __('marketplace.profile.portal.region.mode.'.$key.'.text') }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        {{-- Nur bei "Umkreis" im Markup: Ein verstecktes
+                             Formularfeld bliebe in der Tabreihenfolge und
+                             wuerde von der Vorlesesoftware weiter
+                             angesagt. --}}
+                        @if ($isRadius)
+                            <div class="mt-5 grid gap-5 sm:grid-cols-2 sm:items-start">
+                                <x-app.input
+                                    name="postalCode"
+                                    id="criteria-postal-code"
+                                    wire:model.live.debounce.300ms="postalCode"
+                                    :label="__('marketplace.profile.portal.region.plz.label')"
+                                    inputmode="numeric"
+                                    autocomplete="postal-code"
+                                    maxlength="5"
+                                    pattern="[0-9]*"
+                                    placeholder="{{ __('marketplace.profile.portal.region.plz.placeholder') }}"
+                                    :error="$plzError"
+                                />
+
+                                {{-- Der Ortsname ist die Antwort auf "habe ich
+                                     richtig getippt" und fuer die
+                                     Vorlesesoftware der Ersatz fuer die Karte,
+                                     die hier bewusst fehlt. --}}
+                                <p class="text-sm text-zinc-700 sm:mt-7" aria-live="polite">
+                                    @if ($place)
+                                        <span class="font-medium text-zinc-900">{{ $place }}</span>
+                                    @endif
+                                </p>
+
+                                <div class="sm:col-span-2">
+                                    <div class="flex items-end justify-between gap-3">
+                                        <label for="criteria-radius" class="text-sm font-medium text-zinc-700">
+                                            {{ __('marketplace.profile.portal.region.radius.label') }}
+                                        </label>
+
+                                        <p class="text-2xl font-bold tabular-nums text-zinc-900">
+                                            <span id="criteria-radius-value">{{ $radius }}</span>
+                                            <span class="text-base font-medium text-zinc-500">{{ __('marketplace.profile.portal.region.radius.unit') }}</span>
+                                        </p>
+                                    </div>
+
+                                    {{-- Nativer Regler: Tastatur, Finger und
+                                         Vorlesesoftware bringt der Browser
+                                         mit. Das Modell ist die Stufe, nicht
+                                         der Kilometer -- die Stufen liegen
+                                         nicht gleich weit auseinander. --}}
+                                    <input
+                                        type="range"
+                                        id="criteria-radius"
+                                        class="range-portal mt-2"
+                                        wire:model.live.debounce.300ms="radiusIndex"
+                                        data-radius-slider="criteria-radius-value"
+                                        data-radius-steps="{{ json_encode($steps) }}"
+                                        min="0"
+                                        max="{{ count($steps) - 1 }}"
+                                        step="1"
+                                        style="--range-progress: {{ count($steps) > 1 ? round($radiusIndex / (count($steps) - 1) * 100) : 0 }}%"
+                                        aria-valuetext="{{ $radius }} {{ __('marketplace.profile.portal.region.radius.unit') }}"
+                                    >
+
+                                    <p class="range-ticks mt-1 text-xs text-zinc-500" style="--range-ticks: {{ count($steps) }}" aria-hidden="true">
+                                        @foreach ($steps as $step)
+                                            <span>{{ $step }}</span>
+                                        @endforeach
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
                     <div>
                         <label for="plz" class="block text-sm font-medium text-zinc-700 mb-1">{{ __('marketplace.profile.portal.region.label') }}</label>
                         <div class="input h-auto min-h-11 flex flex-wrap items-center gap-2 py-1.5">
@@ -118,10 +223,17 @@
                         <p class="text-xs text-zinc-500 mt-1">{{ __('marketplace.profile.portal.region.hint') }}</p>
                     </div>
 
-                    <div class="rounded-xl bg-zinc-50 border border-zinc-200 p-4 text-sm text-zinc-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <span>{{ __('marketplace.profile.portal.region.radius') }}</span>
-                        <a href="{{ $marketplaceUrl }}" class="text-brand font-medium hover:underline shrink-0">{{ __('marketplace.profile.portal.region.radius_action') }}</a>
-                    </div>
+                    {{-- Umkreis und Praefixe gelten zusammen (UND). Der Satz
+                         steht als Fliesstext und nicht als Icon mit
+                         Sprechblase: Die Information ist der ganze Inhalt, und
+                         ohne sie raetselt der Kaeufer, warum er mit beidem
+                         weniger sieht als mit einem. --}}
+                    @if ($showBothApply)
+                        <div class="rounded-xl bg-zinc-50 border border-zinc-200 p-4 text-sm text-zinc-700 flex gap-3" aria-live="polite">
+                            <x-app.icon name="info" class="size-5 text-zinc-400 shrink-0" />
+                            <span>{{ __('marketplace.profile.portal.region.both_apply') }}</span>
+                        </div>
+                    @endif
                 </div>
             </section>
 

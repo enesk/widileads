@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Filament\Dashboard\Pages;
 
+use App\Constants\BuyerRadius;
+use App\Constants\BuyerRegion;
 use App\Marketplace\MarketplaceCatalog;
 use App\Models\BuyerProfile as BuyerProfileModel;
 use App\Models\Tenant;
+use App\Support\Geo\PlzDirectory;
 use BackedEnum;
+use Closure;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -19,6 +23,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Support\Htmlable;
@@ -104,6 +109,9 @@ class BuyerProfile extends Page implements HasForms
 
         $this->getSchema('form')?->fill([
             'funnel_ids' => $profile->funnelIds(),
+            'region' => ($profile->region ?? BuyerRegion::NATIONWIDE)->value,
+            'postal_code' => $profile->postal_code,
+            'radius_km' => $profile->radius_km ?? BuyerRadius::DEFAULT_KM,
             'postal_prefixes' => $profile->postalPrefixes(),
             'answer_filters' => $answerFilters,
             'min_score' => $profile->min_score,
@@ -130,6 +138,53 @@ class BuyerProfile extends Page implements HasForms
                                 : __('marketplace.profile.funnels_helper'))
                             ->multiple()
                             ->options($funnels),
+                        // Der Umkreis steht ueber den Praefixen: Er ist die
+                        // grobe Festlegung, die Praefixe die Feinkorrektur.
+                        // Gesetzt gelten beide zusammen (UND) -- das sagt der
+                        // Hilfetext der Praefixe.
+                        Select::make('region')
+                            ->label(__('marketplace.profile.region'))
+                            ->options([
+                                BuyerRegion::NATIONWIDE->value => __('marketplace.profile.region_options.nationwide'),
+                                BuyerRegion::RADIUS->value => __('marketplace.profile.region_options.radius'),
+                            ])
+                            ->default(BuyerRegion::NATIONWIDE->value)
+                            ->selectablePlaceholder(false)
+                            ->live(),
+                        TextInput::make('postal_code')
+                            ->label(__('marketplace.profile.postal_code'))
+                            ->helperText(static function (?string $state): string {
+                                $centre = app(PlzDirectory::class)->find((string) $state);
+
+                                return $centre === null
+                                    ? __('marketplace.profile.postal_code_helper')
+                                    : $centre['place'];
+                            })
+                            ->visible(static fn (Get $get): bool => $get('region') === BuyerRegion::RADIUS->value)
+                            ->required()
+                            ->length(5)
+                            // Geprueft wird gegen dasselbe Verzeichnis wie im
+                            // Wizard und im Portal, nicht gegen eine eigene
+                            // Regel: Eine Postleitzahl, die es gibt, muss
+                            // ueberall dieselbe sein.
+                            ->rule(static function (): Closure {
+                                return static function (string $attribute, mixed $value, Closure $fail): void {
+                                    if (! app(PlzDirectory::class)->exists((string) $value)) {
+                                        $fail(__('marketplace.profile.validation.unknown_plz'));
+                                    }
+                                };
+                            }),
+                        Select::make('radius_km')
+                            ->label(__('marketplace.profile.radius_km'))
+                            ->helperText(__('marketplace.profile.radius_km_helper'))
+                            // Feste Stufen und kein Freitextfeld: "47 km" ist
+                            // keine Entscheidung, die jemand trifft, und waere
+                            // ein Wert, den der Wizard-Regler nicht halten
+                            // kann.
+                            ->options(BuyerRadius::options())
+                            ->default(BuyerRadius::DEFAULT_KM)
+                            ->selectablePlaceholder(false)
+                            ->visible(static fn (Get $get): bool => $get('region') === BuyerRegion::RADIUS->value),
                         TagsInput::make('postal_prefixes')
                             ->label(__('marketplace.profile.postal_prefixes'))
                             ->helperText(__('marketplace.profile.postal_prefixes_helper'))
@@ -197,8 +252,17 @@ class BuyerProfile extends Page implements HasForms
 
         $profile = $this->profile();
 
+        $region = BuyerRegion::fromValue($data['region'] ?? null);
+        $isRadius = $region === BuyerRegion::RADIUS;
+
         $profile->fill([
             'funnel_ids' => array_values(array_map('intval', (array) ($data['funnel_ids'] ?? []))),
+            'region' => $region->value,
+            // Deutschlandweit raeumt Postleitzahl und Umkreis weg -- stehen zu
+            // lassen, was nicht mehr gilt, waere die Stelle, an der eine
+            // spaetere Auswertung auf einen abgewaehlten Umkreis trifft.
+            'postal_code' => $isRadius ? trim((string) ($data['postal_code'] ?? '')) : null,
+            'radius_km' => $isRadius ? BuyerRadius::kmForIndex(BuyerRadius::indexFor((int) ($data['radius_km'] ?? BuyerRadius::DEFAULT_KM))) : null,
             'postal_prefixes' => $this->cleanList((array) ($data['postal_prefixes'] ?? [])),
             'answer_filters' => $this->parsedAnswerFilters((array) ($data['answer_filters'] ?? [])),
             'min_score' => $data['min_score'] === null || $data['min_score'] === '' ? null : (int) $data['min_score'],

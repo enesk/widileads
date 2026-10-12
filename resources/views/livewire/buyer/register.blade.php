@@ -43,6 +43,34 @@
                         @enderror
                     </div>
 
+                    {{--
+                        Die Branche (LP-PORTAL-004). Nur zu sehen, wenn es
+                        ueberhaupt ein Angebot gibt -- ohne veroeffentlichten
+                        Funnel waere das Feld eine Pflicht ohne zulaessige
+                        Antwort. Die Wahl steht spaeter im ersten Wizard-Schritt
+                        vorne und ist dort schon gewaehlt.
+                    --}}
+                    @if ($industries !== [])
+                        <div class="form-control">
+                            <label class="label" for="industry">
+                                <span class="label-text">{{ __('marketplace.buyer.form.industry') }}</span>
+                            </label>
+                            <select id="industry" wire:model="industryFunnelId"
+                                    class="select select-bordered w-full" required>
+                                <option value="">{{ __('marketplace.buyer.form.industry_placeholder') }}</option>
+                                @foreach ($industries as $funnelId => $name)
+                                    <option value="{{ $funnelId }}">{{ $name }}</option>
+                                @endforeach
+                            </select>
+                            <span class="text-sm opacity-70 mt-1">
+                                {{ __('marketplace.buyer.form.industry_helper') }}
+                            </span>
+                            @error('industryFunnelId')
+                                <span class="text-error text-sm mt-1">{{ $message }}</span>
+                            @enderror
+                        </div>
+                    @endif
+
                     <div class="grid gap-4 md:grid-cols-2">
                         <div class="form-control">
                             <label class="label" for="contact-name">

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Constants\BuyerNotifyInterval;
+use App\Constants\BuyerRegion;
 use Database\Factories\BuyerProfileFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $tenant_id
  * @property list<int>|null $funnel_ids
+ * @property BuyerRegion|null $region
+ * @property string|null $postal_code
+ * @property int|null $radius_km
  * @property list<string>|null $postal_prefixes
  * @property array<string, list<string>>|null $answer_filters
  * @property int|null $min_score
@@ -42,6 +46,9 @@ class BuyerProfile extends Model
     protected $fillable = [
         'tenant_id',
         'funnel_ids',
+        'region',
+        'postal_code',
+        'radius_km',
         'postal_prefixes',
         'answer_filters',
         'min_score',
@@ -124,6 +131,8 @@ class BuyerProfile extends Model
     {
         return [
             'funnel_ids' => 'array',
+            'region' => BuyerRegion::class,
+            'radius_km' => 'integer',
             'postal_prefixes' => 'array',
             'answer_filters' => 'array',
             'min_score' => 'integer',

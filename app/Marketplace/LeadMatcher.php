@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Marketplace;
 
+use App\Constants\BuyerRegion;
 use App\Funnel\Support\LooseValueComparison;
 use App\Models\BuyerProfile;
+use App\Support\Geo\PlzDirectory;
 
 /**
  * Passt ein Lead zu den Kaufkriterien eines Kaeufers (FB-051)?
  *
  * **Reine Funktion.** Kein Datenbankzugriff, kein Zustand, keine Uhrzeit, keine
- * Zufallszahl -- dieselben Eingaben ergeben immer dieselbe Antwort. Das ist die
- * Kernanforderung des Tickets und kein Selbstzweck: Der Marktplatz (FB-053)
- * zeigt, was diese Funktion durchlaesst, und der Autokauf (FB-056) kauft, was
+ * Zufallszahl -- dieselben Eingaben ergeben immer dieselbe Antwort. Die
+ * Umkreispruefung liest das Postleitzahlenverzeichnis (PlzDirectory), und das
+ * ist kein Bruch: Die Datei liegt im Quellcode, ist unveraenderlich und in
+ * jeder Umgebung dieselbe -- eine Konstante in Dateiform, keine Betriebsdaten.
+ *
+ * Das ist die Kernanforderung des Tickets und kein Selbstzweck: Der Marktplatz
+ * (FB-053) zeigt, was diese Funktion durchlaesst, und der Autokauf (FB-056) kauft, was
  * sie durchlaesst. Haette sie Seiteneffekte, wuerden Anzeige und Autokauf
  * auseinanderlaufen -- ein Kaeufer bekaeme Leads, die er im Marktplatz nie
  * gesehen hat, oder saehe welche, die der Autokauf ignoriert.
@@ -22,6 +28,14 @@ use App\Models\BuyerProfile;
  * ein: Ein frisches Profil sieht alles. Die Alternative -- leer heisst nichts --
  * haette zur Folge, dass ein Kaeufer nach dem Anlegen einen leeren Marktplatz
  * sieht und den Fehler bei uns sucht.
+ *
+ * **Region und Praefixe gelten zusammen (UND).** `region`/`postal_code`/
+ * `radius_km` kommen aus Wizard-Schritt 2, `postal_prefixes` pflegt der Kaeufer
+ * in den Kaufkriterien von Hand. Sind beide gesetzt, muss ein Lead beide
+ * passieren -- wie bei jedem anderen Kriterienpaar hier. Zusammenfassen liesse
+ * sich das nicht: Ein ODER wuerde den engeren der beiden Filter stumm
+ * aufheben, und der Kaeufer saehe nach dem Setzen eines Umkreises mehr
+ * Anfragen als vorher.
  *
  * Fehlt einem Lead die Angabe, auf die ein gesetztes Kriterium zielt, passt er
  * nicht. Also: im Zweifel nicht anzeigen. Ein Lead ohne Postleitzahl gegen ein
@@ -37,6 +51,7 @@ final class LeadMatcher
     {
         return self::matchesFunnel($lead, $profile)
             && self::matchesPostalPrefix($lead, $profile)
+            && self::matchesRadius($lead, $profile)
             && self::matchesMinimumScore($lead, $profile)
             && self::matchesAnswerFilters($lead, $profile);
     }
@@ -82,6 +97,55 @@ final class LeadMatcher
         }
 
         return false;
+    }
+
+    /**
+     * Liegt die Postleitzahl im gewaehlten Umkreis?
+     *
+     * Greift nur, wenn der Kaeufer in Wizard-Schritt 2 "nur in meiner Region"
+     * gewaehlt und dazu eine Postleitzahl und einen Umkreis gespeichert hat.
+     * `nationwide` -- und ebenso ein halb gefuelltes Kriterium -- schraenkt
+     * nicht ein.
+     *
+     * Ein Lead ohne Postleitzahl oder mit einer, die das Verzeichnis nicht
+     * kennt, passt nicht: dieselbe Regel wie beim Praefixfilter, im Zweifel
+     * nicht anzeigen.
+     *
+     * Kennt das Verzeichnis dagegen den **Mittelpunkt** nicht, schraenkt das
+     * Kriterium nicht ein. Das ist die Gegenrichtung derselben Ueberlegung:
+     * Ein unbekannter Mittelpunkt ist keine Aussage ueber einen einzelnen
+     * Lead, sondern ein unbrauchbares Kriterium -- und ein Umkreis um eine
+     * Grosskunden-Postleitzahl wuerde sonst den ganzen Marktplatz leeren,
+     * ohne dass jemand den Grund saehe.
+     */
+    private static function matchesRadius(MatchableLead $lead, BuyerProfile $profile): bool
+    {
+        if ($profile->region !== BuyerRegion::RADIUS) {
+            return true;
+        }
+
+        $centre = trim((string) $profile->postal_code);
+        $radiusKm = $profile->radius_km;
+
+        if ($centre === '' || $radiusKm === null || $radiusKm <= 0) {
+            return true;
+        }
+
+        $directory = new PlzDirectory;
+
+        if (! $directory->exists($centre)) {
+            return true;
+        }
+
+        $postalCode = trim((string) $lead->postalCode);
+
+        if ($postalCode === '') {
+            return false;
+        }
+
+        $distanceKm = $directory->distanceTo($centre, $postalCode);
+
+        return $distanceKm !== null && $distanceKm <= (float) $radiusKm;
     }
 
     /**
