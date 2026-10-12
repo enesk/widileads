@@ -503,6 +503,16 @@ Reihenfolge „erst Bundle, dann Anruf" aus Ticket #82 ist keine Zwangsreihenfol
 > 03:00-Lauf nach dem 18.10. ab, obwohl zu diesen Leads kein Anrufversuch existiert.
 > Entweder vorher einen echten Anruf nachweisen oder den Cutover hinter deren
 > Auslieferung legen.
+>
+> Die Grenze ist ausgemessen (Ticket #85, 2026-10-12): Alle fünf tragen
+> `delivered_at` am **2026-10-11** (spätestes 23:15:33), Frist jeweils 18.10.
+> Der Trockenlauf aus Punkt 4, gegen den ersten Lauf nach Fristablauf gerechnet
+> (19.10. 03:00), ergibt `2026-10-11` → 5 Leads / 5 Käufe / **75,00 EUR**,
+> `2026-10-12` → 0 / 0 / 0,00 EUR, `2026-10-13` → 0 / 0 / 0,00 EUR
+> (`Carbon::parse("2026-10-12")` ist 00:00 Uhr, siehe `ResolveExpiredLeads::expiredLeads()`).
+> Solange `call_attempts` leer ist, kann das Datum aus Punkt 2 nur **heute oder
+> später** liegen — der Fallstrick trifft also nur, wenn jemand den Cutover von
+> Hand früher legt als den ersten gemessenen Anrufversuch. Genau das nicht tun.
 
 > Erledigte Altlast (Ticket #76, 2026-10-12): Die vier Bestandsleads mit abgelaufener
 > Frist (326, 1026, 1311, 1316) bleiben dauerhaft `open` — ihr `delivered_at` liegt vor
