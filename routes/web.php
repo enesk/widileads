@@ -106,9 +106,15 @@ Route::get('/f/{token}/vorschau', FunnelPreviewController::class)
 
 // FB-073: Herunterladen eines fertigen Lead-Exports. Der Link ist signiert und
 // befristet; zusaetzlich muss der Abrufende zum Workspace gehoeren.
+//
+// LP-ONBOARD-003: Und er braucht eine bestaetigte Rufnummer. Die Datei enthaelt
+// Kontaktdaten gekaufter Leads -- sie ist damit dieselbe Offenlegung wie der
+// Lead-Screen im Portal und faellt unter dieselbe Sperre. Der signierte Link
+// allein genuegt nicht: Er ueberlebt das Zuruecksetzen einer Bestaetigung
+// (LP-ONBOARD-017) und liegt beim Nutzer in der Mail, nicht hinter einem Screen.
 Route::get('/exporte/{export}', LeadExportDownloadController::class)
     ->name('lead-export.download')
-    ->middleware(['signed', 'auth']);
+    ->middleware(['signed', 'auth', 'portal.phone-verified']);
 
 // FB-017: Live-Vorschau des Theme-Editors, eingebettet als iFrame. Sie zeigt
 // den Stand im Formular, nicht den gespeicherten - die Werte kommen deshalb

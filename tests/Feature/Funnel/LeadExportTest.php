@@ -156,4 +156,31 @@ class LeadExportTest extends FeatureTest
         // Und fuer den eigenen Workspace mit Signatur: ja.
         $this->actingAs($this->createUser($operator))->get($link)->assertOk();
     }
+
+    public function test_a_finished_export_is_not_downloadable_without_a_verified_phone_number(): void
+    {
+        Storage::fake('local');
+
+        $operator = $this->operator();
+        $this->lead($operator);
+
+        $export = $this->runExport($operator, $this->createUser($operator), ['id', 'email']);
+
+        $link = URL::temporarySignedRoute(
+            'lead-export.download',
+            now()->addMinutes(60),
+            ['export' => $export->uuid],
+        );
+
+        // Derselbe Workspace, dieselbe gueltige Signatur -- aber die
+        // Bestaetigung der Rufnummer fehlt (oder wurde zurueckgesetzt). Dann
+        // gibt der Link keine Kontaktdaten heraus, sondern fuehrt auf den
+        // Verifizierungs-Screen (LP-ONBOARD-003).
+        $unverified = $this->createUser($operator);
+        $unverified->forceFill(['phone_number_verified_at' => null])->save();
+
+        $this->actingAs($unverified)
+            ->get($link)
+            ->assertRedirect(route('onboarding.phone'));
+    }
 }
