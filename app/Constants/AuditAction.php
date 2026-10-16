@@ -64,6 +64,16 @@ enum AuditAction: string
     case CALLER_ID_VERIFIED = 'caller_id.verified';
 
     /**
+     * Rufnummer vom Nutzer selbst zurueckgezogen (Ticket #1). Danach ist das
+     * Konto bis zur erneuten Bestaetigung arbeitsunfaehig, und der Eintrag im
+     * Twilio-Konto ist weg -- beides muss nachvollziehbar bleiben, auch wenn
+     * es der Nutzer selbst war. Der Eintrag haelt zusaetzlich fest, ob die
+     * Loeschung bei Twilio durchkam: Scheitert sie, steht die Nummer dort
+     * weiter und muss von Hand nachgezogen werden.
+     */
+    case CALLER_ID_RELEASED = 'caller_id.released';
+
+    /**
      * Bestaetigung der Rufnummer eines Benutzers im Admin zurueckgesetzt
      * (LP-ONBOARD-017). Danach ist das Konto bis zur erneuten Bestaetigung
      * arbeitsunfaehig -- deshalb muss nachvollziehbar bleiben, wer das getan

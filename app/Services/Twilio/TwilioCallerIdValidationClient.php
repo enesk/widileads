@@ -22,15 +22,10 @@ class TwilioCallerIdValidationClient implements CallerIdValidationClient
         string $friendlyName,
         string $statusCallbackUrl,
     ): CallerIdValidation {
-        $sid = (string) config('services.twilio.sid');
-        $token = (string) config('services.twilio.token');
-
-        if ($sid === '' || $token === '') {
-            throw new CallerIdValidationFailed('Twilio ist nicht eingerichtet: services.twilio.sid oder .token fehlt.');
-        }
+        $client = $this->client();
 
         try {
-            $request = (new Client($sid, $token))
+            $request = $client
                 ->validationRequests
                 ->create($phoneNumber, [
                     'friendlyName' => $friendlyName,
@@ -48,5 +43,43 @@ class TwilioCallerIdValidationClient implements CallerIdValidationClient
             (string) $request->callSid,
             (string) $request->validationCode,
         );
+    }
+
+    public function deleteValidatedNumber(string $phoneNumber): int
+    {
+        $client = $this->client();
+        $deleted = 0;
+
+        try {
+            // Die Liste ist der einzige Weg zum Eintrag: Seine SID bekommen wir
+            // beim Anfordern nicht zu sehen (siehe Schnittstelle).
+            foreach ($client->outgoingCallerIds->read(['phoneNumber' => $phoneNumber]) as $entry) {
+                if ($entry->delete()) {
+                    $deleted++;
+                }
+            }
+        } catch (Throwable $exception) {
+            throw new CallerIdValidationFailed($exception->getMessage(), 0, $exception);
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Ohne Zugangsdaten wird gar nicht erst gewaehlt: Ein Aufruf ohne sie
+     * scheitert mit einer Twilio-Meldung, die niemand deuten kann.
+     *
+     * @throws CallerIdValidationFailed
+     */
+    private function client(): Client
+    {
+        $sid = (string) config('services.twilio.sid');
+        $token = (string) config('services.twilio.token');
+
+        if ($sid === '' || $token === '') {
+            throw new CallerIdValidationFailed('Twilio ist nicht eingerichtet: services.twilio.sid oder .token fehlt.');
+        }
+
+        return new Client($sid, $token);
     }
 }

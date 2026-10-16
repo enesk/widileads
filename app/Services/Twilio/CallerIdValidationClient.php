@@ -25,4 +25,19 @@ interface CallerIdValidationClient
         string $friendlyName,
         string $statusCallbackUrl,
     ): CallerIdValidation;
+
+    /**
+     * Nimmt eine bestaetigte Nummer im Twilio-Konto zurueck (Ticket #1).
+     *
+     * Gesucht wird ueber die Nummer, nicht ueber eine gemerkte Kennung: Eine
+     * Validation Request liefert nur die SID des Bestaetigungsanrufs
+     * (`caller_ids.validation_sid`), der daraus entstandene Eintrag unter
+     * Verified Caller IDs hat eine eigene, die wir nie zu sehen bekommen.
+     *
+     * @return int Anzahl der entfernten Eintraege. 0 heisst: Es stand dort
+     *             nichts mehr -- das ist kein Fehler.
+     *
+     * @throws CallerIdValidationFailed wenn Twilio die Anfrage ablehnt.
+     */
+    public function deleteValidatedNumber(string $phoneNumber): int;
 }

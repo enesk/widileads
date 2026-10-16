@@ -44,6 +44,11 @@ class PhoneVerificationTest extends FeatureTest
             {
                 return new CallerIdValidation('CAtest', PhoneVerificationTest::CODE);
             }
+
+            public function deleteValidatedNumber(string $phoneNumber): int
+            {
+                return 0;
+            }
         });
     }
 

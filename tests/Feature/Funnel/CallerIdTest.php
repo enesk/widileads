@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Funnel;
 
+use App\Constants\AuditAction;
 use App\Constants\CallerIdStatus;
+use App\Constants\LeadContactStatus;
 use App\Constants\LeadState;
 use App\Constants\PhoneVerificationChannel;
 use App\Constants\TenantType;
 use App\Dto\CallerIdValidation;
 use App\Filament\Dashboard\Pages\CallerId as CallerIdPage;
 use App\Http\Middleware\VerifyTwilioSignature;
+use App\Models\AuditLog;
 use App\Models\BuyerRegistration;
 use App\Models\CallerId;
 use App\Models\Lead;
@@ -21,9 +24,12 @@ use App\Services\CallerIdService;
 use App\Services\CallService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Twilio\CallerIdValidationClient;
+use App\Services\Twilio\CallerIdValidationFailed;
 use App\Services\Twilio\CallerIdValidationThrottled;
 use App\Services\Twilio\OutboundCallClient;
+use App\Support\PortalCallerIdLock;
 use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
 use Livewire\Livewire;
@@ -44,6 +50,13 @@ class CallerIdTest extends FeatureTest
 {
     private const TOKEN = 'test-auth-token';
 
+    /**
+     * Die Twilio-Anbindung als Doppel -- umschaltbar, siehe setUp().
+     *
+     * @var CallerIdValidationClient&object{deletionFails: bool, deleted: list<string>}
+     */
+    private CallerIdValidationClient $twilio;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -53,13 +66,32 @@ class CallerIdTest extends FeatureTest
         config()->set('services.twilio.sid', 'ACtest');
         config()->set('services.twilio.token', self::TOKEN);
 
-        $this->app->bind(CallerIdValidationClient::class, fn (): CallerIdValidationClient => new class implements CallerIdValidationClient
+        $this->twilio = new class implements CallerIdValidationClient
         {
+            /** Laesst die Loeschung bei Twilio scheitern. */
+            public bool $deletionFails = false;
+
+            /** @var list<string> Nummern, die bei Twilio geloescht wurden. */
+            public array $deleted = [];
+
             public function requestValidation(string $phoneNumber, string $friendlyName, string $statusCallbackUrl): CallerIdValidation
             {
                 return new CallerIdValidation('CAtest', '123456');
             }
-        });
+
+            public function deleteValidatedNumber(string $phoneNumber): int
+            {
+                if ($this->deletionFails) {
+                    throw new CallerIdValidationFailed('Twilio ist nicht erreichbar.');
+                }
+
+                $this->deleted[] = $phoneNumber;
+
+                return 1;
+            }
+        };
+
+        $this->app->bind(CallerIdValidationClient::class, fn (): CallerIdValidationClient => $this->twilio);
     }
 
     public function test_signierter_rueckruf_bestaetigt_die_nummer(): void
@@ -531,6 +563,299 @@ class CallerIdTest extends FeatureTest
         Filament::setTenant(null, isQuiet: true);
 
         $this->assertFalse($erlaubt);
+    }
+
+    /**
+     * Ticket #1: Der Gegenweg zur Bestaetigung. Geprueft wird beides in einem
+     * Zug -- die Zeile ist weg und der Haken am Nutzer ist weg. Bliebe eines
+     * von beiden stehen, haetten wir entweder einen Nutzer ohne nutzbare
+     * Nummer hinter offener Tuer oder eine Zeile ohne Nachweis.
+     */
+    public function test_loeschen_entfernt_die_nummer_und_die_telefonbestaetigung(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+        $callerId = app(CallerIdService::class)->forUser($user);
+
+        $release = app(CallerIdService::class)->releaseNumber($user);
+
+        $this->assertTrue($release->released);
+        $this->assertSame('+491721234567', $release->phoneNumber);
+        $this->assertNull($release->providerError);
+        $this->assertDatabaseMissing('caller_ids', ['id' => $callerId->getKey()]);
+
+        $user = $user->fresh();
+
+        $this->assertNull($user->phone_number_verified_at);
+        $this->assertNull($user->phone_e164);
+        $this->assertNull($user->phone_verification_channel);
+        $this->assertFalse(app(OnboardingService::class)->isPhoneVerified($user));
+        $this->assertFalse(PortalCallerIdLock::hasVerifiedNumber($user));
+        $this->assertNotNull($tenant->fresh());
+    }
+
+    /**
+     * Ticket #1: Die Nummer muss auch bei Twilio verschwinden. Bleibt sie dort
+     * als Verified Caller ID stehen, kennen wir sie nicht mehr, Twilio laesst
+     * sie aber weiter als Rufnummernanzeige zu -- das Auseinanderlaufen aus
+     * #96/#97.
+     */
+    public function test_loeschen_nimmt_den_eintrag_bei_twilio_mit(): void
+    {
+        [, $user] = $this->verifiedUser();
+
+        $release = app(CallerIdService::class)->releaseNumber($user);
+
+        $this->assertSame(['+491721234567'], $this->twilio->deleted);
+        $this->assertSame(1, $release->deletedAtProvider);
+    }
+
+    /**
+     * Ticket #1: Scheitert die Loeschung bei Twilio, geht die hiesige trotzdem
+     * durch -- sonst koennte ein Nutzer seine Nummer wegen eines fremden
+     * Ausfalls nicht wechseln. Der Fehlschlag darf aber nicht verschwinden:
+     * Die Nummer steht dort weiter und muss von Hand nachgezogen werden.
+     */
+    public function test_scheitert_die_loeschung_bei_twilio_geht_sie_hier_durch(): void
+    {
+        [, $user] = $this->verifiedUser();
+        $this->twilio->deletionFails = true;
+
+        $release = app(CallerIdService::class)->releaseNumber($user);
+
+        $this->assertTrue($release->released);
+        $this->assertSame(0, $release->deletedAtProvider);
+        $this->assertSame('Twilio ist nicht erreichbar.', $release->providerError);
+        $this->assertNull($user->fresh()->phone_number_verified_at);
+        $this->assertDatabaseMissing('caller_ids', ['user_id' => $user->getKey()]);
+
+        $eintrag = AuditLog::query()
+            ->where('action', AuditAction::CALLER_ID_RELEASED)
+            ->where('user_id', $user->getKey())
+            ->sole();
+
+        $this->assertSame('Twilio ist nicht erreichbar.', $eintrag->payload['provider_error']);
+        $this->assertSame('+491721234567', $eintrag->payload['phone_number']);
+    }
+
+    /**
+     * Ticket #1: Nach dem Loeschen steht der Nutzer wieder vor der
+     * Telefonsperre. Das ist die eigentliche Folge des Loeschens -- ohne
+     * bestaetigte Nummer kein Portal.
+     */
+    public function test_nach_dem_loeschen_greift_die_telefonsperre_wieder(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+
+        $this->withExceptionHandling();
+
+        // Vorher laeuft die Anfrage an der Sperre vorbei. Ob die Seite danach
+        // etwas anderes verlangt (Freigabe des Marktplatzes etwa), ist hier
+        // nicht die Frage -- gefragt ist, dass nicht die Telefonsperre umleitet.
+        $vorher = $this->actingAs($user)->get(route('portal.overview', ['tenant' => $tenant->uuid]));
+
+        $this->assertNotSame(route('onboarding.phone'), $vorher->headers->get('Location'));
+
+        app(CallerIdService::class)->releaseNumber($user);
+
+        $this->actingAs($user)
+            ->get(route('portal.overview', ['tenant' => $tenant->uuid]))
+            ->assertRedirect(route('onboarding.phone'));
+    }
+
+    /**
+     * Ticket #1: Danach muss der Weg von vorn offen sein -- mit einer anderen
+     * Nummer, und mit einem echten Validation Request bei Twilio. Eine neue
+     * Bestaetigung ohne Vorgang waere der Fehler aus #96.
+     */
+    public function test_nach_dem_loeschen_ist_eine_neue_bestaetigung_moeglich(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+
+        app(CallerIdService::class)->releaseNumber($user);
+
+        // Die Wartezeit von 60 Sekunden gilt weiter (siehe eigener Test); hier
+        // geht es um den Weg danach.
+        $this->travel(61)->seconds();
+
+        $neue = $this->requestFor($tenant, $user, '030 7654321');
+
+        $this->assertSame(CallerIdStatus::PENDING, $neue->status);
+        $this->assertSame('+49307654321', $neue->phone_number);
+        $this->assertSame('CAtest', $neue->validation_sid);
+
+        $this->postSigned([
+            'To' => $neue->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $this->assertSame(CallerIdStatus::VERIFIED, $neue->fresh()->status);
+        $this->assertSame('+49307654321', $user->fresh()->phone_e164);
+        $this->assertNotNull($user->fresh()->phone_number_verified_at);
+    }
+
+    /**
+     * Ticket #1: Das Limit haengt am Nutzer und an der Nummer, nicht an der
+     * Zeile. Sonst waere Loeschen und Neuanlegen der bequeme Weg am
+     * Missbrauchsschutz aus #97 vorbei -- und wir die Anrufmaschine.
+     */
+    public function test_rate_limit_ueberlebt_das_loeschen(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant->users()->attach($user);
+
+        $erlaubt = (int) config('funnel.call.caller_id.limits.requests_per_user');
+        $wartezeit = (int) config('funnel.call.caller_id.limits.resend_after_seconds');
+
+        for ($i = 0; $i < $erlaubt; $i++) {
+            $this->requestFor($tenant, $user, '0172 1234567');
+            $this->travel($wartezeit + 1)->seconds();
+        }
+
+        app(CallerIdService::class)->releaseNumber($user);
+        $this->travel($wartezeit + 1)->seconds();
+
+        $this->expectException(CallerIdValidationThrottled::class);
+
+        $this->requestFor($tenant, $user, '030 7654321');
+    }
+
+    /**
+     * Ticket #1: Auch die Wartezeit von 60 Sekunden ueberlebt das Loeschen.
+     * Sie haengt sonst am Zeitstempel der Zeile -- und die ist danach weg.
+     */
+    public function test_wartezeit_ueberlebt_das_loeschen(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant->users()->attach($user);
+
+        $this->requestFor($tenant, $user, '0172 1234567');
+
+        app(CallerIdService::class)->releaseNumber($user);
+
+        $this->expectException(CallerIdValidationThrottled::class);
+
+        $this->requestFor($tenant, $user, '030 7654321');
+    }
+
+    /**
+     * Ticket #1: Mandantentrennung. Der Dienst liest ausschliesslich die Zeile
+     * des uebergebenen Nutzers -- ein Kollege im selben Workspace bleibt
+     * unberuehrt, samt seiner Bestaetigung.
+     */
+    public function test_loeschen_trifft_nur_die_eigene_nummer(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+
+        $kollege = User::factory()->phoneUnverified()->create();
+        $tenant->users()->attach($kollege);
+        $kollegeNummer = $this->requestFor($tenant, $kollege, '030 7654321');
+
+        $this->postSigned([
+            'To' => $kollegeNummer->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        app(CallerIdService::class)->releaseNumber($user);
+
+        $this->assertDatabaseHas('caller_ids', [
+            'id' => $kollegeNummer->getKey(),
+            'status' => CallerIdStatus::VERIFIED->value,
+        ]);
+        $this->assertNotNull($kollege->fresh()->phone_number_verified_at);
+        $this->assertSame('+49307654321', $kollege->fresh()->phone_e164);
+        $this->assertSame(['+491721234567'], $this->twilio->deleted);
+    }
+
+    /**
+     * Ticket #1: Die Ansage vor dem Loeschen. Gezaehlt werden die eigenen
+     * Kaeufe mit laufender Frist -- nicht die eines Kollegen, nicht die
+     * abgeschlossenen und nicht die, deren Frist schon abgelaufen ist.
+     */
+    public function test_offene_leads_mit_laufender_frist_werden_gezaehlt(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+        $kollege = User::factory()->create();
+        $tenant->users()->attach($kollege);
+
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, now()->addDay());
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, now()->addHours(2));
+
+        // Zaehlen nicht: abgeschlossen, Frist abgelaufen, Kauf eines Kollegen.
+        $this->purchaseFor($tenant, $user, LeadContactStatus::BILLABLE, now()->addDay());
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, now()->subHour());
+        $this->purchaseFor($tenant, $kollege, LeadContactStatus::OPEN, now()->addDay());
+
+        $this->assertSame(2, app(CallerIdService::class)->countOpenLeadsAtRisk($user));
+    }
+
+    /**
+     * Ein Nutzer ohne Nummer: Der Weg sagt ehrlich, dass es nichts
+     * zurueckzunehmen gab, statt einen Vorgang zu protokollieren, den es nicht
+     * gab.
+     */
+    public function test_ohne_nummer_gibt_es_nichts_zurueckzunehmen(): void
+    {
+        $user = User::factory()->phoneUnverified()->create();
+
+        $release = app(CallerIdService::class)->releaseNumber($user);
+
+        $this->assertFalse($release->released);
+        $this->assertSame([], $this->twilio->deleted);
+        $this->assertSame(
+            0,
+            AuditLog::query()->where('action', AuditAction::CALLER_ID_RELEASED)->count(),
+        );
+    }
+
+    /**
+     * Ein Nutzer mit bestaetigter, ueber den Anruf-Weg erworbener Nummer.
+     *
+     * Bewusst ueber requestFor() und den signierten Rueckruf, nicht per
+     * Factory: So steht der Nachweis genauso in der Datenbank, wie er im
+     * Betrieb entsteht -- Zeile mit validation_sid, Haken am Nutzer, Kanal
+     * `call`.
+     *
+     * @return array{0: Tenant, 1: User}
+     */
+    private function verifiedUser(): array
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant->users()->attach($user);
+
+        $callerId = $this->requestFor($tenant, $user, '0172 1234567');
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        return [$tenant, $user->fresh()];
+    }
+
+    /** Ein abgeschlossener Kauf dieses Nutzers samt Stand und Frist des Leads. */
+    private function purchaseFor(
+        Tenant $tenant,
+        User $user,
+        LeadContactStatus $contactStatus,
+        Carbon $deadline,
+    ): LeadPurchase {
+        $lead = Lead::factory()->create([
+            'contact_status' => $contactStatus,
+            'deadline_at' => $deadline,
+            'delivered_at' => now()->subDay(),
+        ]);
+
+        return LeadPurchase::factory()->create([
+            'lead_id' => $lead->getKey(),
+            'buyer_tenant_id' => $tenant->getKey(),
+            'purchased_by_user_id' => $user->getKey(),
+        ]);
     }
 
     /**

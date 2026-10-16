@@ -6,15 +6,22 @@ namespace App\Services;
 
 use App\Constants\AuditAction;
 use App\Constants\CallerIdStatus;
+use App\Constants\LeadContactStatus;
 use App\Constants\PhoneVerificationChannel;
+use App\Dto\CallerIdRelease;
 use App\Events\Phone\PhoneVerified;
 use App\Events\User\UserPhoneVerified;
 use App\Models\CallerId;
+use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Onboarding\OnboardingService;
 use App\Services\Twilio\CallerIdValidationClient;
 use App\Services\Twilio\CallerIdValidationFailed;
 use App\Services\Twilio\CallerIdValidationThrottled;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use InvalidArgumentException;
@@ -48,6 +55,7 @@ class CallerIdService
         private readonly CallerIdValidationClient $client,
         private readonly PhoneNumberUtil $phoneNumbers,
         private readonly AuditLogger $auditLogger,
+        private readonly OnboardingService $onboarding,
     ) {}
 
     /**
@@ -267,6 +275,127 @@ class CallerIdService
     }
 
     /**
+     * Nimmt die Rufnummer eines Nutzers zurueck -- bei uns und bei Twilio
+     * (Ticket #1).
+     *
+     * Der Gegenweg zu completeValidation(). Danach steht der Nutzer wieder vor
+     * der Telefonsperre (EnsurePhoneVerified) und kann die Bestaetigung von
+     * vorn beginnen, auch mit einer anderen Nummer.
+     *
+     * **Die Zeile wird geloescht, nicht auf einen Endzustand gesetzt.** Ein
+     * Endzustand waere ein Rest: Die Oberflaeche nimmt eine vorhandene Zeile
+     * auf, statt den Ablauf neu zu beginnen (CallerIdVerification::mount), und
+     * der Nutzer saehe nach dem Loeschen den alten Durchlauf.
+     *
+     * **Der Eintrag im Twilio-Konto geht mit.** Bleibt er stehen, kennen wir
+     * die Nummer nicht mehr, Twilio laesst sie aber weiter als Rufnummernanzeige
+     * zu -- genau das Auseinanderlaufen, das #96/#97 beseitigt haben. Scheitert
+     * die Loeschung dort, geht die hiesige trotzdem durch: Die Alternative waere
+     * ein Nutzer, der seine Nummer wegen eines Twilio-Ausfalls nicht wechseln
+     * kann. Der Fehlschlag steht im Pruefprotokoll und im Rueckgabewert.
+     *
+     * **Die Grenzen aus Ticket #97 ueberleben das Loeschen.** Sie haengen am
+     * Nutzer und an der Nummer im RateLimiter, nicht an dieser Zeile -- sonst
+     * waere Loeschen und Neuanlegen der bequeme Weg am Limit vorbei.
+     *
+     * Gelesen wird ausschliesslich die Zeile des uebergebenen Nutzers
+     * (forUser()). Es gibt keinen Parameter, mit dem sich die Nummer eines
+     * Kollegen treffen liesse -- die Mandantentrennung braucht hier keine
+     * zweite Pruefung, weil nichts Fremdes erreichbar ist.
+     */
+    public function releaseNumber(User $user): CallerIdRelease
+    {
+        $callerId = $this->forUser($user);
+        $phoneNumber = $callerId instanceof CallerId
+            ? $callerId->phone_number
+            : $user->phone_e164;
+
+        if (! $callerId instanceof CallerId && $user->phone_number_verified_at === null) {
+            return new CallerIdRelease(released: false);
+        }
+
+        $deletedAtProvider = 0;
+        $providerError = null;
+
+        if ($phoneNumber !== null && $phoneNumber !== '') {
+            try {
+                $deletedAtProvider = $this->client->deleteValidatedNumber($phoneNumber);
+            } catch (CallerIdValidationFailed $exception) {
+                $providerError = $exception->getMessage();
+            }
+        }
+
+        DB::transaction(function () use ($callerId, $user): void {
+            $callerId?->delete();
+
+            // Die eingetippte Form (`phone_number`) bleibt stehen: Sie ist
+            // keine Bestaetigung, sondern die Nummer am Konto, und der Support
+            // muss nachher noch sagen koennen, welche es war. Weg muss, was
+            // Nachweis ist -- der Haken, der Kanal und die E.164-Fassung, an
+            // der guardAgainstForeignClaim den Besitz festmacht.
+            $user->forceFill([
+                'phone_e164' => null,
+                'phone_number_verified_at' => null,
+                'phone_verification_channel' => null,
+            ])->save();
+        });
+
+        // Sonst zeigte die Checkliste bis zu 30 Sekunden lang noch den Haken
+        // (gemerkter Fortschritt, wie beim Zuruecksetzen im Admin).
+        $workspaces = $user->tenants()->get();
+
+        foreach ($workspaces as $workspace) {
+            $this->onboarding->forgetProgress($workspace);
+        }
+
+        // Betreff ist der Nutzer, nicht die Caller-ID: Die Zeile gibt es nach
+        // diesem Vorgang nicht mehr, ihre Kennung zeigte ins Leere.
+        $this->auditLogger->log(
+            AuditAction::CALLER_ID_RELEASED,
+            $user,
+            [
+                'phone_number' => $phoneNumber,
+                'provider_deleted' => $deletedAtProvider,
+                'provider_error' => $providerError,
+                'workspace_ids' => $workspaces->modelKeys(),
+            ],
+            user: $user,
+        );
+
+        return new CallerIdRelease(
+            released: true,
+            phoneNumber: $phoneNumber,
+            deletedAtProvider: $deletedAtProvider,
+            providerError: $providerError,
+        );
+    }
+
+    /**
+     * Wie viele eigene Leads mit laufender Frist verliert dieser Nutzer aus der
+     * Hand, wenn er seine Nummer jetzt zurueckzieht? (Ticket #1)
+     *
+     * Die Zahl ist eine Ansage, keine Sperre: Das Loeschen bleibt erlaubt, der
+     * Nutzer soll nur vorher wissen, was es kostet. Ohne bestaetigte Nummer
+     * kann er nicht telefonieren, die Frist dieser Leads laeuft aber weiter
+     * (ResolveExpiredLeads).
+     *
+     * Gezaehlt werden die eigenen Kaeufe des Nutzers in allen seinen
+     * Workspaces -- die Telefonsperre haengt am Nutzer und gilt deshalb
+     * ueberall. Leads von Kollegen und Autokaeufe bleiben draussen: Die kann
+     * jemand anders anrufen.
+     */
+    public function countOpenLeadsAtRisk(User $user): int
+    {
+        return LeadPurchase::query()
+            ->ofUser($user)
+            ->whereHas('lead', static fn (Builder $lead): Builder => $lead
+                ->where('contact_status', LeadContactStatus::OPEN)
+                ->whereNotNull('deadline_at')
+                ->where('deadline_at', '>', now()))
+            ->count();
+    }
+
+    /**
      * Setzt eine verfallene Bestaetigung auf `expired`. Aufgerufen, wenn die
      * Oberflaeche den Stand zeigt -- ein abgelaufener Code soll nicht als
      * "laeuft noch" erscheinen.
@@ -448,10 +577,10 @@ class CallerIdService
     {
         $limits = (array) config('funnel.call.caller_id.limits');
         $wait = (int) ($limits['resend_after_seconds'] ?? 0);
-        $existing = $this->forUser($user);
+        $lastRequestedAt = $this->lastRequestedAt($user);
 
-        if ($wait > 0 && $existing instanceof CallerId && $existing->requested_at !== null) {
-            $elapsed = $existing->requested_at->diffInSeconds(now());
+        if ($wait > 0 && $lastRequestedAt !== null) {
+            $elapsed = $lastRequestedAt->diffInSeconds(now());
 
             if ($elapsed < $wait) {
                 throw new CallerIdValidationThrottled((int) ceil($wait - $elapsed));
@@ -473,6 +602,48 @@ class CallerIdService
         foreach (array_keys($this->limiterKeys($phoneNumber, $user)) as $key) {
             RateLimiter::hit($key, $window);
         }
+
+        $wait = (int) config('funnel.call.caller_id.limits.resend_after_seconds');
+
+        if ($wait > 0) {
+            Cache::put($this->resendKey($user), now()->getTimestamp(), $wait);
+        }
+    }
+
+    /**
+     * Wann hat dieser Nutzer zuletzt angefordert?
+     *
+     * Zwei Quellen, und die zweite kam mit Ticket #1 dazu: der Zeitstempel an
+     * der Zeile und ein Vermerk im Cache, der sie ueberlebt. Ohne ihn waere die
+     * Wartezeit von 60 Sekunden mit "Nummer loeschen" abgeschuettelt -- die
+     * Zeile, an der sie haengt, ist danach weg. Genommen wird der spaetere der
+     * beiden.
+     */
+    private function lastRequestedAt(User $user): ?Carbon
+    {
+        $stamps = [];
+        $cached = Cache::get($this->resendKey($user));
+
+        if (is_numeric($cached)) {
+            $stamps[] = Carbon::createFromTimestamp((int) $cached);
+        }
+
+        $existing = $this->forUser($user);
+
+        if ($existing instanceof CallerId && $existing->requested_at !== null) {
+            $stamps[] = $existing->requested_at;
+        }
+
+        if ($stamps === []) {
+            return null;
+        }
+
+        return collect($stamps)->sortDesc()->first();
+    }
+
+    private function resendKey(User $user): string
+    {
+        return 'caller-id-validation:last-request:user:'.$user->getKey();
     }
 
     /**

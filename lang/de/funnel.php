@@ -66,6 +66,7 @@ return [
             'buyer_rejected' => 'Käufer abgelehnt',
             'caller_id_requested' => 'Rufnummer-Bestätigung angefordert',
             'caller_id_verified' => 'Rufnummer bestätigt',
+            'caller_id_released' => 'Rufnummer vom Nutzer zurückgezogen',
             'phone_verification_reset' => 'Rufnummer-Bestätigung zurückgesetzt',
             'phone_verification_throttle_released' => 'Sperre der Rufnummer-Bestätigung aufgehoben',
             'postpaid_approved' => 'Pay as you go freigegeben',
