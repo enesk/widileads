@@ -681,6 +681,7 @@ return [
             'email_hint' => 'E-Mails zählen nicht als Erreichbarkeit. Für die Abrechnung zählt nur das Telefongespräch.',
             'phone_hint_masked' => 'Die vollständige Rufnummer steht noch nicht bereit. Du rufst über „Jetzt anrufen“ an, der Lead sieht dabei unsere Portalnummer.',
             'phone_hint_released' => 'Freigegeben. Du wählst die Nummer jetzt selbst – über das Portal läuft kein Anruf mehr.',
+            'phone_hint_released_on_time' => 'Sichtbar, weil deine Versuche gezählt sind. Ruf trotzdem über „Jetzt anrufen“ an: Nur so zählt das Gespräch – sonst gilt der Lead als nicht erreicht und wird dir gutgeschrieben.',
             'phone_action' => 'Anrufen',
             'meta' => 'Aus :funnel · gekauft am :date',
 

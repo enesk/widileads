@@ -6,6 +6,9 @@ namespace App\Services;
 
 use App\Constants\AuditAction;
 use App\Constants\CallerIdStatus;
+use App\Constants\PhoneVerificationChannel;
+use App\Events\Phone\PhoneVerified;
+use App\Events\User\UserPhoneVerified;
 use App\Models\CallerId;
 use App\Models\Tenant;
 use App\Models\User;
@@ -27,8 +30,17 @@ use libphonenumber\PhoneNumberUtil;
  * Ergebnis zurueck. Ein dritter Weg -- etwa ein Formular, das `verified`
  * mitschickt -- darf es nicht geben, sonst ist die Bestaetigung wertlos.
  *
+ * **Seit Ticket #97 der einzige Weg.** Twilio Verify (SMS-Code) ist abgebaut:
+ * Es bewies den Besitz einer Nummer, legte im Twilio-Konto aber keine
+ * Verified Caller ID an -- der Anruf beim Lead scheiterte danach mit Fehler
+ * 21210 (#96). Der Bestaetigungsanruf erledigt beides in einem Vorgang, und
+ * deshalb haengt seit #97 auch die Telefonsperre des Onboardings an ihm
+ * (`users.phone_number_verified_at`, gesetzt in completeValidation()).
+ *
  * Gespeichert wird immer E.164. Eine Nummer, die Twilio nicht waehlen kann,
- * wird gar nicht erst angelegt.
+ * wird gar nicht erst angelegt. Festnetz ist ausdruecklich erlaubt -- ein
+ * Handwerksbetrieb erreicht seine Leads ueber die Werkstattnummer, und der
+ * Anruf-Weg kann das im Gegensatz zur SMS.
  */
 class CallerIdService
 {
@@ -68,11 +80,14 @@ class CallerIdService
      * abgewiesene Anforderung darf keinen `pending`-Rest hinterlassen, auf den
      * die Oberflaeche dann wartet.
      *
-     * Festnetz ist ausdruecklich erlaubt -- geprueft wird allein, ob die
-     * Nummer waehlbar ist (`normalize()`). Ein Handwerksbetrieb erreicht seine
-     * Leads ueber die Werkstattnummer.
+     * Festnetz ist ausdruecklich erlaubt -- geprueft wird, ob die Nummer
+     * waehlbar ist und aus einem erlaubten Land stammt (`normalize()`). Ein
+     * Handwerksbetrieb erreicht seine Leads ueber die Werkstattnummer.
      *
-     * @throws InvalidArgumentException wenn die Eingabe keine waehlbare Nummer ist.
+     * @throws InvalidArgumentException wenn die Eingabe keine waehlbare Nummer
+     *                                  ist, aus einem nicht erlaubten Land stammt oder schon einem anderen
+     *                                  Konto gehoert. Die Meldung ist uebersetzt und darf dem Nutzer gezeigt
+     *                                  werden.
      * @throws CallerIdValidationThrottled wenn zu oft hintereinander angefordert wurde.
      * @throws CallerIdValidationFailed wenn Twilio die Anforderung ablehnt.
      */
@@ -128,10 +143,16 @@ class CallerIdService
             throw $exception;
         }
 
-        $callerId->forceFill([
-            'validation_sid' => $validation->callSid,
-            'validation_code' => $validation->validationCode,
-        ])->save();
+        // Der Rueckruf von Twilio kann schneller sein als diese Antwort. Ist er
+        // schon durch, steht die Zeile nicht mehr auf `pending` -- dann wird
+        // nur die Kennung des Vorgangs nachgetragen und nicht der angesagte
+        // Code, der an einer fertigen Zeile nichts mehr zu suchen hat.
+        $callerId->forceFill(array_merge(
+            ['validation_sid' => $validation->callSid],
+            $callerId->fresh()?->status === CallerIdStatus::PENDING
+                ? ['validation_code' => $validation->validationCode]
+                : [],
+        ))->save();
 
         $this->auditLogger->log(
             AuditAction::CALLER_ID_REQUESTED,
@@ -142,99 +163,6 @@ class CallerIdService
         );
 
         return $callerId->refresh();
-    }
-
-    /**
-     * Uebernimmt eine anderweitig bestaetigte Nummer als Rufnummernanzeige
-     * (LP-ONBOARD-004).
-     *
-     * Der Weg fuer die Rufnummernbestaetigung des Onboardings: Twilio Verify
-     * hat dort bereits bewiesen, dass der Nutzer die Nummer in der Hand hat.
-     * Ein zweiter Bestaetigungsanruf wuerde dieselbe Tatsache ein zweites Mal
-     * nachweisen und dem Kaeufer einen weiteren Abbruchgrund geben.
-     *
-     * Deshalb steht die Methode hier und nicht beim Aufrufer: Der Stand einer
-     * Rufnummer entsteht ausschliesslich in diesem Dienst. Eine Stelle, die
-     * `verified` selbst in die Tabelle schreibt, waere genau die Luecke, die
-     * die Bestaetigung schliessen soll.
-     *
-     * **Eine vorhandene Zeile wird erneuert, wenn sie dieselbe Nummer traegt
-     * und unbrauchbar ist** (`failed` oder `expired`, Ticket #49): Genau dieser
-     * Nutzer wurde sonst nach der Telefonbestaetigung in einen zweiten
-     * Bestaetigungsanruf fuer dieselbe Nummer geschickt -- auf einem
-     * Twilio-Trial-Konto in eine Sackgasse. Der frische Verify-Nachweis sagt
-     * ueber diese Nummer dasselbe, was der Anruf sagen wuerde.
-     *
-     * Nur dieselbe Nummer: Steht in der Zeile eine andere (etwa eine
-     * Firmennummer, deren Bestaetigungsanruf scheiterte), ist das eine bewusste
-     * Entscheidung des Nutzers oder des Supports. Der Nachweis gilt nur fuer
-     * seine eigene Nummer und raeumt die fremde nicht weg. `pending` bleibt
-     * ebenfalls stehen -- dort klingelt gerade ein Telefon.
-     *
-     * Null heisst: nichts getan -- der Nutzer hat schon eine nutzbare oder eine
-     * andere Nummer, oder die Nummer ist bei einem anderen Nutzer bestaetigt.
-     */
-    public function adoptVerifiedNumber(Tenant $tenant, User $user, string $phoneNumber): ?CallerId
-    {
-        $normalized = $this->normalizeQuietly($phoneNumber);
-        $existing = $this->forUser($user);
-
-        if ($existing instanceof CallerId && ! $this->isRenewable($existing, $normalized)) {
-            return null;
-        }
-
-        try {
-            $this->guardAgainstForeignClaim($normalized, $user);
-        } catch (InvalidArgumentException) {
-            return null;
-        }
-
-        $isRenewal = $existing instanceof CallerId;
-        $callerId = $existing ?? new CallerId;
-
-        // Bei der Erneuerung bleiben `tenant_id` und `requested_at` stehen: Die
-        // Zeile gehoert weiter dem Workspace, in dem sie angefordert wurde, und
-        // wann das war, ist Teil ihrer Geschichte.
-        $callerId->forceFill(array_merge($isRenewal ? [] : [
-            'tenant_id' => $tenant->getKey(),
-            'user_id' => $user->getKey(),
-            'phone_number' => $normalized,
-            'requested_at' => now(),
-        ], [
-            'status' => CallerIdStatus::VERIFIED,
-            'validation_sid' => null,
-            'validation_code' => null,
-            'verified_at' => now(),
-            'expires_at' => null,
-        ]))->save();
-
-        $this->auditLogger->log(
-            AuditAction::CALLER_ID_VERIFIED,
-            $callerId,
-            [
-                'phone_number' => $normalized,
-                'source' => $isRenewal ? 'phone_verification_renewal' : 'phone_verification',
-            ],
-            $tenant,
-            $user,
-        );
-
-        return $callerId;
-    }
-
-    /**
-     * Darf diese vorhandene Zeile vom Verify-Nachweis gehoben werden?
-     *
-     * Nur eine unbrauchbare Zeile mit genau dieser Nummer. Verglichen wird
-     * gegen die normalisierte Fassung, weil in der Tabelle immer E.164 steht.
-     */
-    private function isRenewable(CallerId $callerId, string $normalized): bool
-    {
-        if ($callerId->phone_number !== $normalized) {
-            return false;
-        }
-
-        return $callerId->status->isFailure();
     }
 
     /**
@@ -249,6 +177,14 @@ class CallerIdService
      * trennt die beiden Fehlerfaelle, die sich ehrlich trennen lassen: Es hat
      * niemand abgenommen, oder der Anruf kam zustande und wurde nicht
      * bestaetigt (Ticket #97, siehe CallerIdStatus).
+     *
+     * **Hier entsteht seit Ticket #97 auch die Telefonbestaetigung des
+     * Nutzers** (`users.phone_number_verified_at`). Vorher setzte sie der
+     * abgeloeste SMS-Weg, und eine so bestaetigte Nummer stand in keinem
+     * Twilio-Konto -- der Anruf beim Lead scheiterte dann mit 21210 (#96).
+     * Der Bestaetigungsanruf beweist beides in einem Vorgang: Der Nutzer hat
+     * das Telefon in der Hand, und die Nummer liegt bei Twilio als Verified
+     * Caller ID. Deshalb genau ein Setzweg, und er steht hier.
      */
     public function completeValidation(string $phoneNumber, bool $verified, ?string $callStatus = null): ?CallerId
     {
@@ -287,7 +223,47 @@ class CallerIdService
             $callerId->user,
         );
 
+        $this->markUserVerified($callerId);
+
         return $callerId;
+    }
+
+    /**
+     * Schreibt die Telefonbestaetigung am Nutzer fest und loest die Folgen aus.
+     *
+     * Der einzige Setzweg auf `users.phone_number_verified_at`. Auf null
+     * gesetzt wird sie an zwei Stellen -- im Admin (Zuruecksetzen) und beim
+     * Anonymisieren eines Kontos --, gesetzt nur hier.
+     *
+     * Der Kanal ist immer `call`: Einen anderen gibt es seit Ticket #97 nicht
+     * mehr. Die Spalte bleibt, weil im Bestand `sms` steht und der Support
+     * sehen muss, auf welchem Weg eine alte Bestaetigung entstand.
+     *
+     * Idempotent: Ein zweiter Rueckruf zu derselben Nummer findet die Zeile
+     * nicht mehr auf `pending` und kommt hier nicht an.
+     */
+    private function markUserVerified(CallerId $callerId): void
+    {
+        $user = $callerId->user;
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $user->forceFill([
+            'phone_e164' => $callerId->phone_number,
+            // Die Eingabeform bleibt stehen, falls sie schon da war -- sonst
+            // steht am Konto keine Nummer, die ein Mensch wiedererkennt.
+            'phone_number' => $user->phone_number ?: $callerId->phone_number,
+            'phone_number_verified_at' => now(),
+            'phone_verification_channel' => PhoneVerificationChannel::CALL,
+        ])->save();
+
+        event(new PhoneVerified($user, PhoneVerificationChannel::CALL));
+
+        // Das aeltere Ereignis aus SaaSykit: An ihm haengt die Freischaltung
+        // von Abos, die auf die Verifizierung warten.
+        UserPhoneVerified::dispatch($user);
     }
 
     /**
@@ -310,6 +286,20 @@ class CallerIdService
     /**
      * Eingabe zu E.164, gelesen gegen die Region aus der Konfiguration.
      *
+     * Eine Nummer ohne Laendervorwahl wird gegen
+     * `funnel.call.caller_id.region` gelesen, eine Nummer mit eigener Vorwahl
+     * muss aus `funnel.call.caller_id.regions` kommen (Ticket #104). Die Liste
+     * ist auch eine Kostenbremse: Jeder Bestaetigungsanruf kostet Geld, und
+     * ein Anruf ausserhalb Europas kostet ein Vielfaches eines deutschen. Die
+     * harte Grenze sind die Voice Geographic Permissions im Twilio-Konto --
+     * diese Pruefung ist die freundliche davor, denn eine von Twilio
+     * abgewiesene Anforderung landet nur in `failed` und sagt dem Nutzer
+     * nicht, woran es lag.
+     *
+     * Die Meldungen sind uebersetzt: Die Aufrufer zeigen sie dem Nutzer
+     * unveraendert, damit er die Laender-Ablehnung von einer unlesbaren
+     * Eingabe unterscheiden kann.
+     *
      * @throws InvalidArgumentException
      */
     public function normalize(string $input): string
@@ -319,11 +309,19 @@ class CallerIdService
         try {
             $parsed = $this->phoneNumbers->parse(trim($input), $region);
         } catch (NumberParseException) {
-            throw new InvalidArgumentException('Keine lesbare Rufnummer.');
+            throw new InvalidArgumentException(__('call.caller_id.invalid_number'));
         }
 
         if (! $this->phoneNumbers->isValidNumber($parsed)) {
-            throw new InvalidArgumentException('Keine waehlbare Rufnummer.');
+            throw new InvalidArgumentException(__('call.caller_id.invalid_number'));
+        }
+
+        /** @var list<string> $allowed */
+        $allowed = (array) config('funnel.call.caller_id.regions', []);
+        $numberRegion = $this->phoneNumbers->getRegionCodeForNumber($parsed);
+
+        if ($allowed !== [] && ! in_array($numberRegion, $allowed, strict: true)) {
+            throw new InvalidArgumentException(__('call.caller_id.unsupported_region'));
         }
 
         return $this->phoneNumbers->format($parsed, PhoneNumberFormat::E164);
@@ -343,6 +341,18 @@ class CallerIdService
     }
 
     /**
+     * Eine Nummer gehoert genau einem Konto.
+     *
+     * Sonst waere die Rufnummernanzeige des Click-to-Call kein Nachweis mehr:
+     * Zwei Kaeufer riefen mit derselben Nummer an, und der Lead koennte den
+     * Rueckruf nicht zuordnen. Gefragt werden beide Tabellen -- die eigene
+     * Zeile in `caller_ids` und die Bestaetigung am Benutzer. Die zweite
+     * Haelfte ist der Bestand: Wer seine Nummer ueber den abgeloesten SMS-Weg
+     * bestaetigt hat, hat dazu keine `caller_ids`-Zeile.
+     *
+     * Die Meldung nennt bewusst nicht, welches Konto es ist -- das waere eine
+     * Auskunft ueber einen anderen Kunden.
+     *
      * @throws InvalidArgumentException
      */
     private function guardAgainstForeignClaim(string $phoneNumber, User $user): void
@@ -354,9 +364,57 @@ class CallerIdService
             ->where('status', CallerIdStatus::VERIFIED)
             ->exists();
 
-        if ($taken) {
-            throw new InvalidArgumentException('Diese Rufnummer ist bereits bestaetigt.');
+        if (! $taken) {
+            $taken = User::query()
+                ->where('phone_e164', $phoneNumber)
+                ->whereNotNull('phone_number_verified_at')
+                ->whereKeyNot($user->getKey())
+                ->exists();
         }
+
+        if ($taken) {
+            throw new InvalidArgumentException(__('call.caller_id.taken'));
+        }
+    }
+
+    /**
+     * Nimmt die Anforderungssperre eines Nutzers zurueck (LP-ONBOARD-022).
+     *
+     * Der Fall: Der Nutzer hat sein Fenster leergedrueckt und ruft genau
+     * deshalb den Support an. Ohne diesen Weg stuende das Konto bis zum Ablauf
+     * des Fensters, auch nachdem der Support alles andere erledigt hat.
+     *
+     * Zurueckgenommen werden beide Zaehler -- der am Nutzer und der an seiner
+     * Nummer, denn die Sperre an der Nummer traegt er sonst weiter mit. Die
+     * Wartezeit von 60 Sekunden bleibt stehen: Sie laeuft von selbst ab, und
+     * sie ist nicht der Grund, aus dem jemand den Support anruft.
+     *
+     * @return int Anzahl der zurueckgenommenen Zaehler.
+     */
+    public function releaseRequestLimit(User $user): int
+    {
+        $released = 0;
+
+        foreach (array_keys($this->limiterKeys($this->forUser($user)?->phone_number, $user)) as $key) {
+            if (RateLimiter::attempts($key) > 0) {
+                $released++;
+            }
+
+            RateLimiter::clear($key);
+        }
+
+        return $released;
+    }
+
+    /**
+     * Angeforderte Bestaetigungsanrufe dieses Nutzers im laufenden Fenster.
+     *
+     * Der Admin entscheidet daran, ob der Knopf "Sperre aufheben" ueberhaupt
+     * etwas zu tun haette (LP-ONBOARD-022).
+     */
+    public function countingRequestsInWindow(User $user): int
+    {
+        return RateLimiter::attempts($this->userLimiterKey($user));
     }
 
     /**
@@ -422,14 +480,23 @@ class CallerIdService
      *
      * @return array<string, int>
      */
-    private function limiterKeys(string $phoneNumber, User $user): array
+    private function limiterKeys(?string $phoneNumber, User $user): array
     {
         $limits = (array) config('funnel.call.caller_id.limits');
+        $keys = [];
 
-        return [
-            'caller-id-validation:phone:'.$phoneNumber => (int) ($limits['requests_per_phone'] ?? 0),
-            'caller-id-validation:user:'.$user->getKey() => (int) ($limits['requests_per_user'] ?? 0),
-        ];
+        if ($phoneNumber !== null && $phoneNumber !== '') {
+            $keys['caller-id-validation:phone:'.$phoneNumber] = (int) ($limits['requests_per_phone'] ?? 0);
+        }
+
+        $keys[$this->userLimiterKey($user)] = (int) ($limits['requests_per_user'] ?? 0);
+
+        return $keys;
+    }
+
+    private function userLimiterKey(User $user): string
+    {
+        return 'caller-id-validation:user:'.$user->getKey();
     }
 
     /**

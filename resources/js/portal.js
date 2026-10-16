@@ -8,7 +8,6 @@
 
 import { setUpAuthGuard } from './modules/auth-guard.js';
 import { setUpBillingExplainer } from './modules/billing-explainer.js';
-import { setUpCodeInput } from './modules/code-input.js';
 import { setUpCountdown } from './modules/countdown.js';
 import { setUpGermanyMap } from './modules/germany-map.js';
 import { setUpPaymentMethod } from './modules/payment-method.js';
@@ -34,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setUpPasswordToggles();
     setUpScrollTargets();
     setUpTopUp();
-    setUpCodeInput();
     setUpPaymentMethod();
     setUpToasts();
     setUpDialogEscape();

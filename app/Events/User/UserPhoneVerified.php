@@ -14,10 +14,11 @@ use Illuminate\Queue\SerializesModels;
  * App\Listeners\User\ActivateSubscriptionsPendingUserVerification, das Abos
  * freischaltet, die auf die Verifizierung warten.
  *
- * Ausgeloest wird es seit LP-ONBOARD-023 nur noch von
- * App\Services\Phone\PhoneVerificationService, zusammen mit dem reicheren
- * App\Events\Phone\PhoneVerified. Der zweite Weg ueber
- * App\Services\UserVerificationService ist abgebaut.
+ * Ausgeloest wird es seit Ticket #97 nur noch von
+ * App\Services\CallerIdService (im Rueckruf des Bestaetigungsanrufs),
+ * zusammen mit dem reicheren App\Events\Phone\PhoneVerified. Die beiden
+ * frueheren Wege -- App\Services\UserVerificationService und der SMS-Weg
+ * ueber Twilio Verify -- sind abgebaut.
  */
 class UserPhoneVerified
 {

@@ -139,6 +139,54 @@ class PhoneReleaseHintTest extends FeatureTest
     }
 
     /**
+     * Ticket #100: Der `tel:`-Verweis ersetzt den Knopf nur bei einer
+     * endgueltigen Freigabe. Abgerechnet -- da entscheidet kein Anruf mehr.
+     */
+    public function test_bei_abrechnung_ersetzt_der_verweis_den_anrufknopf(): void
+    {
+        $purchase = $this->purchase(LeadContactStatus::BILLABLE);
+
+        $this->detail($purchase)
+            ->assertSee('tel:'.self::PHONE, false)
+            ->assertDontSee('startCall', false);
+    }
+
+    /**
+     * Ticket #100: Ein angenommenes Gespraech ist ebenso endgueltig.
+     */
+    public function test_nach_einem_angenommenen_gespraech_ersetzt_der_verweis_den_anrufknopf(): void
+    {
+        $purchase = $this->purchase();
+        $this->attempt($purchase, CallAttemptOutcome::ANSWERED);
+
+        $this->detail($purchase)
+            ->assertSee('tel:'.self::PHONE, false)
+            ->assertDontSee('startCall', false);
+    }
+
+    /**
+     * Ticket #100: Die Freigabe auf Zeit laesst den Knopf stehen.
+     *
+     * Hier entscheidet der Anruf noch ueber Gutschrift oder Abrechnung. Ein
+     * Gespraech ueber einen `tel:`-Verweis erzeugt keinen Versuch -- der Lead
+     * waere gutgeschrieben worden, obwohl der Kontakt zustande kam. Die Nummer
+     * steht daneben trotzdem im Klartext, nur nicht als Verweis.
+     */
+    public function test_bei_der_freigabe_auf_zeit_bleibt_der_anrufknopf_stehen(): void
+    {
+        $purchase = $this->purchase();
+        $this->attempt($purchase, CallAttemptOutcome::FAILED_VALID);
+        $this->attempt($purchase, CallAttemptOutcome::FAILED_VALID);
+        $this->attempt($purchase, CallAttemptOutcome::FAILED_VALID);
+
+        $this->detail($purchase)
+            ->assertSee('startCall', false)
+            ->assertDontSee('tel:'.self::PHONE, false)
+            ->assertSee(self::PHONE)
+            ->assertSee(__('marketplace.purchased.portal.phone_hint_released_on_time'), false);
+    }
+
+    /**
      * Rendert die Detailseite als der Kaeufer.
      */
     private function detail(LeadPurchase $purchase): Testable

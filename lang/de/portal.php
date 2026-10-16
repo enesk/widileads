@@ -43,7 +43,6 @@ return [
 
     'illustrations' => [
         'phone' => 'Smartphone mit einer eingehenden Nachricht',
-        'sms' => 'Kurznachricht mit einem sechsstelligen Code',
         'success' => 'Haken im Kreis: erledigt',
         'industries' => 'Drei Branchenkacheln, eine davon gewählt',
         'region' => 'Umriss von Deutschland mit Ort und Umkreis',
@@ -65,29 +64,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Rufnummernbestaetigung (LP-ONBOARD-004)
+    | Rufnummernbestaetigung (LP-ONBOARD-004, Ticket #97)
     |--------------------------------------------------------------------------
     |
-    | Die Meldungen des Dienstes App\Services\Phone\PhoneVerificationService.
-    | Sie stehen direkt vor dem Kaeufer, der gerade nicht weiterkommt -- jede
-    | sagt deshalb, was er tun kann, und keine nennt einen Fehlercode.
+    | Die Meldungen des abgeloesten SMS-Wegs standen hier. Seit Ticket #97
+    | laeuft die Bestaetigung ueber den Anruf, und ihre Meldungen stehen bei
+    | der Sache, zu der sie gehoeren: `call.caller_id.*` fuer die Nummer und
+    | die Grenzen, `call.caller_id.hint.*` fuer die Fehlerstaende des Anrufs.
+    | Zwei Orte fuer dieselben Texte liefen auseinander.
     |
-    | Die Meldung zur fremden Nummer sagt bewusst nicht, welches Konto sie hat:
-    | Mit einer Liste von Nummern liesse sich sonst eine Kundenliste
-    | zusammentragen.
+    | Geblieben ist die Zeitangabe, weil Meldungen aus beiden Bereichen eine
+    | Wartezeit nennen.
     */
 
     'phone_verification' => [
-        'errors' => [
-            'unrecognized' => 'Diese Nummer können wir nicht erkennen. Prüf die Schreibweise.',
-            'taken' => 'Diese Nummer gehört schon zu einem anderen Konto. Melde dich beim Support.',
-            'too_many_requests' => 'Für diese Nummer haben wir schon mehrere Codes verschickt. Versuch es in :wait noch einmal.',
-            'too_many_checks' => 'Zu viele Versuche. Warte :wait und gib den Code dann erneut ein.',
-            'resend_too_early' => 'Der Code ist unterwegs. In :seconds Sekunden kannst du ihn erneut anfordern.',
-            'call_requires_sms' => 'Den Code am Telefon ansagen können wir erst, wenn die SMS nicht angekommen ist. Fordere zuerst eine SMS an.',
-            'unavailable' => 'Wir können gerade keinen Code verschicken. Versuch es in ein paar Minuten noch einmal.',
-        ],
-
         'wait' => [
             'seconds' => '{1} einer Sekunde|[2,*] :count Sekunden',
             'minutes' => '{1} einer Minute|[2,*] :count Minuten',
@@ -114,10 +104,11 @@ return [
         | rufst du spaeter deine Leads an" sagt, warum wir fragen -- "zur
         | Verifizierung erforderlich" sagt nur, dass wir duerfen.
         |
-        | Die Fehlermeldungen des Dienstes stehen NICHT hier, sondern unter
-        | portal.phone_verification.errors: Sie gelten auch fuer den Admin und
-        | fuer kuenftige Wege auf dieselbe Pruefung. Hier stehen nur die, die
-        | es allein auf diesem Screen gibt.
+        | Die Meldungen des Dienstes stehen NICHT hier, sondern bei der Sache,
+        | zu der sie gehoeren: `call.caller_id.*` fuer die Nummer und die
+        | Grenzen, `call.caller_id.hint.*` fuer die Fehlerstaende des Anrufs.
+        | Sie gelten auch im Admin und auf der Portalseite. Hier stehen nur
+        | die, die es allein auf diesem Screen gibt.
         */
         'phone' => [
             'title' => 'Telefonnummer bestätigen',
@@ -125,28 +116,46 @@ return [
 
             'number' => [
                 'heading' => 'Bestätige deine Telefonnummer',
-                'text' => 'Mit dieser Nummer rufst du später deine Leads an. Wir schicken dir einen 6-stelligen Code.',
+                'text' => 'Mit dieser Nummer rufst du später deine Leads an. Wir rufen dich einmal an und sagen dir einen 6-stelligen Code. Mobil oder Festnetz, beides geht.',
                 'country' => 'Ländervorwahl',
                 'field' => 'Telefonnummer',
                 'placeholder' => '172 1234567',
-                'submit' => 'Code senden',
-                'sending' => 'Wird gesendet ...',
+                'submit' => 'Anruf anfordern',
+                'sending' => 'Anruf wird aufgebaut ...',
             ],
 
-            'code' => [
-                'heading' => 'Code eingeben',
-                'sent_sms' => 'Gesendet an :number',
-                'sent_call' => 'Angesagt unter :number',
+            /*
+            |------------------------------------------------------------------
+            | Der Bestaetigungsanruf (Ticket #97)
+            |------------------------------------------------------------------
+            |
+            | Loest den Code-Screen des SMS-Wegs ab. Der Unterschied steckt in
+            | der Richtung: Der Code steht auf dem Bildschirm und wird am
+            | Telefon eingetippt, nicht umgekehrt. Die Texte sagen das so
+            | deutlich, dass niemand im Eingabefeld sucht, das es nicht gibt.
+            */
+            'call' => [
+                'heading' => 'Dein Telefon klingelt gleich',
+                'text' => 'Wir rufen :number an. Nimm ab und folge der Ansage.',
                 'edit' => 'Nummer ändern',
-                'field' => 'Bestätigungscode',
-                'digit' => 'Ziffer :position von 6',
-                'submit' => 'Bestätigen',
-                'checking' => 'Wird geprüft ...',
-                'resend_in' => 'Nichts bekommen? Erneut senden in :countdown',
-                'resend' => 'Code erneut senden',
-                'resending' => 'Wird gesendet ...',
-                'call_instead' => 'Stattdessen anrufen lassen',
+                'code_label' => 'Dein Code',
+                'code_hint' => 'Tippe ihn am Telefon ein, sobald die Ansage danach fragt.',
+                'waiting' => 'Wir warten auf die Bestätigung ...',
+                'validity' => 'Der Code gilt :minutes Minuten.',
+                'retry_in' => 'Kein Anruf? Erneut versuchen in :countdown',
+                'retry' => 'Erneut anrufen lassen',
+                'retrying' => 'Anruf wird aufgebaut ...',
                 'blocked_in' => 'Wieder möglich in :countdown',
+
+                /*
+                | Der Ausweg, wenn nach der Sperrfrist nichts geklingelt hat
+                | (Ticket #98). Er nennt zuerst das Naheliegende -- ein
+                | Tippfehler in der Nummer -- und dann den Anschluss: Wer
+                | unterdrueckte Anrufe sperrt, wartet sonst ewig auf einen
+                | Anruf, den sein eigenes Telefon abweist.
+                */
+                'no_call_heading' => 'Kein Anruf angekommen?',
+                'no_call_text' => 'Prüf die Nummer auf einen Tippfehler, und ob dein Anschluss unterdrückte oder unbekannte Anrufe blockiert.',
             ],
 
             'success' => [
@@ -157,9 +166,9 @@ return [
 
             'errors' => [
                 'required' => 'Bitte gib deine Telefonnummer ein.',
-                'code_incomplete' => 'Der Code hat sechs Ziffern. Es fehlt noch mindestens eine.',
-                'code_wrong' => 'Der Code stimmt nicht. Versuch es noch einmal.',
-                'code_expired' => 'Der Code ist abgelaufen. Wir schicken dir einen neuen.',
+                // Kein Workspace am Konto: Daran ist nichts einzutippen, also
+                // schicken wir den Nutzer nicht in eine zweite Runde.
+                'no_workspace' => 'Zu deinem Konto gehört noch kein Arbeitsbereich. Melde dich beim Support, wir richten das ein.',
             ],
         ],
 
@@ -443,6 +452,10 @@ return [
     */
 
     'close' => 'Schließen',
+    'announcement' => [
+        'region' => 'Ankündigung',
+        'dismiss' => 'Ankündigung schließen',
+    ],
     'skip_to_content' => 'Zum Inhalt springen',
     'open_menu' => 'Menü öffnen',
     'account' => 'Konto',

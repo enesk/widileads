@@ -109,3 +109,13 @@ Schedule::command('wallet:settle --charge-only')
     ->timezone('Europe/Berlin')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Ticket #108: Leads melden, die im Zustand `neu` liegengeblieben sind -- also
+// deren Pruefjob (FB-033) ausgefallen ist. Stuendlich, weil die Pruefung sonst
+// Sekunden braucht und jede Stunde Liegezeit einen Lead entwertet. Bewusst
+// ohne --retire: Der Lauf meldet, abgeschlossen wird von Hand. onOneServer,
+// damit dieselbe Meldung nicht zweimal hinausgeht.
+Schedule::command('leads:stuck-new')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer();

@@ -32,6 +32,13 @@ return [
         'requested' => 'Bestätigung angefordert',
         'requested_body' => 'Sie werden gleich angerufen. Der angesagte Code steht auf dieser Seite.',
         'invalid_number' => 'Das ist keine wählbare Rufnummer.',
+        // Ticket #104: Die Laender-Liste steht in config/funnel.php unter
+        // call.caller_id.regions. Welche Laender gehen, steht hier bewusst
+        // nicht -- das waere eine Liste, die bei jeder Aenderung veraltet.
+        'unsupported_region' => 'Rufnummern aus diesem Land können wir nicht bestätigen. Bitte eine Nummer aus Deutschland, Österreich, der Schweiz oder der EU angeben.',
+        // Welches Konto die Nummer hat, steht hier bewusst nicht -- das waere
+        // eine Auskunft ueber einen anderen Kunden (Ticket #97).
+        'taken' => 'Diese Rufnummer ist bereits bei einem anderen Konto bestätigt.',
         'provider_failed' => 'Die Bestätigung konnte nicht angefordert werden. Bitte später erneut versuchen.',
 
         // Portal-Fassung (Portal Phase 1). Eigene Bausteine, weil der Ablauf
@@ -49,7 +56,6 @@ return [
             'steps' => [
                 'enter' => 'Nummer eingeben',
                 'calling' => 'Anruf annehmen',
-                'code' => 'Code eingeben',
             ],
 
             'label' => 'Bezeichnung',
@@ -59,12 +65,12 @@ return [
             'number_placeholder' => '172 1234567',
             'number_hint' => 'Ohne führende 0. Mobil oder Festnetz, beides geht.',
             'country' => 'Ländervorwahl',
-            'explainer' => 'Gleich klingelt dein Telefon. Eine Ansage nennt dir einen 6-stelligen Code, den du hier eingibst. Der Anruf ist kostenlos und dauert unter einer Minute.',
+            'explainer' => 'Gleich klingelt dein Telefon. Auf dieser Seite steht ein 6-stelliger Code, den du am Telefon eintippst. Der Anruf ist kostenlos und dauert unter einer Minute.',
             'cancel' => 'Abbrechen',
             'start' => 'Jetzt anrufen lassen',
 
             'calling_heading' => 'Dein Telefon klingelt gleich',
-            'calling_text' => 'Wir rufen :number an. Nimm ab und hör dir den Code an.',
+            'calling_text' => 'Wir rufen :number an. Nimm ab und folge der Ansage.',
             'calling_spinner' => 'Anruf wird aufgebaut …',
             // Nur noch fuer Screenreader: Sichtbar steht der Code gross in
             // einzelnen Kaestchen.
@@ -74,15 +80,7 @@ return [
             'other_number' => 'Andere Nummer',
             'no_call' => 'Kein Anruf nach 60 Sekunden? Dann kannst du es erneut versuchen.',
 
-            'code_heading' => 'Code eingeben',
-            'code_text' => 'Den 6-stelligen Code aus der Ansage. Du kannst ihn dir per Taste 1 wiederholen lassen.',
-            'code_field' => 'Bestätigungscode',
-            'code_digit' => 'Ziffer :position',
-            'code_wrong' => 'Der Code stimmt nicht. Noch :count Versuche.',
-            'code_exhausted' => 'Der Code stimmt nicht. Fordere den Anruf erneut an.',
             'code_ttl' => 'Der Code gilt :minutes Minuten.',
-            'call_again' => 'Erneut anrufen lassen',
-            'confirm' => 'Nummer bestätigen',
 
             'done_heading' => 'Nummer bestätigt',
             'done_text' => ':number ist jetzt für Anrufe über :app freigeschaltet.',

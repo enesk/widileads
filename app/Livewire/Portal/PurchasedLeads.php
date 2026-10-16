@@ -390,7 +390,15 @@ class PurchasedLeads extends Component
                     'phone' => $presenter->phone(),
                     'phone_masked' => $presenter->isPhoneMasked(),
                     'phone_hint' => $presenter->phoneHint(),
-                    'phone_link' => $presenter->isPhoneMasked() ? null : 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone()),
+                    // Waehlbar nur, wenn die Erreichbarkeit endgueltig
+                    // entschieden ist (Ticket #100). Bei der Freigabe auf Zeit
+                    // ist die Nummer sichtbar, der Anruf laeuft aber weiter
+                    // ueber das Portal -- sonst zaehlt das Gespraech nicht.
+                    // Dieselbe Bedingung wie auf der Detailseite: Sagen Zeile
+                    // und Detail Verschiedenes, ist eine von beiden falsch.
+                    'phone_link' => $release->isFinal() && ! $presenter->isPhoneMasked()
+                        ? 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone())
+                        : null,
                     'email' => $presenter->email(),
                     'badge' => $this->badge($purchase),
                     'status_line' => $this->statusLine($purchase),

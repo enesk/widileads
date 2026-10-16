@@ -54,7 +54,7 @@ class AnnouncementResource extends Resource
                     ->maxLength(255),
                 RichEditor::make('content')
                     ->label(__('Content'))
-                    ->helperText(__('The content of the announcement.'))
+                    ->helperText(__('The content of the announcement. Up to about 160 characters is recommended: two lines from the sm breakpoint, about five on a 320 px screen. This is not a hard limit — nothing is truncated.'))
                     ->required()
                     ->toolbarButtons([
                         'blockquote',
@@ -81,7 +81,7 @@ class AnnouncementResource extends Resource
                     ->required(),
                 Toggle::make('is_dismissible')
                     ->label(__('Is Dismissible'))
-                    ->helperText(__('If enabled, users will be able to dismiss the announcement.'))
+                    ->helperText(__('If enabled, users will be able to dismiss the announcement. A dismissed announcement stays hidden until the end of the browser session. Editing it afterwards does not bring it back — create a new announcement to reach everyone again.'))
                     ->default(true)
                     ->required(),
                 Toggle::make('show_on_frontend')

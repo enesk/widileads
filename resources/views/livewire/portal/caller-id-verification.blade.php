@@ -2,9 +2,15 @@
     Rufnummer bestaetigen (Portal Phase 1).
 
     Markup nach dem Entwurf `rufnummer-bestaetigen.html`. Was dort der Schalter
-    `data-go` erledigt, macht hier $state: enter, calling, code, done. Die
+    `data-go` erledigt, macht hier $state: enter, calling, done. Die
     Schrittanzeige zeigt auf schmalen Bildschirmen nur die Kreise, ab sm auch
     die Beschriftungen.
+
+    Ticket #98: Der Schritt "Code eingeben" ist weg. Er stammte aus dem
+    SMS-Entwurf, in dem der Code aufs Telefon kam und im Browser eingetippt
+    wurde. Gebaut ist der umgekehrte Weg -- der Code steht hier, eingetippt
+    wird er am Telefon --, und damit war das Feld ein Umweg ohne Wirkung: Ueber
+    die Bestaetigung entscheidet allein Twilios Rueckmeldung.
 
     Diese Ansicht entscheidet nichts und bestaetigt nichts: Der Stand einer
     Nummer kommt vom CallerIdService, gesetzt allein beim Anfordern und bei der
@@ -50,7 +56,6 @@
                 $steps = [
                     'enter' => __('call.caller_id.portal.steps.enter'),
                     'calling' => __('call.caller_id.portal.steps.calling'),
-                    'code' => __('call.caller_id.portal.steps.code'),
                 ];
                 $order = array_keys($steps);
                 $current = $state === 'done' ? count($order) : array_search($state, $order, true);
@@ -130,13 +135,11 @@
                 {{ __('call.caller_id.portal.calling_spinner') }}
             </p>
 
-            {{-- Abweichung zum Entwurf, ohne die der Ablauf nicht funktioniert:
-                 Gebaut ist die Outgoing-Caller-ID-Pruefung, dort wird der Code
-                 hier angezeigt und am Telefon eingetippt -- nicht andersherum.
-
-                 Er ist deshalb das Wichtigste auf diesem Bildschirm: Wer ihn
-                 mit dem Hoerer am Ohr sucht, hat keine Zeit, eine Zeile Text
-                 zu lesen. Eine Ziffer je Kaestchen, wie man sie eintippt. --}}
+            {{-- Der Code ist Anzeige und keine Eingabe: Twilio ruft an und
+                 laesst ihn am Telefon eintippen. Er ist damit das Wichtigste
+                 auf diesem Bildschirm -- wer ihn mit dem Hoerer am Ohr sucht,
+                 hat keine Zeit, eine Zeile Text zu lesen. Eine Ziffer je
+                 Kaestchen, so wie man sie eintippt. --}}
             @if ($expectedCode !== null)
                 <div class="mt-6">
                     <p class="text-sm font-medium text-zinc-500">{{ __('call.caller_id.portal.calling_code_label') }}</p>
@@ -153,6 +156,10 @@
                     </div>
 
                     <p class="mt-3 text-sm text-zinc-600">{{ __('call.caller_id.portal.calling_code_hint') }}</p>
+
+                    <p class="mt-1 text-xs text-zinc-500">
+                        {{ __('call.caller_id.portal.code_ttl', ['minutes' => (int) config('funnel.call.caller_id.validation_ttl_minutes')]) }}
+                    </p>
                 </div>
             @endif
 
@@ -162,41 +169,7 @@
             <p class="mt-4 text-xs text-zinc-500">{{ __('call.caller_id.portal.no_call') }}</p>
         </div>
 
-        {{-- Schritt 3: Code --}}
-        <form @class(['space-y-5', 'hidden' => $state !== 'code']) wire:submit="verifyCode">
-            <div>
-                <h2 class="text-2xl font-semibold text-zinc-900">{{ __('call.caller_id.portal.code_heading') }}</h2>
-                <p class="mt-1 text-zinc-600">{{ __('call.caller_id.portal.code_text') }}</p>
-            </div>
-            <div>
-                <label for="code" class="sr-only">{{ __('call.caller_id.portal.code_field') }}</label>
-
-                {{-- Die sechs Kaestchen sind reine Eingabe. Zusammengesetzt wird
-                     der Code im Skript, das ihn in das verborgene Feld schreibt
-                     -- nur dieses haengt am Zustand der Komponente. --}}
-                <div class="flex gap-2 sm:gap-3" id="code" data-code-boxes>
-                    @for ($digit = 1; $digit <= 6; $digit++)
-                        <input inputmode="numeric" maxlength="1" class="code-box" aria-label="{{ __('call.caller_id.portal.code_digit', ['position' => $digit]) }}">
-                    @endfor
-                </div>
-                <input type="hidden" data-code-value wire:model="code">
-
-                <p @class(['text-sm text-red-600 mt-2 flex items-center gap-1.5', 'hidden' => $codeError === null])>
-                    <x-app.icon name="alert-circle" class="size-4 shrink-0" />
-                    {{ $codeError }}
-                </p>
-
-                <p class="text-xs text-zinc-500 mt-2">
-                    {{ __('call.caller_id.portal.code_ttl', ['minutes' => (int) config('funnel.call.caller_id.validation_ttl_minutes')]) }}
-                </p>
-            </div>
-            <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
-                <button type="button" class="btn-ghost sm:-ml-3" wire:click="startCall">{{ __('call.caller_id.portal.call_again') }}</button>
-                <button type="submit" class="btn-primary">{{ __('call.caller_id.portal.confirm') }}</button>
-            </div>
-        </form>
-
-        {{-- Schritt 4: Fertig --}}
+        {{-- Schritt 3: Fertig --}}
         <div @class(['text-center py-4', 'hidden' => $state !== 'done'])>
             <span class="mx-auto size-16 rounded-full bg-brand-50 text-brand flex items-center justify-center">
                 <x-app.icon name="check" class="size-7 shrink-0" />

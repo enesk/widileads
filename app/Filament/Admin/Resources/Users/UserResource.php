@@ -10,8 +10,8 @@ use App\Filament\Admin\Resources\Users\RelationManagers\OrdersRelationManager;
 use App\Filament\Admin\Resources\Users\RelationManagers\SubscriptionsRelationManager;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\CallerIdService;
 use App\Services\Onboarding\OnboardingService;
-use App\Services\Phone\PhoneVerificationService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -177,9 +177,9 @@ class UserResource extends Resource
                     ->icon('heroicon-s-lock-open')
                     ->color('warning')
                     ->requiresConfirmation()
-                    ->modalDescription(__('The user can request a new code right away, even if the hourly limit for this phone number is used up. This bypasses a protection against misuse and is recorded in the audit log.'))
+                    ->modalDescription(__('The user can request a new confirmation call right away, even if the hourly limit is used up. This bypasses a protection against misuse and is recorded in the audit log.'))
                     ->visible(fn (User $record): bool => ! $record->isPhoneNumberVerified()
-                        && app(PhoneVerificationService::class)->countingRequestsInWindow($record) > 0)
+                        && app(CallerIdService::class)->countingRequestsInWindow($record) > 0)
                     ->action(function (User $record) {
                         self::releasePhoneVerificationLimit($record);
                     }),
@@ -236,7 +236,7 @@ class UserResource extends Resource
      */
     private static function releasePhoneVerificationLimit(User $user): void
     {
-        $released = app(PhoneVerificationService::class)->releaseRequestLimit($user);
+        $released = app(CallerIdService::class)->releaseRequestLimit($user);
 
         if ($released === 0) {
             Notification::make()
@@ -255,7 +255,7 @@ class UserResource extends Resource
 
         Notification::make()
             ->success()
-            ->body(__('The user can request a new code right away.'))
+            ->body(__('The user can request a new confirmation call right away.'))
             ->send();
     }
 

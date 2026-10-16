@@ -43,4 +43,19 @@ enum PhoneReleaseReason: string
             || $this === self::ATTEMPTS
             || $this === self::BILLABLE;
     }
+
+    /**
+     * Steht die Erreichbarkeit mit diesem Grund endgueltig fest? (Ticket #100)
+     *
+     * Nur ANSWERED und BILLABLE sind endgueltig -- danach entscheidet kein
+     * Anruf mehr etwas. ATTEMPTS ist eine Freigabe auf Zeit: Der Lead ist
+     * offen, und ob er gutgeschrieben oder abgerechnet wird, haengt daran, ob
+     * noch ein Gespraech zustande kommt. Ein Anruf in diesem Fenster muss
+     * deshalb ueber das Portal laufen, sonst zaehlt er nirgends.
+     */
+    public function isFinal(): bool
+    {
+        return $this === self::ANSWERED
+            || $this === self::BILLABLE;
+    }
 }

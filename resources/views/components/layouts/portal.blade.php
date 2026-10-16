@@ -24,6 +24,21 @@
 
 @include('pages.home.header')
 
+{{-- Das Ankuendigungsband der oeffentlichen Seiten (#95, #105). Im Rahmen und
+     nicht in home.blade.php: Die Platzierung "frontend" gilt fuer alle
+     oeffentlichen Seiten, nicht nur fuer /. Randlos unter dem Kopf, damit der
+     Hero die erste farbige Flaeche bleibt -- und nicht sticky, das Band
+     scrollt weg. --}}
+@if (config('funnel.features.announcements'))
+    <livewire:announcement.view
+        placement="frontend"
+        :portal="true"
+        wrapper-class="bg-zinc-100 border-b border-zinc-200"
+        inner-class="container-portal py-2.5 sm:py-3"
+        focus-after-dismiss="#portal-header"
+    />
+@endif
+
 <main>
     {{ $slot }}
 </main>

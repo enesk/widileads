@@ -199,7 +199,7 @@ Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $requ
 | Hier lag der zweite Weg, der `users.phone_number_verified_at` setzen konnte:
 | ein Code aus `mt_rand` in der Session, ohne Rate-Limit, ohne E.164 und ohne
 | Pruefung, ob die Nummer schon einem anderen Konto gehoert. Damit war jede
-| Zusicherung von App\Services\Phone\PhoneVerificationService umgehbar.
+| Zusicherung von App\Services\CallerIdService umgehbar.
 |
 | Die beiden Adressen bleiben als Umleitung auf `onboarding.phone` bestehen,
 | weil im Bestand noch dorthin verwiesen wird (Checkout-Formular und die
@@ -233,7 +233,7 @@ Route::redirect('/phone/verified', '/onboarding/telefon')
 | (`redirect()->intended`). Das ist die Rueckkehr nach der Sperre und zugleich
 | der Weg, den der Knopf der Erfolgsseite nimmt.
 |
-| Der Inhalt sind die drei Screens aus LP-ONBOARD-005 -- Nummer, Code, Erfolg
+| Der Inhalt sind die drei Screens aus LP-ONBOARD-005 -- Nummer, Anruf, Erfolg
 | -- als Zustaende EINER Livewire-Komponente
 | (App\Livewire\Portal\Onboarding\PhoneVerification). Deshalb gibt es hier nur
 | diese eine Adresse: Der Vorgang darf zwischen den Screens nicht neu laden.

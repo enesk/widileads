@@ -10,10 +10,15 @@
     wie der LeadPresenter sie geliefert hat.
 
     Anrufen oder Nummer: Solange die Rufnummer verdeckt ist, geht der Anruf
-    ueber die Bridge -- anders kaeme der Kaeufer nicht an den Lead. Ist sie
-    freigegeben, steht hier ein tel:-Verweis und kein Knopf mehr: Die
-    Erreichbarkeit ist mit der Freigabe entschieden, ein weiterer Anruf ueber
+    ueber die Bridge -- anders kaeme der Kaeufer nicht an den Lead. Steht die
+    Erreichbarkeit endgueltig fest (abgerechnet oder Gespraech angenommen),
+    steht hier ein tel:-Verweis und kein Knopf mehr: Ein weiterer Anruf ueber
     das Portal wuerde nur Gebuehren kosten.
+
+    Bei der Freigabe auf Zeit -- genug gezaehlte Versuche, Lead aber offen --
+    bleibt der Knopf stehen, obwohl die Nummer sichtbar ist (Ticket #100): Dort
+    entscheidet der Anruf noch ueber Gutschrift oder Abrechnung, und ein
+    Gespraech ausserhalb des Portals wird nirgends gezaehlt.
 --}}
 <div @if ($this->shouldPoll()) wire:poll.5s="refreshStatus" @endif>
     @php
@@ -115,10 +120,14 @@
                             <x-app.icon name="lock" class="size-4 shrink-0" />
                             {{ __('leads.contact.phone') }}
                         </p>
+                        {{-- Drei Zustaende, nicht zwei (Ticket #100): waehlbar,
+                             sichtbar aber nicht waehlbar (Freigabe auf Zeit --
+                             der Anruf laeuft weiter ueber das Portal), oder
+                             verdeckt. Graue Ziffern nur im letzten Fall. --}}
                         @if ($phoneLink !== null)
                             <a href="{{ $phoneLink }}" class="mt-1 block text-lg font-semibold tabular-nums text-zinc-900 hover:underline">{{ $phone }}</a>
                         @else
-                            <p class="mt-1 text-lg font-semibold tabular-nums text-zinc-400">{{ $phone }}</p>
+                            <p class="mt-1 text-lg font-semibold tabular-nums {{ $phoneMasked ? 'text-zinc-400' : 'text-zinc-900' }}">{{ $phone }}</p>
                         @endif
                         <p class="mt-1 text-xs text-zinc-500">
                             {{ $phoneNote }}

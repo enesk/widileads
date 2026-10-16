@@ -213,6 +213,23 @@ return [
             'done' => 'Der Lead steht jetzt auf ":state".',
         ],
 
+        // Liegengebliebene Leads in `neu` (Ticket #108).
+        'stuck_new' => [
+            'mail' => [
+                'subject' => 'Lead-Prüfung: :count Lead(s) in "neu" liegengeblieben',
+                'label' => 'Lead-Prüfung',
+                'heading' => 'Leads sind in "neu" liegengeblieben',
+                'intro' => 'Die Prüfung nach dem Anlegen läuft in der Warteschlange und braucht Sekunden. Diese Leads stehen länger als :hours Stunde(n) in "neu" — ihr Prüfjob ist ausgefallen. Sie sind nie kaufbar geworden, stehen nicht im Marktplatz, und der Betreiber hat keine Meldung über sie bekommen.',
+                'found' => ':count Lead(s) betroffen.',
+                'lead' => 'Lead #:id',
+                'funnel' => 'Funnel :id',
+                'created' => 'Angelegt :at',
+                'age' => 'seit :hours Stunde(n) in "neu"',
+                'truncated' => '... und :count weitere. Die vollständige Liste steht im Protokoll.',
+                'outro' => 'Bitte die Warteschlange prüfen (fehlgeschlagene Jobs, Horizon) und entscheiden, ob die Leads nachträglich geprüft oder als veraltet abgeschlossen werden (leads:stuck-new --retire).',
+            ],
+        ],
+
         // Aufbewahrungsfrist (FB-037).
         'retention' => [
             'summary' => 'Aufbewahrungslauf (:days Tage): :expired Lead(s) abgelaufen, :anonymized Lead(s) anonymisiert.',

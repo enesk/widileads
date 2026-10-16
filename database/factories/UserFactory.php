@@ -53,7 +53,7 @@ class UserFactory extends Factory
      * Die Nummer selbst bleibt standardmaessig leer: Die Sperre liest nur den
      * Zeitstempel, und eine erfundene Nummer in jedem Testbenutzer kollidiert
      * mit der Pruefung "gehoert diese Nummer schon einem anderen Konto?"
-     * (PhoneVerificationService::guardAgainstForeignClaim).
+     * (CallerIdService::guardAgainstForeignClaim).
      */
     public function phoneVerified(?string $phoneE164 = null): static
     {

@@ -161,6 +161,13 @@ return [
         // und nicht mehr zum vollen Preis verkauft wird.
         'stale_after_days' => (int) env('FUNNEL_LEAD_STALE_AFTER_DAYS', 3),
 
+        // Stunden, nach denen ein Lead im Zustand `neu` als liegengeblieben
+        // gilt (leads:stuck-new, Ticket #108). Die Pruefung aus FB-033 laeuft
+        // in der Warteschlange und braucht Sekunden -- wer nach Stunden noch
+        // auf `neu` steht, ist nie geprueft worden, weil der Job ausgefallen
+        // ist. Solche Leads werden nie kaufbar und fallen heute niemandem auf.
+        'stuck_new_alert_hours' => (int) env('FUNNEL_LEAD_STUCK_NEW_ALERT_HOURS', 6),
+
         // Uhrzeit (HH:MM), zu der der taegliche Aufbewahrungslauf startet
         // (app:apply-lead-retention, FB-037). Bewusst nachts: der Lauf
         // schreibt Zustandswechsel und anonymisiert.
@@ -317,6 +324,29 @@ return [
             // Region, gegen die eine ohne Laendervorwahl eingegebene Nummer
             // gelesen wird. Gespeichert wird immer E.164.
             'region' => (string) env('FUNNEL_CALL_CALLER_ID_REGION', 'DE'),
+
+            // Laender, aus denen eine Kaeufer-Rufnummer stammen darf
+            // (Ticket #104). Uebernommen aus dem mit Ticket #97 abgebauten
+            // SMS-Weg, dort stand dieselbe Liste in
+            // config/phone_verification.php.
+            //
+            // Die Liste ist Fachlogik und Kostenbremse in einem: Ein
+            // Bestaetigungsanruf nach Kuba oder Somalia kostet ein Vielfaches
+            // eines deutschen, und einen Kaeufer dort erwarten wir nicht. Sie
+            // ist die freundliche Haelfte der Grenze -- die harte sind die
+            // Voice Geographic Permissions im Twilio-Konto, die greifen, bevor
+            // wir etwas tun (siehe Betriebshandbuch, Abschnitt 1).
+            //
+            // Leere Liste heisst: jedes Land, das libphonenumber als waehlbar
+            // liest. Das ist ausdruecklich nicht der Standard.
+            'regions' => array_values(array_filter(array_map(
+                'strtoupper',
+                array_map('trim', explode(',', (string) env(
+                    'FUNNEL_CALL_CALLER_ID_REGIONS',
+                    // DACH und die EU-Nachbarn, in denen wir Kaeufer erwarten.
+                    'DE,AT,CH,NL,BE,LU,FR,IT,ES,PT,DK,SE,FI,PL,CZ,SK,HU,SI,HR,IE,GR,RO,BG,EE,LV,LT,CY,MT',
+                ))),
+            ))),
 
             // Muss ein Kaeufer seine Nummer bestaetigt haben, bevor er das
             // Portal benutzen darf? Ohne sie kann er einen gekauften Lead

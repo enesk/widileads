@@ -204,8 +204,10 @@ für Umgebungen, in denen der Wizard im Weg steht.
   nur noch dort, wo sie gebraucht wird: im `CallService`
   (`call.attempt.errors.caller_id_missing`). `PortalCallerIdLock` beantwortet
   nur noch die Frage „fehlt eine nutzbare Nummer?" für den Hinweis auf
-  `portal.caller-id`; `CallerIdService::adoptVerifiedNumber()` erneuert eine
-  unbrauchbare Zeile mit derselben Nummer nach jeder Telefonbestätigung.
+  `portal.caller-id`. Seit Ticket #97 gibt es den zweiten Nachweis gar nicht
+  mehr: Twilio Verify ist abgebaut, bestätigt wird genau einmal über den
+  Bestätigungsanruf, und derselbe Vorgang setzt auch
+  `users.phone_number_verified_at` (`CallerIdService::completeValidation()`).
 - **`marketplace.access`** — ein Gate und keine Routen-Middleware: Es gehört in
   `booted()` der jeweiligen Livewire-Komponente, damit auch jede Folgeanfrage
   durch die Prüfung geht.

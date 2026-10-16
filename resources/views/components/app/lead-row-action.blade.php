@@ -11,6 +11,11 @@
     boete die Zeile dort den Bridge-Anruf an, waehrend die Detailseite
     daneben die Nummer zum Waehlen zeigt.
 
+    "Nummer frei" heisst dabei: endgueltig entschieden, also abgerechnet oder
+    Gespraech angenommen (Ticket #100). Bei der Freigabe auf Zeit -- genug
+    gezaehlte Versuche, Lead offen -- liefert die Seite keinen `phone_link`,
+    und es bleibt beim Anruf ueber die Bridge: Nur der zaehlt.
+
     Steht je Zeile zweimal im Markup (breite Spalte und gestapelte Reihe),
     deshalb hier. Ob die Rufnummer offenliegt, hat der LeadPresenter
     entschieden; diese Komponente liest nur, was er geliefert hat.

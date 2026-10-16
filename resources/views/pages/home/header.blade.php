@@ -5,7 +5,7 @@
     Kopf auch auf Seiten ohne diese Abschnitte erscheint (Login, Impressum,
     Datenschutz) -- genau wie im Fuss.
 --}}
-<header class="sticky top-0 z-40 bg-white border-b border-zinc-200">
+<header id="portal-header" tabindex="-1" class="sticky top-0 z-40 bg-white border-b border-zinc-200">
   <div class="container-portal flex items-center justify-between h-16">
     <a href="{{ route('home') }}" class="flex items-center gap-2 font-semibold text-lg text-zinc-900">
       <span class="size-8 rounded-lg bg-brand text-white flex items-center justify-center">

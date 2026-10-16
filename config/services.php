@@ -115,34 +115,6 @@ return [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_TOKEN'),
         'from' => env('TWILIO_FROM'),
-
-        // Der Verify-Service der Rufnummernbestaetigung (LP-ONBOARD-004). Ein
-        // eigener Dienst in der Twilio-Konsole mit eigener SID ("VA..."): Twilio
-        // haelt dort die Codes, ihre Laufzeit und die Absenderkennung. Fehlt der
-        // Wert, laeuft nur der Betrieb mit config('phone_verification.fake').
-        'verify_sid' => env('TWILIO_VERIFY_SID'),
-
-        /*
-         | WebOTP (Chrome fuer Android): Der Browser bietet den Code aus der
-         | SMS nur an, wenn deren letzte Zeile "@<host> #<code>" lautet und
-         | <host> der Host der aufgerufenen Seite ist. Twilio nimmt den
-         | Wortlaut aus dem Template des Verify-Services -- wir koennen dort
-         | nur Platzhalter fuellen. Steht dieser Schalter auf true, reicht
-         | TwilioVerifyClient den Host als Substitution "host" mit; das
-         | Template muss ihn als {{host}} fuehren. Default aus, weil Twilio
-         | eine Substitution ablehnt, die das Template nicht kennt.
-         |
-         | Ticket #60: Dieses Template ist bei Twilio ein Custom Template und
-         | nur per Support-Antrag zu bekommen (POST /v2/Templates gibt 405),
-         | Freigabe 2 bis 4 Wochen -- laeuft als #65. Bis dahin bleibt der
-         | Schalter aus.
-         */
-        'verify_webotp' => (bool) env('TWILIO_VERIFY_WEBOTP', false),
-
-        // Welcher Host in die Schlusszeile gehoert. Leer heisst: der Host aus
-        // APP_URL -- beim Test durch einen Tunnel also der Tunnel-Host, denn
-        // WebOTP vergleicht mit der Adresse im Browser.
-        'verify_webotp_host' => env('TWILIO_VERIFY_WEBOTP_HOST'),
     ],
 
 ];

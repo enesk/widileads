@@ -213,6 +213,23 @@ return [
             'done' => 'The lead is now in state ":state".',
         ],
 
+        // Leads stuck in `neu` (ticket #108).
+        'stuck_new' => [
+            'mail' => [
+                'subject' => 'Lead screening: :count lead(s) stuck in "new"',
+                'label' => 'Lead screening',
+                'heading' => 'Leads are stuck in "new"',
+                'intro' => 'Screening runs on the queue and takes seconds. These leads have been in "new" for more than :hours hour(s) — their screening job failed. They never became purchasable, are not listed on the marketplace, and their operator was never notified.',
+                'found' => ':count lead(s) affected.',
+                'lead' => 'Lead #:id',
+                'funnel' => 'Funnel :id',
+                'created' => 'Created :at',
+                'age' => 'in "new" for :hours hour(s)',
+                'truncated' => '... and :count more. The full list is in the log.',
+                'outro' => 'Please check the queue (failed jobs, Horizon) and decide whether the leads are screened after the fact or closed as stale (leads:stuck-new --retire).',
+            ],
+        ],
+
         // Retention period (FB-037).
         'retention' => [
             'summary' => 'Retention run (:days days): :expired lead(s) expired, :anonymized lead(s) anonymised.',

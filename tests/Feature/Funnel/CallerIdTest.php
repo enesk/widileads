@@ -5,16 +5,24 @@ declare(strict_types=1);
 namespace Tests\Feature\Funnel;
 
 use App\Constants\CallerIdStatus;
+use App\Constants\LeadState;
+use App\Constants\PhoneVerificationChannel;
+use App\Constants\TenantType;
 use App\Dto\CallerIdValidation;
 use App\Filament\Dashboard\Pages\CallerId as CallerIdPage;
 use App\Http\Middleware\VerifyTwilioSignature;
 use App\Models\BuyerRegistration;
 use App\Models\CallerId;
+use App\Models\Lead;
+use App\Models\LeadPurchase;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\CallerIdService;
+use App\Services\CallService;
+use App\Services\Onboarding\OnboardingService;
 use App\Services\Twilio\CallerIdValidationClient;
 use App\Services\Twilio\CallerIdValidationThrottled;
+use App\Services\Twilio\OutboundCallClient;
 use Filament\Facades\Filament;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
@@ -65,6 +73,124 @@ class CallerIdTest extends FeatureTest
 
         $this->assertSame(CallerIdStatus::VERIFIED, $callerId->fresh()->status);
         $this->assertNull($callerId->fresh()->validation_code);
+    }
+
+    /**
+     * Ticket #97: Der erfolgreiche Bestaetigungsanruf ist seit dem Abbau von
+     * Twilio Verify der einzige Weg, auf dem
+     * `users.phone_number_verified_at` gesetzt wird -- und damit der Schluessel
+     * zum Portal. Beides muss in einem Zug stehen: Eine gruene Caller-ID ohne
+     * Haken am Nutzer liesse ihn weiter vor der Telefonsperre stehen, ein Haken
+     * ohne Caller-ID waere der Fehler aus #96.
+     */
+    public function test_erfolgreicher_anruf_hebt_auch_die_telefonsperre(): void
+    {
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant = Tenant::factory()->create();
+        $tenant->users()->attach($user);
+
+        $callerId = $this->requestFor($tenant, $user, '0172 1234567');
+
+        $this->assertNull($user->fresh()->phone_number_verified_at);
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $user = $user->fresh();
+
+        $this->assertSame(CallerIdStatus::VERIFIED, $callerId->fresh()->status);
+        $this->assertNotNull($user->phone_number_verified_at);
+        $this->assertSame('+491721234567', $user->phone_e164);
+        $this->assertSame(PhoneVerificationChannel::CALL, $user->phone_verification_channel);
+        $this->assertTrue(app(OnboardingService::class)->isPhoneVerified($user));
+    }
+
+    /**
+     * Ticket #97: Ein gescheiterter Anruf laesst die Sperre stehen. Sonst
+     * waere der Haken am Nutzer kein Nachweis mehr.
+     */
+    public function test_gescheiterter_anruf_hebt_die_telefonsperre_nicht(): void
+    {
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant = Tenant::factory()->create();
+        $tenant->users()->attach($user);
+
+        $callerId = $this->requestFor($tenant, $user, '0172 1234567');
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'failed',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $this->assertNull($user->fresh()->phone_number_verified_at);
+    }
+
+    /**
+     * Ticket #97: Eine Nummer, die bereits an einem anderen Konto bestaetigt
+     * ist, laesst sich nicht beanspruchen -- auch dann nicht, wenn dieses
+     * Konto dazu keine `caller_ids`-Zeile hat. Genau so steht der Bestand da:
+     * bestaetigt ueber den abgeloesten SMS-Weg, ohne Validation Request.
+     */
+    public function test_fremde_bestaetigte_nummer_eines_anderen_kontos_wird_abgewiesen(): void
+    {
+        User::factory()->phoneVerified('+491721234567')->create();
+
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->phoneUnverified()->create();
+        $tenant->users()->attach($user);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->requestFor($tenant, $user, '0172 1234567');
+    }
+
+    /**
+     * Ticket #97: Nach der Bestaetigung ist die Nummer im Anruf beim Lead
+     * tatsaechlich verwendbar -- das ist der Zweck des ganzen Umbaus.
+     */
+    public function test_nach_der_bestaetigung_waehlt_der_callservice_mit_dieser_nummer(): void
+    {
+        config()->set('services.twilio.from', '+4930111111');
+
+        $this->app->bind(OutboundCallClient::class, fn (): OutboundCallClient => new class implements OutboundCallClient
+        {
+            public function call(string $to, string $from, string $answerUrl, string $statusCallbackUrl): string
+            {
+                return 'CAdial';
+            }
+
+            public function hangUp(string $sid): void {}
+        });
+
+        $buyer = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
+        $user = User::factory()->phoneUnverified()->create();
+        $buyer->users()->attach($user);
+
+        $lead = Lead::factory()->inState(LeadState::VERKAUFT)->create([
+            'tenant_id' => Tenant::factory()->create(['type' => TenantType::OPERATOR])->getKey(),
+            'phone_e164' => '+4989'.fake()->numerify('#######'),
+        ]);
+
+        $purchase = LeadPurchase::factory()->create([
+            'lead_id' => $lead->getKey(),
+            'buyer_tenant_id' => $buyer->getKey(),
+        ]);
+
+        $callerId = $this->requestFor($buyer, $user, '030 1234567');
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $attempt = app(CallService::class)->start($purchase->fresh(), $user, $buyer);
+
+        $this->assertSame('+49301234567', $attempt->caller_number);
     }
 
     public function test_rueckruf_ohne_signatur_wird_abgewiesen(): void

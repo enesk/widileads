@@ -15,8 +15,8 @@ use Exception;
  * Pruefung, ob die Nummer schon einem anderen Konto gehoert. Damit war jede
  * Zusicherung des gewollten Wegs umgehbar.
  *
- * Rufnummern bestaetigt ausschliesslich
- * App\Services\Phone\PhoneVerificationService.
+ * Rufnummern bestaetigt ausschliesslich App\Services\CallerIdService, und
+ * zwar ueber den Bestaetigungsanruf von Twilio (Ticket #97).
  */
 class UserVerificationService
 {

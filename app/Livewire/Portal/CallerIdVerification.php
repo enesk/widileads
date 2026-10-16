@@ -34,10 +34,12 @@ use Livewire\Component;
  * **Abweichung zum Entwurf:** Der Entwurf beschreibt Twilio Verify, wo eine
  * Ansage den Code vorliest und man ihn auf der Seite eintippt. Gebaut ist die
  * Outgoing-Caller-ID-Pruefung: Wir zeigen den Code, Twilio ruft an und laesst
- * ihn auf der Tastatur eintippen. Das Markup bleibt wie geliefert; der Schritt
- * "Code eingeben" gleicht die Eingabe deshalb mit dem angesagten Code ab und
- * wartet danach auf die Rueckmeldung von Twilio, die weiterhin allein
- * entscheidet.
+ * ihn auf der Tastatur eintippen.
+ *
+ * **Seit Ticket #98 gibt es deshalb keinen Schritt "Code eingeben" mehr.** Er
+ * war das letzte Stueck des SMS-Entwurfs: ein Feld, das die Eingabe mit dem
+ * angezeigten Code verglich und danach trotzdem auf Twilio warten musste. Drei
+ * Schritte sind daraus zwei geworden -- Nummer eingeben, Anruf annehmen.
  */
 #[Layout('components.layouts.portal-app')]
 class CallerIdVerification extends Component
@@ -48,12 +50,7 @@ class CallerIdVerification extends Component
 
     public const STATE_CALLING = 'calling';
 
-    public const STATE_CODE = 'code';
-
     public const STATE_DONE = 'done';
-
-    /** Erlaubte Versuche, den angesagten Code einzutippen. */
-    private const CODE_ATTEMPTS = 3;
 
     public string $state = self::STATE_ENTER;
 
@@ -62,13 +59,6 @@ class CallerIdVerification extends Component
     public string $countryCode = '+49';
 
     public string $phone = '';
-
-    /** Die sechs Ziffern, vom Skript als ein Wert zusammengesetzt. */
-    public string $code = '';
-
-    public ?string $codeError = null;
-
-    public int $attemptsLeft = self::CODE_ATTEMPTS;
 
     public bool $isDefault = true;
 
@@ -131,9 +121,6 @@ class CallerIdVerification extends Component
     public function startCall(CallerIdService $callerIds): void
     {
         $this->notice = null;
-        $this->codeError = null;
-        $this->code = '';
-        $this->attemptsLeft = self::CODE_ATTEMPTS;
 
         $user = $this->portalUser();
 
@@ -148,8 +135,12 @@ class CallerIdVerification extends Component
                 $this->countryCode.' '.$this->phone,
                 route('twilio.caller-id.validation-status'),
             );
-        } catch (InvalidArgumentException) {
-            $this->notice = __('call.caller_id.invalid_number');
+        } catch (InvalidArgumentException $exception) {
+            // Die Meldung kommt uebersetzt aus dem Dienst: unlesbare Eingabe,
+            // ein nicht erlaubtes Land (Ticket #104) oder eine Nummer, die
+            // schon einem anderen Konto gehoert. Ein fester Text waere hier
+            // irrefuehrend -- der Nutzer soll wissen, was er aendern kann.
+            $this->notice = $exception->getMessage();
             $this->state = self::STATE_ENTER;
 
             return;
@@ -205,62 +196,10 @@ class CallerIdVerification extends Component
         }
     }
 
-    public function goToCode(): void
-    {
-        $this->codeError = null;
-        $this->state = self::STATE_CODE;
-    }
-
     public function goToEnter(): void
     {
         $this->notice = null;
         $this->state = self::STATE_ENTER;
-    }
-
-    /**
-     * Gleicht die Eingabe mit dem angesagten Code ab.
-     *
-     * Das ist ausdruecklich KEINE Bestaetigung: Bestaetigt ist eine Nummer erst,
-     * wenn Twilio es meldet. Stimmt der Code und steht die Rueckmeldung noch
-     * aus, bleibt die Seite im Schritt und fragt weiter nach.
-     */
-    public function verifyCode(): void
-    {
-        $callerId = $this->callerId();
-
-        if (! $callerId instanceof CallerId) {
-            $this->state = self::STATE_ENTER;
-
-            return;
-        }
-
-        if ($callerId->status === CallerIdStatus::VERIFIED) {
-            $this->state = self::STATE_DONE;
-
-            return;
-        }
-
-        $expected = (string) ($callerId->validation_code ?? '');
-
-        if ($expected !== '' && $this->digits($this->code) !== $expected) {
-            $this->attemptsLeft = max(0, $this->attemptsLeft - 1);
-
-            $this->codeError = $this->attemptsLeft > 0
-                ? __('call.caller_id.portal.code_wrong', ['count' => $this->attemptsLeft])
-                : __('call.caller_id.portal.code_exhausted');
-
-            if ($this->attemptsLeft === 0) {
-                $this->state = self::STATE_ENTER;
-                $this->attemptsLeft = self::CODE_ATTEMPTS;
-            }
-
-            return;
-        }
-
-        // Code stimmt, Twilio hat aber noch nicht gemeldet: zurueck in den
-        // Anruf, dort wird nachgefragt.
-        $this->codeError = null;
-        $this->state = self::STATE_CALLING;
     }
 
     /** Der Stand der eigenen Nummer, Verfallenes bereits gekennzeichnet. */

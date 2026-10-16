@@ -280,32 +280,6 @@ html.portal {
         outline-offset: 0;
     }
 
-    /* Die sechs Kaestchen des Bestaetigungscodes. Ein eigenes Feld je Ziffer
-       statt eines langen Eingabefelds: Auf dem Telefon zeigt jede Zelle sofort,
-       wie viele Ziffern noch fehlen, und die Eingabe springt von selbst weiter.
-       Nicht auf .input aufgebaut, weil dort die Breite auf 100 % festgenagelt
-       ist, um daisyUI zurueckzunehmen. */
-
-    .font-portal .code-box {
-        height: 4rem;
-        width: 100%;
-        border: 1px solid var(--line-strong);
-        border-radius: var(--radius-control);
-        background-color: var(--surface);
-        text-align: center;
-        font-size: 1.5rem;
-        line-height: 2rem;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--ink);
-    }
-
-    .font-portal .code-box:focus {
-        border-color: var(--brand-600);
-        outline: 2px solid var(--brand-100);
-        outline-offset: 0;
-    }
-
     /* Waagerecht scrollbare Leisten (Filterchips, Reiter) zeigen auf dem
        Telefon keinen Balken: Er liegt dort ueber dem Inhalt und sagt nichts,
        was der angeschnittene letzte Chip nicht schon sagt. */

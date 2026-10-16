@@ -34,6 +34,12 @@ class CheckCallSetup extends Command
 
     private const CALLER_ID_WARN_AT = 100;
 
+    /**
+     * Hoechstzahl der Laender, die der Befehl aus den Voice Geo Permissions
+     * liest (Ticket #109). Twilio fuehrt dort 218 Laender.
+     */
+    private const DIALING_PERMISSION_READ_LIMIT = 1000;
+
     protected $signature = 'leads:check-call-setup
         {--user= : E-Mail des Mitarbeiters, dessen bestaetigte Rufnummer geprueft wird}
         {--remote : Zusaetzlich das Twilio-Konto abfragen (Zugangsdaten und Portal-Nummer)}
@@ -190,12 +196,23 @@ class CheckCallSetup extends Command
             $mailer,
         );
 
-        $from = (string) config('mail.from.address');
+        // Ticket #101: Live stand hier monatelang "hello@example.com" und die
+        // Pruefung meldete OK, weil sie nur auf "nicht leer" sah. Eine Zeile,
+        // die OK sagt und einen Platzhalter zeigt, ist schlechter als keine
+        // Pruefung -- jede Mail von so einer Adresse faellt beim Empfaenger
+        // in den Spamfilter oder wird vom Provider gleich abgewiesen.
+        $from = trim((string) config('mail.from.address'));
 
         $this->assert(
             'Absenderadresse',
-            $from !== '',
-            'mail.from.address ist leer.',
+            $from !== ''
+                && filter_var($from, FILTER_VALIDATE_EMAIL) !== false
+                && ! SupportMailbox::isPlaceholderAddress($from),
+            $from === ''
+                ? 'mail.from.address ist leer.'
+                : (filter_var($from, FILTER_VALIDATE_EMAIL) === false
+                    ? 'mail.from.address ist keine Adresse: "'.$from.'".'
+                    : 'mail.from.address ist der Platzhalter "'.$from.'" -- von so einer Adresse kommt keine Mail durch. MAIL_FROM_ADDRESS setzen oder Admin-Seite "Allgemeine Einstellungen".'),
             $from,
         );
 
@@ -322,9 +339,11 @@ class CheckCallSetup extends Command
                 'Kontotyp',
                 $account->type !== 'Trial',
                 'Trial -- erreicht nur verifizierte Nummern und spielt eine Trial-Ansage vor. Vor Produktion aufwerten (Zahlungsmittel hinterlegen).',
-                'Full -- beliebige Zielrufnummern erreichbar.',
+                'Full -- keine Trial-Sperre. Welche Zielrufnummern erreichbar sind, sagt die Zeile "Voice Geo Permissions".',
                 warnOnly: ! $this->isProductionCheck(),
             );
+
+            $this->checkDialingPermissions($client);
 
             $owned = $client->incomingPhoneNumbers->read(['phoneNumber' => $this->platformNumber()], 1);
             $outgoingCallerIds = $client->outgoingCallerIds->read([], self::CALLER_ID_READ_LIMIT);
@@ -385,6 +404,95 @@ class CheckCallSetup extends Command
                 .($count >= self::CALLER_ID_READ_LIMIT ? ' -- die Liste ist moeglicherweise laenger.' : ''),
             warnOnly: true,
         );
+    }
+
+    /**
+     * Ticket #109: Welche Zielrufnummern erreicht das Konto ueberhaupt?
+     *
+     * Seit Ticket #106 sind die Voice Geo Permissions des Live-Kontos auf die
+     * 28 Laender aus `funnel.call.caller_id.regions` eingeschraenkt. Das ist
+     * die harte Haelfte der Grenze aus Ticket #104 und bis hierher unsichtbar:
+     * Wer sie in der Twilio-Konsole wieder weit stellt, merkt das an keiner
+     * Stelle, und fehlt ein Land der Config-Liste, bricht die Bestaetigung
+     * dort ohne erklaerenden Text ab.
+     *
+     * Massstab ist deshalb die Config-Liste: Ein Land darin, das bei Twilio
+     * gesperrt ist, ist ein Fehler. Umgekehrt ist mehr Freigeschaltetes bei
+     * Twilio nur ein Hinweis -- der Anruf laeuft, aber die Kostenbremse steht
+     * weiter als gedacht.
+     *
+     * Eigenes try/catch, damit ein Fehlschlag dieser einen Abfrage nicht die
+     * uebrigen Kontopruefungen verschluckt.
+     */
+    private function checkDialingPermissions(TwilioClient $client): void
+    {
+        try {
+            $countries = $client->voice->v1->dialingPermissions->countries->read([], self::DIALING_PERMISSION_READ_LIMIT);
+        } catch (Throwable $exception) {
+            $this->rows[] = ['Voice Geo Permissions', 'HINWEIS', 'Abfrage gescheitert: '.$exception->getMessage()];
+
+            return;
+        }
+
+        $enabled = [];
+        $highRisk = [];
+
+        foreach ($countries as $country) {
+            $isoCode = strtoupper((string) $country->isoCode);
+            $isHighRisk = $country->highRiskSpecialNumbersEnabled === true
+                || $country->highRiskTollfraudNumbersEnabled === true;
+
+            if ($country->lowRiskNumbersEnabled === true || $isHighRisk) {
+                $enabled[] = $isoCode;
+            }
+
+            if ($isHighRisk) {
+                $highRisk[] = $isoCode;
+            }
+        }
+
+        sort($enabled);
+        sort($highRisk);
+
+        /** @var list<string> $configured */
+        $configured = array_values(array_unique(array_map('strtoupper', (array) config('funnel.call.caller_id.regions'))));
+        sort($configured);
+
+        if ($configured === []) {
+            $this->rows[] = [
+                'Voice Geo Permissions',
+                'HINWEIS',
+                count($enabled).' Laender freigeschaltet. funnel.call.caller_id.regions ist leer -- '
+                    .'die Anwendung schraenkt nicht ein, es gibt also nichts abzugleichen.',
+            ];
+        } else {
+            $missing = array_values(array_diff($configured, $enabled));
+            $extra = array_values(array_diff($enabled, $configured));
+
+            $problem = $missing !== []
+                ? count($missing).' Land/Laender der Liste funnel.call.caller_id.regions sind bei Twilio gesperrt ('
+                    .implode(', ', $missing).') -- dort bricht die Bestaetigung ohne erklaerenden Text ab. '
+                    .'Freischalten: Betriebshandbuch, Abschnitt 1, "Laendervorwahlen einer Kaeufer-Rufnummer".'
+                : 'Twilio hat '.count($extra).' Land/Laender mehr freigeschaltet, als die Liste kennt ('
+                    .implode(', ', $extra).') -- die Kostenbremse steht weiter als gedacht.';
+
+            $this->assert(
+                'Voice Geo Permissions',
+                $missing === [] && $extra === [],
+                $problem,
+                count($enabled).' Laender freigeschaltet, deckungsgleich mit funnel.call.caller_id.regions.',
+                warnOnly: $missing === [],
+            );
+        }
+
+        if ($highRisk !== []) {
+            $this->rows[] = [
+                'Geo Permissions High-Risk',
+                'HINWEIS',
+                'High-Risk-Nummern sind freigeschaltet in: '.implode(', ', $highRisk)
+                    .' -- Special- und Tollfraud-Praefixe gehoeren ueberall aus (Ticket #106).',
+            ];
+        }
     }
 
     /**

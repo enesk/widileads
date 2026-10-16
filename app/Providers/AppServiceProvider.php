@@ -18,19 +18,15 @@ use App\Services\PaymentProviders\Polar\PolarProvider;
 use App\Services\PaymentProviders\Stripe\StripeProvider;
 use App\Services\RecordedLeadPurchases;
 use App\Services\Twilio\CallerIdValidationClient;
-use App\Services\Twilio\FakeVerifyClient;
 use App\Services\Twilio\OutboundCallClient;
 use App\Services\Twilio\TwilioCallerIdValidationClient;
 use App\Services\Twilio\TwilioOutboundCallClient;
-use App\Services\Twilio\TwilioVerifyClient;
-use App\Services\Twilio\VerifyClient;
 use App\Services\UserVerificationService;
 use App\Services\VerificationProviders\TwilioProvider;
 use App\Services\Wallet\SettlementInvoiceIssuer;
 use App\Services\Wallet\SettlementInvoiceService;
 use Filament\Support\Assets\Js;
 use Filament\Support\Facades\FilamentAsset;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 use libphonenumber\PhoneNumberUtil;
@@ -76,30 +72,6 @@ class AppServiceProvider extends ServiceProvider
 
         // Und die Anbindung fuer den Anruf selbst (FB-081).
         $this->app->bind(OutboundCallClient::class, TwilioOutboundCallClient::class);
-
-        // Twilio Verify fuer die Rufnummernbestaetigung des Onboardings
-        // (LP-ONBOARD-004). Die Attrappe laeuft lokal, auf Staging und in
-        // Tests -- sie akzeptiert einen festen Code und verschickt nichts.
-        //
-        // In Produktion wird sie NIE gebunden, auch wenn der Schalter gesetzt
-        // ist: Ein Konto, das sich mit 000000 freischaltet, waere der Weg,
-        // fremde Rufnummern als eigene auszugeben. Statt die Anwendung
-        // anzuhalten wird die echte Anbindung genommen und der Fehlstand
-        // protokolliert -- so faellt er im Log auf, ohne dass der Betrieb
-        // steht.
-        $this->app->bind(VerifyClient::class, static function (Application $app): VerifyClient {
-            if (! config('phone_verification.fake')) {
-                return $app->make(TwilioVerifyClient::class);
-            }
-
-            if ($app->isProduction()) {
-                logger()->error('phone_verification.fake ist in Produktion gesetzt und wird ignoriert.');
-
-                return $app->make(TwilioVerifyClient::class);
-            }
-
-            return $app->make(FakeVerifyClient::class);
-        });
 
         // Der Twilio-REST-Client (FB-082). Als Singleton, damit alle Anrufe
         // eines Requests denselben HTTP-Client teilen. Die Aufloesung ist lazy:

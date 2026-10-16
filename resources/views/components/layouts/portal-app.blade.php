@@ -155,9 +155,24 @@
         </aside>
     @endif
 
-    <main id="portal-content" class="px-4 py-6 md:px-8 md:py-10 max-w-7xl">
+    <main id="portal-content" tabindex="-1" class="px-4 py-6 md:px-8 md:py-10 max-w-7xl">
         {{-- Die Kaufsperre gilt ueberall, also steht ihr Band auch ueberall. --}}
         <x-app.blocked-banner :tenant="$tenant" class="mb-6" />
+
+        {{-- Die Ankuendigung der Platzierung "user_dashboard" (#95). Steht
+             unter dem Band der Kaufsperre und nicht darueber: Die Sperre ist
+             ein Alarm mit Ausweg, die Ankuendigung ist eine Mitteilung -- sie
+             darf ihn nicht nach unten schieben. Welche Ankuendigung hier
+             erscheint, entscheidet allein die Einstellung im Admin. --}}
+        @if (config('funnel.features.announcements'))
+            <livewire:announcement.view
+                placement="user_dashboard"
+                :portal="true"
+                wrapper-class="mb-6"
+                inner-class="rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-3"
+                focus-after-dismiss="#portal-content"
+            />
+        @endif
 
         {{ $slot }}
     </main>

@@ -31,7 +31,6 @@ return [
 
     'illustrations' => [
         'phone' => 'Smartphone with an incoming message',
-        'sms' => 'Text message containing a six-digit code',
         'success' => 'Check mark in a circle: done',
         'industries' => 'Three industry tiles, one of them selected',
         'region' => 'Outline of Germany with a location and its radius',
@@ -58,16 +57,6 @@ return [
     */
 
     'phone_verification' => [
-        'errors' => [
-            'unrecognized' => 'We cannot read this number. Please check the spelling.',
-            'taken' => 'This number already belongs to another account. Please contact support.',
-            'too_many_requests' => 'We have already sent several codes to this number. Please try again in :wait.',
-            'too_many_checks' => 'Too many attempts. Please wait :wait and enter the code again.',
-            'resend_too_early' => 'The code is on its way. You can request a new one in :seconds seconds.',
-            'call_requires_sms' => 'We can only read out the code once the text message has failed to arrive. Please request a text message first.',
-            'unavailable' => 'We cannot send a code right now. Please try again in a few minutes.',
-        ],
-
         'wait' => [
             'seconds' => '{1} one second|[2,*] :count seconds',
             'minutes' => '{1} one minute|[2,*] :count minutes',
@@ -86,10 +75,10 @@ return [
         | Phone verification, the three screens (LP-ONBOARD-005)
         |----------------------------------------------------------------------
         |
-        | The service's error messages are NOT here but under
-        | portal.phone_verification.errors -- they apply to the admin panel and
-        | to future paths into the same check. Only the messages unique to this
-        | screen live here.
+        | The service's messages are NOT here but with the thing they belong
+        | to: `call.caller_id.*` for the number and the limits,
+        | `call.caller_id.hint.*` for the failure states of the call. Only the
+        | messages unique to this screen live here.
         */
         'phone' => [
             'title' => 'Confirm your phone number',
@@ -97,28 +86,28 @@ return [
 
             'number' => [
                 'heading' => 'Confirm your phone number',
-                'text' => 'You will call your leads from this number later on. We will text you a 6-digit code.',
+                'text' => 'You will call your leads from this number later on. We call you once and read out a 6-digit code. Mobile or landline, both work.',
                 'country' => 'Country code',
                 'field' => 'Phone number',
                 'placeholder' => '172 1234567',
-                'submit' => 'Send code',
-                'sending' => 'Sending ...',
+                'submit' => 'Request the call',
+                'sending' => 'Connecting the call ...',
             ],
 
-            'code' => [
-                'heading' => 'Enter the code',
-                'sent_sms' => 'Sent to :number',
-                'sent_call' => 'Read out on :number',
+            'call' => [
+                'heading' => 'Your phone is about to ring',
+                'text' => 'We are calling :number. Pick up and follow the instructions.',
                 'edit' => 'Change number',
-                'field' => 'Verification code',
-                'digit' => 'Digit :position of 6',
-                'submit' => 'Confirm',
-                'checking' => 'Checking ...',
-                'resend_in' => 'Nothing arrived? Resend in :countdown',
-                'resend' => 'Send the code again',
-                'resending' => 'Sending ...',
-                'call_instead' => 'Have us call instead',
+                'code_label' => 'Your code',
+                'code_hint' => 'Enter it on your phone as soon as the recording asks for it.',
+                'waiting' => 'Waiting for the confirmation ...',
+                'validity' => 'The code is valid for :minutes minutes.',
+                'retry_in' => 'No call? Try again in :countdown',
+                'retry' => 'Call me again',
+                'retrying' => 'Connecting the call ...',
                 'blocked_in' => 'Available again in :countdown',
+                'no_call_heading' => 'No call arriving?',
+                'no_call_text' => 'Check the number for a typo, and whether your line blocks withheld or unknown callers.',
             ],
 
             'success' => [
@@ -129,9 +118,7 @@ return [
 
             'errors' => [
                 'required' => 'Please enter your phone number.',
-                'code_incomplete' => 'The code has six digits. At least one is still missing.',
-                'code_wrong' => 'That code is not right. Please try again.',
-                'code_expired' => 'That code has expired. We are sending you a new one.',
+                'no_workspace' => 'There is no workspace on your account yet. Please contact support, we will set it up.',
             ],
         ],
 
@@ -368,6 +355,10 @@ return [
     ],
 
     'close' => 'Close',
+    'announcement' => [
+        'region' => 'Announcement',
+        'dismiss' => 'Dismiss announcement',
+    ],
     'skip_to_content' => 'Skip to content',
     'open_menu' => 'Open menu',
     'account' => 'Account',

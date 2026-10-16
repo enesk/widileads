@@ -51,9 +51,24 @@ class DisabledModulesTest extends FeatureTest
         $this->assertFalse(app('router')->has('roadmap'));
     }
 
+    /**
+     * Die Verweise auf Blog und Roadmap stehen seit #95 im Fuss der
+     * oeffentlichen Seiten (`pages/home/footer.blade.php`), hinter denselben
+     * Feature-Flags, die auch die Routen registrieren.
+     *
+     * Bis dahin war dieser Test gruen, weil die neue Startseite die Verweise
+     * ueberhaupt nicht mehr trug -- er bestand also unabhaengig vom Schalter
+     * und belegte nichts. Der Datenschutz-Verweis ist deshalb als Zeuge dabei:
+     * Er sitzt im selben Fuss, haengt an keinem Schalter, und seine Abwesenheit
+     * wuerde heissen, dass hier wieder ein Test eine Stelle prueft, an der
+     * nichts steht. Die Gegenprobe mit gesetzten Flags steht in
+     * EnabledModulesTest.
+     */
     public function test_frontend_navigation_has_no_blog_or_roadmap_links(): void
     {
         $response = $this->get('/')->assertSuccessful();
+
+        $response->assertSee(route('privacy-policy'), false);
 
         $response->assertDontSee(url('/blog'));
         $response->assertDontSee(url('/roadmap'));

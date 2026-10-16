@@ -159,10 +159,12 @@ class CallerId extends Page implements HasForms
                 (string) ($data['phone_number'] ?? ''),
                 route('twilio.caller-id.validation-status'),
             );
-        } catch (InvalidArgumentException) {
+        } catch (InvalidArgumentException $exception) {
+            // Uebersetzte Meldung aus dem Dienst: unlesbare Eingabe, ein nicht
+            // erlaubtes Land (Ticket #104) oder eine fremde Nummer.
             Notification::make()
                 ->danger()
-                ->title(__('call.caller_id.invalid_number'))
+                ->title($exception->getMessage())
                 ->send();
 
             return;

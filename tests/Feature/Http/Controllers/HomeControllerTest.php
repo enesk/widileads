@@ -10,12 +10,9 @@ use Tests\Feature\FeatureTest;
 /**
  * Das Ankuendigungsband: aktiv wird gezeigt, inaktiv nicht.
  *
- * Geprueft wird der Baustein selbst und nicht mehr die Startseite. Die neue
- * Startseite laeuft auf `x-layouts.portal` und traegt den SaaSykit-Kopf nicht
- * mehr, in dem das Band sitzt (`components/layouts/app/header.blade.php`) --
- * damit stand hier ein Test, der das Band auf einer Seite suchte, die es nicht
- * einbindet. Dass das Band auf `/` fehlt, ist eine Produktfrage und liegt als
- * eigenes Ticket bei Uwe; was dieser Test meint, ist der Baustein.
+ * Geprueft wird der Baustein selbst, nicht die Startseite: Dass das Band dort
+ * (und im Arbeitsbereich) tatsaechlich haengt, steht seit #95 in
+ * Tests\Feature\Funnel\AnnouncementBandTest.
  */
 class HomeControllerTest extends FeatureTest
 {

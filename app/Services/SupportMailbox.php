@@ -69,8 +69,44 @@ class SupportMailbox
      */
     public static function isStarterKitAddress(string $address): bool
     {
-        $domain = strtolower((string) substr(strrchr($address, '@') ?: '', 1));
+        return in_array(self::domainOf($address), self::STARTER_KIT_DOMAINS, true);
+    }
 
-        return in_array($domain, self::STARTER_KIT_DOMAINS, true);
+    /**
+     * Ist die Adresse offensichtlich ein Platzhalter und keine echte
+     * Postfachadresse? Gilt fuer die Starterkit-Domains, die fuer
+     * Dokumentation reservierten `example.*`-Domains (RFC 2606), die dort
+     * ebenfalls reservierten TLDs sowie Hostnamen ohne Punkt wie
+     * `localhost` oder `mailpit`.
+     */
+    public static function isPlaceholderAddress(string $address): bool
+    {
+        $domain = self::domainOf($address);
+
+        if ($domain === '') {
+            return true;
+        }
+
+        if (self::isStarterKitAddress($address)) {
+            return true;
+        }
+
+        if (preg_match('/^example\\.[a-z.]+$/', $domain) === 1) {
+            return true;
+        }
+
+        if (preg_match('/\\.(test|invalid|localhost|local|example)$/', $domain) === 1) {
+            return true;
+        }
+
+        return ! str_contains($domain, '.');
+    }
+
+    /**
+     * Domain der Adresse in Kleinschreibung, leer wenn keine erkennbar ist.
+     */
+    private static function domainOf(string $address): string
+    {
+        return strtolower((string) substr(strrchr($address, '@') ?: '', 1));
     }
 }

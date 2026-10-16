@@ -41,6 +41,21 @@ final class PhoneRelease
     }
 
     /**
+     * Ist die Nummer frei und die Erreichbarkeit damit entschieden?
+     * (Ticket #100)
+     *
+     * Nur dann darf die Oberflaeche den Anruf aus der Hand geben, also einen
+     * `tel:`-Verweis anstelle des Portalanrufs anbieten. Bei einer Freigabe
+     * auf Zeit (ATTEMPTS) ist der Lead offen: Ein Gespraech ausserhalb des
+     * Portals erzeugt keinen Versuch, und der Lead wird gutgeschrieben,
+     * obwohl der Kontakt zustande kam.
+     */
+    public function isFinal(): bool
+    {
+        return $this->released && $this->reason->isFinal();
+    }
+
+    /**
      * Ist die Freigabe durch die Gutschrift zurueckgenommen worden?
      *
      * Der Fall braucht einen eigenen Namen, weil er der einzige ist, in dem

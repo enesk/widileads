@@ -14,6 +14,7 @@ use App\Constants\WalletTransactionType;
 use App\Events\Phone\PhoneVerified;
 use App\Events\Wallet\WalletToppedUp;
 use App\Models\BuyerProfile;
+use App\Models\CallerId;
 use App\Models\Funnel;
 use App\Models\Lead;
 use App\Models\Tenant;
@@ -116,7 +117,7 @@ class PortalDemoSeeder extends Seeder
             'Milan Halbfertig',
         );
 
-        $this->verifyPhone($wizardUser, '+4930555100002');
+        $this->verifyPhone($wizardStage, $wizardUser, '+4930555100002');
 
         // Nur der erste Pflichtschritt. Der Wizard fuehrt diesen Workspace
         // damit auf `region` -- der Schritt mit Karte, Pin und Umkreis.
@@ -138,7 +139,7 @@ class PortalDemoSeeder extends Seeder
             'Bea Startklar',
         );
 
-        $this->verifyPhone($checklistUser, '+4930555100003');
+        $this->verifyPhone($checklistStage, $checklistUser, '+4930555100003');
         $this->completeWizard($checklistStage, $checklistUser, $funnel);
         $this->topUp($checklistStage);
         $this->buyOneLead($checklistStage, $checklistUser);
@@ -225,27 +226,32 @@ class PortalDemoSeeder extends Seeder
     }
 
     /**
-     * Bestaetigte Rufnummer -- derselbe Zustand, den
-     * PhoneVerificationService hinterlaesst.
+     * Bestaetigte Rufnummer -- derselbe Zustand, den ein erfolgreicher
+     * Bestaetigungsanruf hinterlaesst (Ticket #97).
      *
-     * Die Wahrheit sind Zeitstempel und waehlbare Nummer am Benutzer; alles
-     * weitere haengt am Ereignis `PhoneVerified` und wird hier deshalb nicht
-     * nachgebaut: CompletePhoneOnboardingStep spiegelt den Haken in den
-     * Workspace, CreateDefaultCallerId uebernimmt die Nummer als
-     * Rufnummernanzeige. Ohne diese zweite Wirkung haette ein Prueffall keine
-     * Rufnummernanzeige und kaeme bis zum Anruf-Knopf, aber nicht weiter --
-     * genau der Unterschied zwischen "Zeitstempel gesetzt" und "Nummer
-     * bestaetigt". Beide Zuhoerer laufen in der Queue, also die enge Klammer
-     * auf `sync`.
+     * Drei Dinge gehoeren dazu, und ein Prueffall ohne eines davon kommt bis
+     * zum Anruf-Knopf und nicht weiter: der Zeitstempel am Benutzer (daran
+     * haengt die Telefonsperre), die `caller_ids`-Zeile mit Validation Request
+     * (daran haengt der Anruf selbst, sonst lehnt Twilio mit 21210 ab) und der
+     * gespiegelte Haken im Workspace ueber das Ereignis `PhoneVerified`.
+     *
+     * Der Zuhoerer laeuft in der Queue, also die enge Klammer auf `sync`.
      */
-    private function verifyPhone(User $user, string $number): void
+    private function verifyPhone(Tenant $workspace, User $user, string $number): void
     {
         $user->forceFill([
             'phone_e164' => $number,
             'phone_number_verified_at' => now(),
+            'phone_verification_channel' => PhoneVerificationChannel::CALL,
         ])->save();
 
-        $this->synchronously(fn () => event(new PhoneVerified($user, PhoneVerificationChannel::SMS)));
+        CallerId::factory()->verified()->create([
+            'tenant_id' => $workspace->getKey(),
+            'user_id' => $user->getKey(),
+            'phone_number' => $number,
+        ]);
+
+        $this->synchronously(fn () => event(new PhoneVerified($user, PhoneVerificationChannel::CALL)));
     }
 
     /**

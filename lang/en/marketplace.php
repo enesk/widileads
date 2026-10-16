@@ -672,6 +672,7 @@ return [
             'email_hint' => 'Emails do not count as reachability. Only a phone conversation counts for billing.',
             'phone_hint_masked' => 'The full phone number is not available yet. Use "Call now", the lead sees our portal number.',
             'phone_hint_released' => 'Released. You dial the number yourself now – no more calls through the portal.',
+            'phone_hint_released_on_time' => 'Visible because your attempts are on record. Still use "Call now": only then does the call count – otherwise the lead stays unreached and gets credited back to you.',
             'phone_action' => 'Call',
             'meta' => 'From :funnel · purchased on :date',
 

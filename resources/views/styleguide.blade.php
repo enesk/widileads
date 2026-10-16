@@ -27,7 +27,7 @@
         </p>
 
         <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            @foreach (['phone', 'sms', 'success', 'industries', 'region', 'payment', 'lead-preview', 'checklist', 'call'] as $motif)
+            @foreach (['phone', 'success', 'industries', 'region', 'payment', 'lead-preview', 'checklist', 'call'] as $motif)
                 <div class="card p-4">
                     <div class="flex items-center justify-between">
                         <span class="text-lg font-semibold text-zinc-900">{{ $motif }}</span>

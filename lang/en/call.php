@@ -27,6 +27,8 @@ return [
         'requested' => 'Verification requested',
         'requested_body' => 'You will be called shortly. The spoken code is shown on this page.',
         'invalid_number' => 'That is not a dialable phone number.',
+        'unsupported_region' => 'We cannot confirm phone numbers from this country. Please use a number from Germany, Austria, Switzerland or the EU.',
+        'taken' => 'This phone number is already confirmed on another account.',
         'provider_failed' => 'The verification could not be requested. Please try again later.',
 
         'portal' => [
@@ -39,7 +41,6 @@ return [
             'steps' => [
                 'enter' => 'Enter number',
                 'calling' => 'Take the call',
-                'code' => 'Enter code',
             ],
 
             'label' => 'Name',
@@ -49,12 +50,12 @@ return [
             'number_placeholder' => '172 1234567',
             'number_hint' => 'Without the leading zero. Mobile or landline, both work.',
             'country' => 'Country code',
-            'explainer' => 'Your phone rings in a moment. A recording reads out a 6-digit code that you enter here. The call is free and takes less than a minute.',
+            'explainer' => 'Your phone rings in a moment. This page shows a 6-digit code that you enter on your phone. The call is free and takes less than a minute.',
             'cancel' => 'Cancel',
             'start' => 'Call me now',
 
             'calling_heading' => 'Your phone is about to ring',
-            'calling_text' => 'We are calling :number. Pick up and listen to the code.',
+            'calling_text' => 'We are calling :number. Pick up and follow the instructions.',
             'calling_spinner' => 'Connecting the call …',
             'calling_code' => 'Expected code: :code',
             'calling_code_label' => 'Your code',
@@ -62,15 +63,7 @@ return [
             'other_number' => 'Different number',
             'no_call' => 'No call after 60 seconds? Then you can try again.',
 
-            'code_heading' => 'Enter code',
-            'code_text' => 'The 6-digit code from the recording. Press 1 to hear it again.',
-            'code_field' => 'Confirmation code',
-            'code_digit' => 'Digit :position',
-            'code_wrong' => 'That code is wrong. :count attempts left.',
-            'code_exhausted' => 'That code is wrong. Request the call again.',
             'code_ttl' => 'The code is valid for :minutes minutes.',
-            'call_again' => 'Call me again',
-            'confirm' => 'Confirm number',
 
             'done_heading' => 'Number confirmed',
             'done_text' => ':number is now enabled for calls through :app.',

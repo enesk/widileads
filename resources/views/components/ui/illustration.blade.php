@@ -5,7 +5,7 @@
     <x-ui.illustration name="call" state="answered" :decorative="true" />
 
     Der Rahmen steht hier, die Motive liegen als Partials unter
-    resources/views/partials/illustrations/. So tragen alle neun garantiert
+    resources/views/partials/illustrations/. So tragen sie garantiert alle
     dieselbe viewBox und dieselbe Beschriftungsregel, und ein neues Motiv ist
     eine Datei, kein zweites Stueck Geruest.
 

@@ -122,7 +122,10 @@ curl -sI https://leads.widimedia.com/ | head -1
 Soll nachgewiesen werden, dass ein bestimmtes Stück Frontend-Code wirklich im
 gebauten Bundle steckt, taugt der Name einer lokalen Funktion dafür nicht — esbuild
 benennt sie um. Belastbar sind nur Zeichenketten und globale Namen, etwa
-`grep -rl OTPCredential public/build/assets` für den WebOTP-Pfad der Code-Kästchen.
+`grep -rl alpine:init public/build/assets` für eine registrierte Alpine-Komponente.
+(Hier stand bis Ticket #98 `grep -rl OTPCredential` für den WebOTP-Pfad der
+Code-Kästchen — die Kästchen und ihr Skript sind mit dem SMS-Weg entfallen, der
+Griff findet seitdem nichts mehr.)
 
 Der Cron braucht genau einen Eintrag:
 
@@ -144,14 +147,13 @@ Vorlage ist `.env.example`. Für den Betrieb gilt zusätzlich:
 |---|---|---|
 | `APP_ENV` | `production` | steuert Fehlerausgabe und den Schutz destruktiver Befehle |
 | `APP_DEBUG` | `false` | sonst steht der Stacktrace im Browser |
-| `APP_URL` | `https://leads.widimedia.com` | geht in Links, Mails und in den WebOTP-Host der SMS |
+| `APP_URL` | `https://leads.widimedia.com` | geht in Links und Mails |
 | `APP_LOCALE` | `de` | die Oberfläche ist deutsch |
 | `QUEUE_CONNECTION` | `redis` | `.env.example` steht auf `sync`; damit liefe jeder Job im Request |
 | `CACHE_DRIVER` | `redis` | |
 | `SESSION_DRIVER` | `redis` oder `database` | `file` skaliert nicht über mehrere Prozesse |
 | `TRUSTED_PROXIES` | Cloudflare-Netze oder `*` | hinter Cloudflare sieht Laravel sonst `http` — dann scheitert jede Twilio-Signaturprüfung (FB-084) |
 | `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` | aus der Twilio-Konsole, `TWILIO_FROM` in E.164 | Anrufe und SMS |
-| `TWILIO_VERIFY_SID` | `VA…` des Verify-Service | ohne sie bricht jede echte Rufnummernbestätigung ab; kommt **nur** aus der `.env`, die Admin-Seite pflegt sie nicht (Ticket #63) |
 | `LEAD_CALLS_ENFORCE_FROM` | Datum, ab dem Käufer über das Portal anrufen konnten — oder leer | Cutover der Erreichbarkeitsprüfung. **Leer heißt: Regelwerk aus**, `leads:resolve-expired` und `leads:send-deadline-reminders` finden nichts (Ticket #73) |
 | `FUNNEL_ALLOW_DESTRUCTIVE` | **nicht gesetzt** | siehe unten |
 
@@ -180,71 +182,102 @@ ist der gewünschte Zustand — die Module bleiben im Code, aber unsichtbar.
 | `CACHE_DRIVER` | `file` | abweichend, aber wirksam — `config/cache.php` liest in diesem Projekt `CACHE_DRIVER` (nicht `CACHE_STORE`). Auf einer Maschine mit einem FPM-Pool tragbar |
 | `SESSION_DRIVER` | `file` | abweichend, bewusst gelassen: ein Umstellen wirft alle angemeldeten Käufer heraus. Erst anfassen, wenn ein zweiter Prozess dazukommt |
 | `TWILIO_FROM` | `"+4915115509444"` | am 2026-10-12 nachgetragen (Ticket #69), siehe unten |
-| `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `TwilioVerifyClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
-| `TWILIO_VERIFY_SID` | `VA8e6c9468220ed2021adbdb7f7ca5f7d0` | am 2026-10-12 eingetragen (Ticket #63), siehe unten |
-| `PHONE_VERIFICATION_FAKE`, `TWILIO_VERIFY_WEBOTP` | beide ausdrücklich `false` | am 2026-10-12 mit der Verify-SID zusammen gesetzt (Ticket #63) |
+| `TWILIO_SID`, `TWILIO_TOKEN` | **leer** (`""`) in der `.env`, in der Admin-Seite „Twilio" gesetzt (Konfigzeilen `services.twilio.sid/.token`, verschlüsselt in `configs`) | bewusst so gelassen: `TwilioOutboundCallClient`, `VerifyTwilioSignature` und `leads:check-call-setup` lesen beide Orte, `TwilioCallerIdValidationClient` ausschliesslich `services.twilio.*`, und ein Auth Token im Klartext in der `.env` bringt keinen Vorteil. Nur die Container-Bindung `Twilio\Rest\Client` in `AppServiceProvider` liest ausschliesslich `config('twilio.*')` — die wird von keinem Dienst aufgelöst (geprüft am 2026-10-12) |
 | `LEAD_CALLS_ENFORCE_FROM` | `""` (leer) | am 2026-10-12 ausdrücklich leer eingetragen (Ticket #73), siehe unten — das Regelwerk ist damit aus; bleibt leer, bis `leads:cutover-status` ohne FEHLER laeuft (Ticket #94: check-call-setup --production ohne FEHLER, mindestens eine Zeile in `call_attempts`, mindestens ein Konto mit bestaetigter Rufnummer) — am 2026-10-12 dreimal gemessen (Tickets #76, #85): nichts davon erfuellt, und live hat **kein einziges Konto eine bestaetigte Rufnummer** — damit kann niemand das Anrufpanel ueberhaupt oeffnen |
 
-### Verify-SID auf dem Live-Server (Ticket #63, erledigt am 2026-10-12)
+### Twilio Verify: Reste aus der Live-`.env` entfernt (Ticket #103, 2026-10-16)
 
-Der Verify-Service ist am 2026-10-12 im Twilio-Konto angelegt (Friendly Name
-`widileads`, SID `VA8e6c9468220ed2021adbdb7f7ca5f7d0`, `code_length: 6`, Code-Laufzeit
-10 Minuten — Twilio-Vorgabe). Die Live-`.env` trägt den Wert seit demselben Tag; direkt
-unter `TWILIO_FROM` stehen dort jetzt:
+Ticket #97 hat Twilio Verify vollständig abgebaut: Bestätigt wird eine Rufnummer nur
+noch über den Outgoing-Caller-ID-Validierungsanruf (Twilio ruft an, der Code wird am
+Telefon eingetippt), und dabei landet die Nummer zugleich als Verified Caller ID im
+Konto. Es gibt keinen Verify-Service mehr, keine
+`config('services.twilio.verify_sid')` und kein `PHONE_VERIFICATION_FAKE`. Die Grenzen
+der Anforderung stehen in `config/funnel.php` unter `call.caller_id.limits` (3 Anrufe je
+Nummer **und** je Nutzer je Stunde, 60 s Wartezeit).
 
-```
-TWILIO_VERIFY_SID="VA8e6c9468220ed2021adbdb7f7ca5f7d0"
-# WebOTP bleibt aus, bis das Custom-Template freigegeben ist (Tickets #60/#65).
-TWILIO_VERIFY_WEBOTP=false
-PHONE_VERIFICATION_FAKE=false
-```
+Am 2026-10-16 sind die vier wirkungslosen Zeilen (`TWILIO_VERIFY_SID`,
+`TWILIO_VERIFY_WEBOTP`, `TWILIO_VERIFY_WEBOTP_HOST`, `PHONE_VERIFICATION_FAKE`) aus der
+Live-`.env` entfernt — `TWILIO_VERIFY_WEBOTP_HOST` stand dort ohnehin nicht. Danach
+`config:clear`/`config:cache` und `systemctl restart horizon-widileads`;
+`leads:check-call-setup --production` liefert Zeile für Zeile dieselbe Ausgabe wie
+vorher. Die Sicherung der vorigen Fassung liegt als `.env.bak-103-20261016063821` im
+Live-Verzeichnis.
 
-Die Sicherung der vorigen Fassung liegt als `.env.bak-20261012-63` im Live-Verzeichnis.
+Die Admin-Seite „Twilio" führt diese Werte nicht (dort stehen nur `sid`, `token`,
+`from`) — es gibt also keinen zweiten Ort, an dem ein Verify-Rest überlebt.
 
-Nach jeder Änderung an diesen Werten, als Benutzer `leads` im Live-Verzeichnis:
+### Ländervorwahlen einer Käufer-Rufnummer (Ticket #104, 2026-10-16)
+
+Die Grenze steht an **zwei** Orten, und beide sind nötig:
+
+1. **In der Anwendung** — `config/funnel.php`, `call.caller_id.regions`: DACH und die
+   EU-Nachbarn (28 Länder, dieselbe Liste wie im mit #97 abgebauten SMS-Weg).
+   `CallerIdService::normalize()` weist eine Nummer aus einem anderen Land ab, **bevor**
+   ein Anruf ausgelöst wird, mit eigenem Text (`call.caller_id.unsupported_region`).
+   Übersteuerbar über `FUNNEL_CALL_CALLER_ID_REGIONS` (Komma, ISO-Kürzel); leer heisst
+   **keine** Einschränkung.
+2. **Im Twilio-Konto** — Voice › Settings › **Geo Permissions** (Dialing Permissions).
+   Das ist die harte Grenze: Sie greift auch dann, wenn die Liste in der Anwendung
+   versehentlich geleert wird. Dort gehören dieselben Länder freigeschaltet und alles
+   andere gesperrt — ein Bestätigungsanruf nach Kuba oder Somalia kostet ein
+   Vielfaches eines deutschen.
+
+Warum nicht nur Twilio: Eine von Twilio abgewiesene Anforderung landet in `failed`, und
+der Käufer erfährt nicht, dass sein Land der Grund war. Warum nicht nur die Liste: Sie
+ist Konfiguration und kann irrtümlich weit gestellt werden; die Kostenbremse muss auch
+dann noch halten.
+
+**Gesetzt am 2026-10-16 (Ticket #106).** Im Live-Konto sind jetzt genau die 28 Länder
+der Liste freigeschaltet (nur `low_risk_numbers_enabled`; High-Risk-Special und
+High-Risk-Tollfraud bleiben überall aus), alle anderen 190 Länder sind gesperrt. Vorher
+waren es die neun Twilio-Vorgaben AU, BR, DE, FR, GB, IL, IN, JP, US — AT und CH waren
+also gesperrt, ein Bestätigungsanruf nach Österreich oder in die Schweiz hätte nicht
+funktioniert.
+
+Gesetzt wurde nicht in der Konsole, sondern über die Voice-API — derselbe Schalter, aber
+nachvollziehbar und wiederholbar. Die Zugangsdaten stehen live nicht in der `.env`,
+sondern auf der Admin-Seite „Twilio“, deshalb kommen sie aus `config()`:
 
 ```bash
-# 1. Konfigurationscache erneuern, sonst wirkt der Wert nicht.
-#    Dieser Server faehrt MIT Cache (bootstrap/cache/config.php ist gefuellt),
-#    deshalb beide Schritte:
-sudo -u leads /usr/bin/php8.4 artisan config:clear
-sudo -u leads /usr/bin/php8.4 artisan config:cache
+cd /home/leads/htdocs/leads.widimedia.com
+SID=$(sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo config("services.twilio.sid");')
+TOK=$(sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo config("services.twilio.token");')
 
-# 2. Gegenprobe - erwartet dieselbe SID
-sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo config("services.twilio.verify_sid");'
+# Stand lesen (218 Länder, eine Seite)
+curl -s -u "$SID:$TOK" \
+  "https://voice.twilio.com/v1/DialingPermissions/Countries?PageSize=1000"
 
-# 3. Der Worker haelt die Konfiguration im Speicher
-systemctl restart horizon-widileads
+# Stand setzen: UpdateRequest ist ein JSON-Array aus
+# {"iso_code","low_risk_numbers_enabled","high_risk_special_numbers_enabled",
+#  "high_risk_tollfraud_numbers_enabled"}
+curl -s -u "$SID:$TOK" -X POST \
+  "https://voice.twilio.com/v1/DialingPermissions/BulkCountryUpdates" \
+  --data-urlencode "UpdateRequest@/tmp/geo-updates.json"
 ```
 
-> **Die Gegenprobe über `config()` liefert auf diesem Server derzeit noch nichts** —
-> nicht weil die `.env` falsch stünde, sondern weil der ausgerollte Stand (`59e8802a`)
-> den Verify-Zweig noch nicht enthält: `config/services.php` kennt dort den Schlüssel
-> `twilio.verify_sid` gar nicht, `app/Services/Twilio/TwilioVerifyClient.php` liegt noch
-> nicht auf dem Server. Belegbar ist der Wert deshalb nur über die Umgebung selbst:
->
-> ```bash
-> sudo -u leads /usr/bin/php8.4 artisan config:clear
-> sudo -u leads /usr/bin/php8.4 artisan tinker --execute 'echo env("TWILIO_VERIFY_SID");'
-> sudo -u leads /usr/bin/php8.4 artisan config:cache
-> ```
->
-> Das liefert die SID (geprüft am 2026-10-12). Achtung: **mit** gefülltem
-> Konfigurationscache überspringt Laravel das Laden der `.env` komplett, dann gibt `env()`
-> immer `null` zurück — deshalb der Umweg über `config:clear`. Sobald der Verify-Code
-> ausgerollt ist, zieht `config('services.twilio.verify_sid')` den Wert ohne weiteres
-> Zutun.
+Der Endpunkt heißt `BulkCountryUpdates` (Plural) und der Parameter `UpdateRequest`
+(Großschreibung) — beides anders geschrieben schlägt mit 20404 bzw. 20001 fehl. Die
+Antwort `{"update_count": 33, "update_request": "accepted"}` ist der Beleg. Der Stand
+vor der Änderung liegt als `twilio-geo-permissions.bak-106-20261016064900.json` im
+Live-Verzeichnis.
 
-Zwei Werte in derselben `.env` gehören dazu:
+Die Geo Permissions gelten für **alle** ausgehenden Anrufe des Kontos, also auch für den
+geführten Anruf zum Lead. Lead-Rufnummern sind deutsch, DE ist frei — und wenn später
+Leads aus einem anderen Land kommen, gehört dieses Land in **beide** Listen.
 
-| Variable | Wert | Warum |
-|---|---|---|
-| `PHONE_VERIFICATION_FAKE` | `false` | in `production` wird die Attrappe ohnehin ignoriert, der Wert gehört trotzdem auf `false` |
-| `TWILIO_VERIFY_WEBOTP` | `false`, bis das Custom-Template freigegeben ist | Twilio lehnt eine Substitution ab, die das Template nicht führt — dann scheitert **jeder** SMS-Versand, nicht nur WebOTP (Tickets #60/#65) |
+`leads:check-call-setup --production` meldet unverändert dieselben drei FEHLER wie vorher
+(Portal-Nummer nicht gekauft, Regulatory Bundle `twilio-rejected`) — keiner davon hängt an
+den Geo Permissions.
 
-Die Admin-Seite „Twilio" pflegt `TWILIO_VERIFY_SID` **nicht** (dort stehen nur `sid`,
-`token`, `from`); `config('services.twilio.verify_sid')` liest ausschliesslich die
-Umgebung.
+**Seit Ticket #109 prüft das Kommando die Geo Permissions mit** (Zeile „Voice Geo
+Permissions“, nur mit `--remote`/`--production`): Es liest
+`voice.twilio.com/v1/DialingPermissions/Countries` und gleicht die freigeschalteten Länder
+gegen `funnel.call.caller_id.regions` ab. OK heisst deckungsgleich; **FEHLER**, wenn ein
+Land der Config-Liste bei Twilio gesperrt ist (dort bricht die Bestätigung ohne erklärenden
+Text ab); **HINWEIS**, wenn Twilio mehr freigeschaltet hat als die Liste kennt. Eine
+zusätzliche Zeile „Geo Permissions High-Risk“ erscheint nur, wenn irgendwo ein
+`high_risk_*_enabled` an ist. Die Zeile „Kontotyp“ sagt deshalb nicht mehr „beliebige
+Zielrufnummern erreichbar“, sondern „keine Trial-Sperre“ und verweist auf die neue Zeile.
 
 ### Portal-Nummer `TWILIO_FROM` auf dem Live-Server (Ticket #69, erledigt am 2026-10-12)
 
@@ -467,8 +500,10 @@ bestätigter Rufnummer, Ziel ein Lead, dessen Telefonnummer dem Betreiber selbst
 `engin.keskinsoy@allianz.de`). `EnsurePhoneVerified` sperrt damit jeden angemeldeten
 Screen; das Anrufpanel ist für niemanden erreichbar. Vor dem ersten Anrufversuch steht
 deshalb **die Rufnummernbestätigung des Betreibers am eigenen Telefon** — die läuft
-unabhängig vom Nummernkauf: `TWILIO_VERIFY_SID` ist gesetzt, `PHONE_VERIFICATION_FAKE` ist
-`false` und `TwilioVerifyClient` nimmt die Zugangsdaten aus der Admin-Seite „Twilio"
+unabhängig vom Nummernkauf. Seit Ticket #97 läuft sie über den
+Outgoing-Caller-ID-Validierungsanruf: Twilio ruft die eigene Nummer an, der angesagte
+Code wird am Telefon eingetippt, und derselbe Vorgang setzt
+`users.phone_number_verified_at`. Die Zugangsdaten kommen aus der Admin-Seite „Twilio"
 (`services.twilio.sid/.token`), nicht aus den leeren `.env`-Zeilen. Reihenfolge der
 Betreiber-Sitzung also: **1.** eigene Nummer im Portal bestätigen, **2.** Übungs-Lead mit
 `leads:call-probe` und einer **zweiten** eigenen Nummer anlegen (dieselbe Nummer wie
@@ -775,6 +810,7 @@ jede Fehlermeldung.
 | `leads:resolve-expired` | täglich 03:00 | Leads mit abgelaufener Kontaktfrist werden nicht abgerechnet — **Abrechnung bleibt liegen**. Ohne `LEAD_CALLS_ENFORCE_FROM` findet der Lauf nichts (Ticket #73) |
 | `leads:send-deadline-reminders` | stündlich | Käufer werden nicht vor Fristende erinnert und verlieren das Geld ohne Warnung |
 | `wallet:verify` | täglich 04:00 | ein abgewichener Wallet-Saldo fällt niemandem auf |
+| `leads:stuck-new` | stündlich | ein Lead, dessen Prüfjob (FB-033) ausgefallen ist, bleibt still in `neu` liegen: nie kaufbar, nicht im Marktplatz, keine Meldung an den Betreiber (Ticket #108) |
 | `wallet:settle` | wöchentlich (Wochentag/Zeit aus `config/wallet.php`) | offene Postpaid-Beträge werden nicht eingezogen — **Geld bleibt offen** |
 | `wallet:settle --charge-only` | stündlich | zweiter Einzugsversuch und angekündigte Lastschriften bleiben aus |
 

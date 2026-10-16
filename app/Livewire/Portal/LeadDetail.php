@@ -130,12 +130,19 @@ class LeadDetail extends Component
             'email' => $presenter->email(),
             'phone' => $presenter->phone(),
             'phoneMasked' => $presenter->isPhoneMasked(),
-            // Ist die Nummer frei, waehlt der Kaeufer selbst: Ein Anruf ueber
-            // die Bridge kostet Twilio-Gebuehren und aendert nichts mehr --
-            // die Erreichbarkeit steht mit der Freigabe bereits fest (FB-085).
-            'phoneLink' => $presenter->isPhoneMasked()
-                ? null
-                : 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone()),
+            // Steht die Erreichbarkeit fest, waehlt der Kaeufer selbst: Ein
+            // Anruf ueber die Bridge kostet Twilio-Gebuehren und aendert
+            // nichts mehr (FB-085).
+            //
+            // Entscheidend ist der Grund und nicht die Maskierung (Ticket
+            // #100): Bei einer Freigabe auf Zeit (ATTEMPTS) ist der Lead
+            // offen. Ein Gespraech ausserhalb des Portals erzeugt dort keinen
+            // Versuch -- der Lead gilt weiter als unerreicht und wird
+            // gutgeschrieben, obwohl der Kontakt zustande kam. Die Nummer
+            // darf daneben trotzdem sichtbar sein, nur nicht waehlbar.
+            'phoneLink' => $release->isFinal() && ! $presenter->isPhoneMasked()
+                ? 'tel:'.preg_replace('/[^+0-9]/', '', $presenter->phone())
+                : null,
             // Der Satz unter der Nummer: Warum sie verdeckt ist und was sie
             // freigibt -- oder, nach der Gutschrift, warum sie wieder weg ist
             // (Ticket #6). Der Stand kommt aus der Freigaberegel, nicht aus
@@ -565,7 +572,13 @@ class LeadDetail extends Component
     private function phoneNote(LeadPresenter $presenter): string
     {
         if (! $presenter->isPhoneMasked()) {
-            return (string) __('marketplace.purchased.portal.phone_hint_released');
+            // Bei der Freigabe auf Zeit steht die Nummer da, der Anruf laeuft
+            // aber weiter ueber das Portal -- sonst zaehlt er nirgends
+            // (Ticket #100). Der Satz muss das sagen, weil der Kaeufer sonst
+            // die sichtbare Nummer abtippt.
+            return (string) __($this->phoneRelease()->isFinal()
+                ? 'marketplace.purchased.portal.phone_hint_released'
+                : 'marketplace.purchased.portal.phone_hint_released_on_time');
         }
 
         return $presenter->phoneHint()

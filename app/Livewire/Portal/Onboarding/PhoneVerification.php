@@ -4,54 +4,60 @@ declare(strict_types=1);
 
 namespace App\Livewire\Portal\Onboarding;
 
-use App\Constants\PhoneVerificationChannel;
-use App\Exceptions\PhoneNumberNotRecognizedException;
-use App\Exceptions\PhoneNumberTakenException;
-use App\Exceptions\PhoneVerificationThrottledException;
-use App\Models\PhoneVerificationAttempt;
+use App\Constants\CallerIdStatus;
+use App\Constants\TenantType;
+use App\Models\CallerId;
+use App\Models\Tenant;
 use App\Models\User;
-use App\Services\Phone\PhoneVerificationService;
-use App\Services\Twilio\VerifyRequestFailed;
+use App\Services\CallerIdService;
+use App\Services\Twilio\CallerIdValidationFailed;
+use App\Services\Twilio\CallerIdValidationThrottled;
 use App\Support\PhoneMask;
 use Illuminate\Contracts\View\View;
+use InvalidArgumentException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * Die Rufnummernbestaetigung des Kaeufers (LP-ONBOARD-005).
+ * Die Rufnummernbestaetigung des Kaeufers (LP-ONBOARD-005, Ticket #97).
  *
  * Der erste Bildschirm, den ein neues Konto sieht. Drei Zustaende in EINER
- * Komponente -- Nummer, Code, Erfolg --, weil es derselbe Vorgang ist: Die
- * Nummer vom ersten Schritt ist die Nummer, an die der Code ging, und der
- * Wechsel darf nicht neu laden. Drei Routen daraus zu machen hiesse, den
- * halbfertigen Vorgang zwischen Seitenaufrufen zu tragen.
+ * Komponente -- Nummer, Anruf, Erfolg --, weil es derselbe Vorgang ist: Die
+ * Nummer vom ersten Schritt ist die Nummer, die klingelt, und der Wechsel darf
+ * nicht neu laden. Drei Routen daraus zu machen hiesse, den halbfertigen
+ * Vorgang zwischen Seitenaufrufen zu tragen.
  *
- * **Hier wird nichts entschieden.** Ob eine Nummer waehlbar ist, ob ein Code
- * stimmt, ob ein Limit erreicht ist: alles im
- * App\Services\Phone\PhoneVerificationService (LP-ONBOARD-004). Diese Klasse
- * uebersetzt dessen Ausnahmen in Feldfehler und faehrt den Zustandswechsel.
- * Insbesondere haelt sie keinen Code und vergleicht keinen -- die Codes liegen
- * bei Twilio Verify.
+ * **Seit Ticket #97 ist der Weg der Bestaetigungsanruf und nicht mehr die
+ * SMS.** Twilio ruft die Nummer an und laesst den Code am Telefon eintippen;
+ * die Nummer landet dadurch als Verified Caller ID im Twilio-Konto. Der
+ * abgeloeste SMS-Weg bewies denselben Besitz, legte dort aber nichts an -- der
+ * Anruf beim Lead scheiterte danach mit Fehler 21210 (#96). Der Code steht
+ * deshalb jetzt auf dieser Seite und wird nicht hier eingetippt.
  *
- * **Die Nummer liegt nach dem Versand in E.164 fest** ($phoneE164, #[Locked]).
- * Der erneute Versand und die Pruefung lesen sie dort und nicht aus den beiden
- * Eingabefeldern: Wer waehrend des Countdowns im Feld weitertippt, soll damit
- * nicht die Nummer wechseln, an die der naechste Code geht.
+ * **Hier wird nichts entschieden.** Ob eine Nummer waehlbar ist, ob ein Limit
+ * erreicht ist, und vor allem: ob die Nummer bestaetigt ist -- alles im
+ * App\Services\CallerIdService. Diese Klasse uebersetzt dessen Ausnahmen in
+ * Feldfehler und faehrt den Zustandswechsel. Ein Weg, der von hier aus
+ * `verified` oder `users.phone_number_verified_at` setzt, darf nicht entstehen:
+ * Beides setzt ausschliesslich der Rueckruf von Twilio im Dienst.
  *
- * **Der Zaehler bis zum erneuten Senden** ist eine Zahl in Sekunden, die der
- * Server mitgibt; herunterzaehlen tut Alpine im Markup. Ein wire:poll waere
- * eine Anfrage je Sekunde, nur um eine Ziffer kleiner zu machen. Abgelaufen
- * ist er trotzdem erst, wenn der Dienst das sagt: Der Knopf fuehrt bei zu
- * fruehem Druck in dieselbe Ausnahme wie jeder andere Weg.
+ * **Der Zaehler bis zum naechsten Anruf** ist eine Zahl in Sekunden, die der
+ * Server mitgibt; herunterzaehlen tut Alpine im Markup. Abgelaufen ist er
+ * trotzdem erst, wenn der Dienst das sagt: Der Knopf fuehrt bei zu fruehem
+ * Druck in dieselbe Ausnahme wie jeder andere Weg.
+ *
+ * Die Oberflaeche bleibt die aus dem SMS-Entwurf mit dem noetigen Minimum an
+ * Umbau; der Entwurf fuer den Anruf-Weg laeuft als #98.
  */
 class PhoneVerification extends Component
 {
     /**
-     * Die drei Zustaende, wie sie im Ticket heissen.
+     * Die drei Zustaende. `calling` hiess im SMS-Weg `code` -- gewartet wird
+     * jetzt auf Twilios Rueckmeldung und nicht auf eine Eingabe.
      */
     public const STATE_NUMBER = 'number';
 
-    public const STATE_CODE = 'code';
+    public const STATE_CALLING = 'calling';
 
     public const STATE_SUCCESS = 'success';
 
@@ -71,23 +77,24 @@ class PhoneVerification extends Component
     public string $phone = '';
 
     /**
-     * Der zusammengesetzte Code aus den sechs Kaestchen. Gefuellt vom Skript
-     * resources/js/modules/code-input.js, nicht von sechs eigenen Feldern.
-     */
-    public string $code = '';
-
-    /**
-     * Die bestaetigte Zielnummer in E.164, sobald ein Code unterwegs ist.
+     * Die angerufene Nummer in E.164, sobald ein Anruf laeuft.
      */
     #[Locked]
     public ?string $phoneE164 = null;
 
     /**
-     * Sekunden, bis wieder gesendet werden darf. Null heisst sofort.
+     * Der Code, den die Ansage verlangt. Er steht auf dem Bildschirm und wird
+     * am Telefon eingetippt -- nicht umgekehrt.
+     */
+    #[Locked]
+    public ?string $expectedCode = null;
+
+    /**
+     * Sekunden, bis wieder angerufen werden darf. Null heisst sofort.
      *
-     * Deckt beide Faelle ab: die Sperrfrist nach einem Versand und die
-     * Wartezeit aus einem 429. Fuer die Oberflaeche ist es dasselbe -- der
-     * Knopf geht gerade nicht, und hier steht wie lange.
+     * Deckt beide Faelle ab: die Sperrfrist nach einer Anforderung und die
+     * Wartezeit aus einem erreichten Limit. Fuer die Oberflaeche ist es
+     * dasselbe -- der Knopf geht gerade nicht, und hier steht wie lange.
      */
     #[Locked]
     public int $resendIn = 0;
@@ -98,7 +105,7 @@ class PhoneVerification extends Component
      * Dient allein dem wire:key des Zaehlerblocks. Der Zaehler laeuft in
      * Alpine, und Alpine setzt ein x-data nur dann neu auf, wenn Livewire das
      * Element austauscht statt es zu morphen. Am Wert von $resendIn laesst
-     * sich das nicht festmachen: Nach einem erneuten Versand steht dort
+     * sich das nicht festmachen: Nach einer erneuten Anforderung steht dort
      * wieder dieselbe Sperrfrist (60), der Schluessel bliebe gleich, und der
      * Zaehler im Browser bliebe auf null stehen. Diese Zahl steigt bei jedem
      * Setzen und macht den Schluessel dadurch verlaesslich neu.
@@ -106,58 +113,42 @@ class PhoneVerification extends Component
     #[Locked]
     public int $resendTick = 0;
 
-    /**
-     * Wie oft schon erneut gesendet wurde. Ab dem ersten Mal steht der Ausweg
-     * "Stattdessen anrufen lassen" daneben -- der Anruf ist teurer und bleibt
-     * der Ausweg, nicht der bequemere Weg. Der Dienst setzt dieselbe Grenze
-     * noch einmal durch.
-     */
-    #[Locked]
-    public int $resendCount = 0;
-
-    /**
-     * Der Kanal des letzten Versands: Davon haengt ab, ob die Zeile "Gesendet
-     * an ..." von einer SMS oder von einem Anruf spricht.
-     */
-    #[Locked]
-    public string $channel = PhoneVerificationChannel::SMS->value;
-
-    public function mount(PhoneVerificationService $verification): void
+    public function mount(CallerIdService $callerIds): void
     {
-        $user = auth()->user();
+        $callerId = $this->currentCallerId($callerIds);
 
-        if ($user === null) {
+        if (! $callerId instanceof CallerId) {
             return;
         }
 
         /*
-         | Ein offener Versuch bedeutet: Es ist schon ein Code unterwegs. Wer
-         | die Seite neu laedt oder sie auf dem Telefon aus dem Hintergrund
-         | holt, landet dann direkt auf dem Code-Screen statt wieder bei der
+         | Eine laufende Bestaetigung wird aufgenommen, statt den Ablauf von
+         | vorn zu beginnen: Wer die Seite neu laedt oder sie auf dem Telefon
+         | aus dem Hintergrund holt, landet dann wieder beim Code statt bei der
          | Nummer -- sonst waere der erste Weg nach dem Neuladen ein zweiter
-         | Versand, und der ist gesperrt.
+         | Anruf, und der ist gesperrt.
          */
-        $attempt = $verification->pendingAttempt($user);
+        if ($callerId->status === CallerIdStatus::PENDING) {
+            $this->enterCall($callerId);
 
-        if (! $attempt instanceof PhoneVerificationAttempt) {
             return;
         }
 
-        $this->state = self::STATE_CODE;
-        $this->phoneE164 = $attempt->phone_e164;
-        $this->channel = $attempt->channel->value;
-        $this->setResendIn($this->secondsUntilResend($verification));
-        $this->callAvailableFromHistory($verification);
+        // Ein Fehlversuch aus einer frueheren Sitzung: Die Nummer steht wieder
+        // im Feld, und darueber steht, warum es nicht geklappt hat.
+        $this->phone = $this->localPart($callerId->phone_number);
+
+        if ($callerId->status->isFailure()) {
+            $this->addError('phone', (string) $callerId->status->failureHint());
+        }
     }
 
     /**
-     * "Code senden" -- Screen 1.
+     * "Anruf anfordern" -- Screen 1.
      */
-    public function send(PhoneVerificationService $verification): void
+    public function send(CallerIdService $callerIds): void
     {
         $this->resetErrorBag();
-
-        $input = trim($this->countryCode.' '.$this->phone);
 
         if (trim($this->phone) === '') {
             $this->addError('phone', __('portal.onboarding.phone.errors.required'));
@@ -165,13 +156,13 @@ class PhoneVerification extends Component
             return;
         }
 
-        $this->startVerification($verification, $input, PhoneVerificationChannel::SMS, 'phone');
+        $this->requestCall($callerIds, trim($this->countryCode.' '.$this->phone));
     }
 
     /**
-     * "Code erneut senden" -- Screen 2. Geht an die festgelegte Nummer.
+     * "Erneut anrufen lassen" -- Screen 2. Geht an die festgelegte Nummer.
      */
-    public function resend(PhoneVerificationService $verification): void
+    public function resend(CallerIdService $callerIds): void
     {
         $this->resetErrorBag();
 
@@ -181,73 +172,41 @@ class PhoneVerification extends Component
             return;
         }
 
-        if ($this->startVerification($verification, $this->phoneE164, PhoneVerificationChannel::SMS, 'code')) {
-            $this->resendCount++;
-        }
+        $this->requestCall($callerIds, $this->phoneE164);
     }
 
     /**
-     * "Stattdessen anrufen lassen" -- der Ausweg, wenn keine SMS ankommt.
+     * Zieht den Stand nach, waehrend der Anruf laeuft (wire:poll im Markup).
+     *
+     * Gemeldet hat ihn Twilio an den Rueckruf des Dienstes, diese Seite liest
+     * ihn nur. Auch die Telefonsperre ist damit schon gefallen -- der Dienst
+     * setzt `users.phone_number_verified_at` im selben Zug.
      */
-    public function sendByCall(PhoneVerificationService $verification): void
+    public function refreshStatus(CallerIdService $callerIds): void
     {
-        $this->resetErrorBag();
+        $callerId = $this->currentCallerId($callerIds);
 
-        if ($this->phoneE164 === null) {
-            $this->editNumber();
-
-            return;
-        }
-
-        if ($this->startVerification($verification, $this->phoneE164, PhoneVerificationChannel::CALL, 'code')) {
-            $this->resendCount++;
-        }
-    }
-
-    /**
-     * "Bestaetigen" -- und derselbe Weg, den das Skript bei der sechsten
-     * Ziffer von selbst nimmt (wire:submit am Formular).
-     */
-    public function verify(PhoneVerificationService $verification): void
-    {
-        $this->resetErrorBag();
-
-        $user = auth()->user();
-
-        if ($user === null || mb_strlen(trim($this->code)) !== 6) {
-            $this->failCode(__('portal.onboarding.phone.errors.code_incomplete'));
-
-            return;
-        }
-
-        try {
-            $verified = $verification->check($user, $this->code);
-        } catch (PhoneVerificationThrottledException $exception) {
-            // Das Pruefbudget der Sitzung ist aufgebraucht. Die Felder bleiben
-            // stehen: Erneut tippen hilft gerade nicht, und ein geleertes Feld
-            // saehe aus wie "noch ein Versuch".
-            $this->setResendIn($exception->retryAfterSeconds);
-            $this->addError('code', $exception->getMessage());
-
-            return;
-        } catch (PhoneNumberTakenException $exception) {
-            // Zwischen Anforderung und Eingabe hat ein anderes Konto dieselbe
-            // Nummer bestaetigt. Zurueck zur Nummer -- diese ist verbraucht.
+        if (! $callerId instanceof CallerId) {
             $this->backToNumber();
-            $this->addError('phone', $exception->getMessage());
 
             return;
         }
 
-        if (! $verified) {
-            $this->failCode($this->codeFailureMessage($verification, $user));
+        if ($callerId->status === CallerIdStatus::VERIFIED) {
+            $this->state = self::STATE_SUCCESS;
+            $this->expectedCode = null;
 
             return;
         }
 
-        $this->state = self::STATE_SUCCESS;
-        $this->code = '';
-        $this->dispatch('code-screen-entered');
+        if ($callerId->status->isFailure()) {
+            // Ticket #97: Warum es nicht geklappt hat, steht am Stand --
+            // "nicht angenommen" verlangt etwas anderes vom Nutzer als "Code
+            // nicht bestaetigt", und beides ist besser als ein "wartet", auf
+            // das nichts folgt.
+            $this->backToNumber();
+            $this->addError('phone', (string) $callerId->status->failureHint());
+        }
     }
 
     /**
@@ -282,14 +241,89 @@ class PhoneVerification extends Component
     {
         return view('livewire.portal.onboarding.phone-verification', [
             'maskedPhone' => PhoneMask::partial($this->phoneE164),
-            'callOffered' => $this->resendCount > 0,
-            'sentByCall' => $this->channel === PhoneVerificationChannel::CALL->value,
         ]);
     }
 
     /**
-     * Zurueck auf Screen 1 -- von Hand ueber "Nummer aendern" oder weil die
-     * Nummer selbst das Problem war.
+     * Der gemeinsame Weg beider Anruf-Knoepfe.
+     */
+    private function requestCall(CallerIdService $callerIds, string $input): void
+    {
+        $user = auth()->user();
+
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $workspace = $this->workspaceFor($user);
+
+        if (! $workspace instanceof Tenant) {
+            // Ohne Workspace gibt es keine Zeile, an der die Nummer haengen
+            // koennte. Das ist ein Datenfehler und keine Eingabe des Nutzers --
+            // er soll deshalb nicht raten, was er falsch gemacht hat.
+            $this->addError('phone', __('portal.onboarding.phone.errors.no_workspace'));
+
+            return;
+        }
+
+        try {
+            $callerId = $callerIds->requestValidation(
+                $workspace,
+                $user,
+                $input,
+                route('twilio.caller-id.validation-status'),
+            );
+        } catch (InvalidArgumentException $exception) {
+            // Unlesbare Nummer oder eine, die schon einem anderen Konto
+            // gehoert. Beides haengt an der Nummer, auch wenn der Nutzer
+            // gerade auf dem Anruf-Screen steht.
+            $this->backToNumber();
+            $this->addError('phone', $exception->getMessage());
+
+            return;
+        } catch (CallerIdValidationThrottled $exception) {
+            // Eine Anforderung zu viel. Es ist nichts geschrieben und nichts
+            // gewaehlt worden -- der Nutzer bekommt die Wartezeit genannt.
+            $this->setResendIn($exception->retryAfterSeconds);
+            $this->addError(
+                $this->state === self::STATE_CALLING ? 'code' : 'phone',
+                $exception->retryAfterSeconds > 0
+                    ? __('call.caller_id.throttled', ['seconds' => $exception->retryAfterSeconds])
+                    : __('call.caller_id.throttled_window'),
+            );
+
+            return;
+        } catch (CallerIdValidationFailed $exception) {
+            // Die Twilio-Meldung nennt Kontodetails und gehoert ins Log.
+            logger()->error('Twilio lehnte den Bestaetigungsanruf ab.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            $this->backToNumber();
+            $this->addError('phone', __('call.caller_id.provider_failed'));
+
+            return;
+        }
+
+        $this->enterCall($callerId);
+    }
+
+    /**
+     * Auf den Anruf-Screen wechseln -- aus einer frischen Anforderung oder aus
+     * einer, die beim Laden der Seite noch lief.
+     */
+    private function enterCall(CallerId $callerId): void
+    {
+        $this->state = self::STATE_CALLING;
+        $this->phoneE164 = $callerId->phone_number;
+        $this->phone = $this->localPart($callerId->phone_number);
+        $this->expectedCode = $callerId->validation_code;
+        $this->setResendIn($this->secondsUntilResend($callerId));
+    }
+
+    /**
+     * Zurueck auf Screen 1 -- von Hand ueber "Nummer aendern" oder weil der
+     * Anruf nicht geklappt hat.
      *
      * Die Meldung daran bringt den Fokus ins Nummernfeld. Ohne sie stuende er
      * nach dem Wechsel irgendwo im alten Markup, und wer mit der Tastatur
@@ -298,104 +332,62 @@ class PhoneVerification extends Component
     private function backToNumber(): void
     {
         $this->state = self::STATE_NUMBER;
-        $this->code = '';
+        $this->expectedCode = null;
 
         $this->dispatch('number-screen-entered');
     }
 
     /**
-     * Der gemeinsame Weg aller drei Versandknoepfe.
-     *
-     * @param  string  $field  Feld, an dem die Fehlermeldung haengt
-     * @return bool ob ein Code rausgegangen ist
+     * Die Nummer dieses Nutzers samt Stand, Verfallenes bereits
+     * gekennzeichnet.
      */
-    private function startVerification(
-        PhoneVerificationService $verification,
-        string $input,
-        PhoneVerificationChannel $channel,
-        string $field,
-    ): bool {
+    private function currentCallerId(CallerIdService $callerIds): ?CallerId
+    {
         $user = auth()->user();
 
-        if ($user === null) {
-            return false;
+        if (! $user instanceof User) {
+            return null;
         }
 
-        try {
-            $attempt = $verification->start($user, $input, $channel->value);
-        } catch (PhoneNumberNotRecognizedException|PhoneNumberTakenException $exception) {
-            // Beides haengt an der Nummer, nicht am Code -- auch wenn der
-            // Nutzer gerade auf dem Code-Screen steht.
-            $this->backToNumber();
-            $this->addError('phone', $exception->getMessage());
+        $callerId = $callerIds->forUser($user);
 
-            return false;
-        } catch (PhoneVerificationThrottledException $exception) {
-            $this->setResendIn($exception->retryAfterSeconds);
-            $this->addError($field, $exception->getMessage());
-
-            return false;
-        } catch (VerifyRequestFailed) {
-            // Twilio hat abgelehnt. Der Grund gehoert ins Log und nicht auf
-            // den Bildschirm: Der Nutzer kann nur warten.
-            $this->addError($field, __('portal.phone_verification.errors.unavailable'));
-
-            return false;
-        }
-
-        $this->state = self::STATE_CODE;
-        $this->phoneE164 = $attempt->phone_e164;
-        $this->channel = $attempt->channel->value;
-        $this->code = '';
-        $this->setResendIn($this->secondsUntilResend($verification));
-
-        // Der Fokus springt auf das erste Kaestchen, und ein zuvor gesetzter
-        // Fehler verschwindet aus den Feldern.
-        $this->dispatch('code-screen-entered');
-
-        return true;
+        return $callerId instanceof CallerId ? $callerIds->expireIfOverdue($callerId) : null;
     }
 
     /**
-     * Ein falscher oder abgelaufener Code: Meldung, Felder leeren, schuetteln.
+     * Der Workspace, in dem die Nummer angelegt wird.
      *
-     * Das Leeren und das Schuetteln macht das Skript
-     * (resources/js/modules/code-input.js) -- es kennt die sechs Kaestchen, der
-     * Zustand hier kennt nur den zusammengesetzten Wert.
+     * Der Kaeufer-Workspace, denn nur dort wird telefoniert. Steht der Nutzer
+     * in keinem (ein Verkaeufer, den die Telefonsperre genauso trifft), wird
+     * der aelteste genommen: Die Bestaetigung haengt am Benutzer, die Zeile
+     * braucht aber einen Mandanten.
      */
-    private function failCode(string $message): void
+    private function workspaceFor(User $user): ?Tenant
     {
-        $this->code = '';
-        $this->addError('code', $message);
-        $this->dispatch('code-input-reset');
+        return $user->tenants()
+            ->where('type', TenantType::BUYER)
+            ->orderBy('tenants.id')
+            ->first()
+            ?? $user->tenants()->orderBy('tenants.id')->first();
     }
 
     /**
-     * Falsch oder abgelaufen?
+     * Wie lange noch, bis erneut angefordert werden darf?
      *
-     * Der Dienst sagt zu beidem nur "nein" -- die Unterscheidung dort waere
-     * ein Hinweis fuers Raten. Hier laesst sie sich trotzdem treffen, ohne
-     * etwas zu verraten: Das Alter des eigenen offenen Versuchs steht am
-     * eigenen Konto. Ist es ueber der Lebensdauer eines Codes
-     * (`phone_verification.code_ttl_minutes`), war der Code abgelaufen -- und
-     * dann hilft "versuch es noch einmal" nicht, sondern nur ein neuer Code.
-     *
-     * Das Angebot dazu steht von selbst daneben: Nach zehn Minuten ist die
-     * Sperrfrist des erneuten Versands lange abgelaufen, der Zaehler steht auf
-     * null und die Zeile zeigt den Link.
+     * Gerechnet aus `requested_at` der Zeile und derselben Konfiguration, die
+     * der Dienst durchsetzt -- eine zweite Quelle liefe auseinander.
      */
-    private function codeFailureMessage(PhoneVerificationService $verification, User $user): string
+    private function secondsUntilResend(CallerId $callerId): int
     {
-        $attempt = $verification->pendingAttempt($user);
-        $ttlMinutes = max(1, (int) config('phone_verification.code_ttl_minutes', 10));
+        $wait = (int) config('funnel.call.caller_id.limits.resend_after_seconds');
 
-        $expired = $attempt instanceof PhoneVerificationAttempt
-            && $attempt->created_at !== null
-            && $attempt->created_at->copy()->addMinutes($ttlMinutes)->isPast();
+        if ($wait <= 0 || $callerId->requested_at === null) {
+            return 0;
+        }
 
-        return $expired
-            ? __('portal.onboarding.phone.errors.code_expired')
-            : __('portal.onboarding.phone.errors.code_wrong');
+        $elapsed = (int) $callerId->requested_at->diffInSeconds(now());
+
+        return max(0, $wait - $elapsed);
     }
 
     /**
@@ -407,42 +399,15 @@ class PhoneVerification extends Component
         $this->resendTick++;
     }
 
-    private function secondsUntilResend(PhoneVerificationService $verification): int
+    /** Aus "+491721234567" wird "1721234567" fuer das Eingabefeld. */
+    private function localPart(?string $phoneNumber): string
     {
-        $user = auth()->user();
-
-        if ($user === null) {
-            return 0;
+        if ($phoneNumber === null) {
+            return '';
         }
 
-        $allowedAt = $verification->resendAllowedAt($user);
-
-        return $allowedAt === null
-            ? 0
-            : max(0, (int) ceil(now()->diffInSeconds($allowedAt, absolute: true)));
-    }
-
-    /**
-     * Nach einem Neuladen ist $resendCount wieder null, der Anruf-Ausweg soll
-     * aber nicht verschwinden.
-     *
-     * Dass es fuer diese Nummer schon eine SMS gab, sagt der Dienst. Das
-     * allein genuegt aber nicht -- sonst stuende der Anruf schon beim ersten
-     * Laden des Code-Screens daneben, und der teure Weg waere von Anfang an
-     * gleichberechtigt. Zusaetzlich muss die Sperrfrist abgelaufen sein: Dann
-     * hat der Nutzer die Minute abgewartet, und genau in diesem Fall ist der
-     * Anruf gemeint.
-     */
-    private function callAvailableFromHistory(PhoneVerificationService $verification): void
-    {
-        $user = auth()->user();
-
-        if ($user === null || $this->phoneE164 === null || $this->resendIn > 0) {
-            return;
-        }
-
-        if ($verification->callChannelAvailable($user, $this->phoneE164)) {
-            $this->resendCount = max($this->resendCount, 1);
-        }
+        return str_starts_with($phoneNumber, $this->countryCode)
+            ? trim(substr($phoneNumber, strlen($this->countryCode)))
+            : $phoneNumber;
     }
 }
