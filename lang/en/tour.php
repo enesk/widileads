@@ -49,7 +49,7 @@ return [
         ],
         'call' => [
             'title' => 'Call now',
-            'text' => 'One tap connects you – the prospect never sees your own number.',
+            'text' => 'One tap connects you – your phone rings first, then the prospect. They see your verified number.',
         ],
         'deadline' => [
             'title' => 'Your deadline',

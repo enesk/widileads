@@ -372,21 +372,25 @@ return [
                 'heading' => 'So wird abgerechnet',
                 'counter' => 'Schritt :step von :total',
                 'balance' => 'Guthaben',
+                'balance_postpaid' => 'Offener Betrag',
                 'next' => 'Weiter',
                 'restart' => 'Von vorn',
                 'go_to' => 'Zu Schritt :step',
+                'release_note' => 'Die vollständige Rufnummer wird frei, sobald ein Gespräch zustande kommt oder :attempts Anrufe gezählt sind. Wird der Lead gutgeschrieben, bleibt sie verdeckt.',
                 'steps' => [
                     'ringing' => [
                         'title' => 'Du rufst über widileads an',
-                        'text' => 'Den Anruf startest du im Portal. Deine eigene Nummer bleibt dabei unsichtbar.',
+                        'text' => 'Den Anruf startest du im Portal: Erst klingelt dein Telefon, dann verbinden wir dich. Der Anfragende sieht dabei deine bestätigte Rufnummer – deshalb bestätigst du sie vorher.',
                     ],
                     'answered' => [
                         'title' => 'Anruf wird angenommen',
                         'text' => 'Ab :seconds Sekunden Gespräch wird der Lead berechnet: :amount gehen vom Guthaben ab.',
+                        'text_postpaid' => 'Ab :seconds Sekunden Gespräch wird der Lead berechnet: :amount plus :percent % Aufschlag, zusammen :total, kommen auf deine nächste Abrechnung.',
                     ],
                     'missed' => [
                         'title' => 'Nicht erreicht?',
-                        'text' => 'Nach :attempts Versuchen an :days Tagen mit mindestens :hours Stunden Abstand ist der Lead kostenlos -- du bekommst den Betrag zurück.',
+                        'text' => 'Nach :attempts Versuchen an :days Tagen mit mindestens :hours Stunden Abstand ist der Lead kostenlos – du bekommst den Betrag zurück. Lässt du die Frist ohne diese Versuche verstreichen, wird er berechnet.',
+                        'text_postpaid' => 'Nach :attempts Versuchen an :days Tagen mit mindestens :hours Stunden Abstand ist der Lead kostenlos – er kommt nicht auf die Abrechnung. Lässt du die Frist ohne diese Versuche verstreichen, wird er berechnet.',
                     ],
                 ],
             ],

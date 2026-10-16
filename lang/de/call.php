@@ -90,7 +90,7 @@ return [
 
             'why_heading' => 'Warum wir anrufen',
             'why_one' => 'Bei „Jetzt anrufen" klingelt zuerst dein Telefon, dann verbinden wir dich mit dem Anfragenden.',
-            'why_two' => 'Der Anfragende sieht unsere Portalnummer, nicht deine.',
+            'why_two' => 'Der Anfragende sieht beim Anruf deine bestätigte Rufnummer – nur deshalb muss sie bestätigt sein.',
             'why_three' => 'Nur bestätigte Nummern können Anrufe auslösen – so kann niemand auf deine Kosten telefonieren.',
 
             'verified_heading' => 'Bereits bestätigt',
@@ -306,7 +306,7 @@ return [
     ],
 
     'phone_release' => [
-        'pending' => 'Die vollständige Rufnummer wird frei, sobald ein Gespräch angenommen wurde oder :required Anrufe gezählt sind – gezählt sind bisher :count. Bis dahin erreichst du den Lead über „Anrufen“, dabei sieht er unsere Portalnummer.',
+        'pending' => 'Die vollständige Rufnummer wird frei, sobald ein Gespräch angenommen wurde oder :required Anrufe gezählt sind – gezählt sind bisher :count. Bis dahin erreichst du den Lead über „Anrufen“; er sieht dabei deine bestätigte Rufnummer.',
         'unreachable' => 'Dieser Lead wurde als nicht erreichbar geschlossen und dir gutgeschrieben. Deshalb wird die Rufnummer nicht mehr angezeigt – entweder Gutschrift oder Nummer, nicht beides.',
     ],
 

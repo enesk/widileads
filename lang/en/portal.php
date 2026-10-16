@@ -292,21 +292,25 @@ return [
                 'heading' => 'How billing works',
                 'counter' => 'Step :step of :total',
                 'balance' => 'Balance',
+                'balance_postpaid' => 'Open amount',
                 'next' => 'Next',
                 'restart' => 'Start over',
                 'go_to' => 'Go to step :step',
+                'release_note' => 'The full phone number is released once a call has been answered or :attempts calls are on record. If the lead is credited back, it stays hidden.',
                 'steps' => [
                     'ringing' => [
                         'title' => 'You call through widileads',
-                        'text' => 'You start the call in the portal. Your own number stays hidden.',
+                        'text' => 'You start the call in the portal: your phone rings first, then we connect you. The person you are calling sees your verified number – that is why you verify it beforehand.',
                     ],
                     'answered' => [
                         'title' => 'The call is answered',
                         'text' => 'From :seconds seconds of conversation the lead is charged: :amount comes off your balance.',
+                        'text_postpaid' => 'From :seconds seconds of conversation the lead is charged: :amount plus a :percent % surcharge, :total in total, goes onto your next invoice.',
                     ],
                     'missed' => [
                         'title' => 'No answer?',
-                        'text' => 'After :attempts attempts across :days days with at least :hours hours in between the lead is free -- you get the amount back.',
+                        'text' => 'After :attempts attempts across :days days with at least :hours hours in between the lead is free – you get the amount back. If you let the deadline pass without those attempts, it is charged.',
+                        'text_postpaid' => 'After :attempts attempts across :days days with at least :hours hours in between the lead is free – it does not go onto your invoice. If you let the deadline pass without those attempts, it is charged.',
                     ],
                 ],
             ],

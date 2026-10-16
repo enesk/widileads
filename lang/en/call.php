@@ -73,7 +73,7 @@ return [
 
             'why_heading' => 'Why we call',
             'why_one' => 'With "Call now" your phone rings first, then we connect you to the enquirer.',
-            'why_two' => 'The enquirer sees our portal number, not yours.',
+            'why_two' => 'The person you call sees your verified number – that is the reason it has to be verified.',
             'why_three' => 'Only confirmed numbers can start calls, so nobody can call at your expense.',
 
             'verified_heading' => 'Already confirmed',
@@ -286,7 +286,7 @@ return [
     ],
 
     'phone_release' => [
-        'pending' => 'The full phone number is released once a call has been answered or :required calls are on record – :count so far. Until then, reach the lead with "Call"; they see our portal number.',
+        'pending' => 'The full phone number is released once a call has been answered or :required calls are on record – :count so far. Until then, reach the lead with "Call"; they see your verified number.',
         'unreachable' => 'This lead was closed as unreachable and credited back to you. The phone number is therefore no longer shown – either the credit or the number, not both.',
     ],
 

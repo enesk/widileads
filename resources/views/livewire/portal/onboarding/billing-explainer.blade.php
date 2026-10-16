@@ -15,9 +15,12 @@
     Betrag -- nicht an einer Animation.
 
     Erwartete Daten:
-      $steps     state, title, text, charge (Betrag mit Vorzeichen oder null)
-      $animation from, to (Cent), currency -- die herunterlaufende Guthabenzahl
-      $autoplay  laeuft die Vorfuehrung von selbst los?
+      $steps        state, title, text, charge (Betrag mit Vorzeichen oder null)
+      $animation    from, to (Cent), currency -- die laufende Zahl
+      $balanceLabel "Guthaben" oder, bei Pay as you go, "Offener Betrag"
+      $releaseNote  wann die vollstaendige Rufnummer frei wird
+      $postpaid     Pay as you go? Dann laeuft die Zahl nach oben
+      $autoplay     laeuft die Vorfuehrung von selbst los?
 --}}
 <div
     class="billing-explainer"
@@ -95,17 +98,28 @@
         @endforeach
     </div>
 
-    {{-- Die Guthabenzahl. Sie laeuft im zweiten Schritt herunter und steht im
-         dritten wieder oben -- der verpasste Lead kostet nichts. Der Server
-         gibt den Anfangsstand im Markup mit, damit die Zahl ohne Skript nicht
-         leer bleibt. --}}
+    {{-- Die Zahl unter den Schritten. Bei Guthaben laeuft sie im zweiten
+         Schritt herunter und steht im dritten wieder oben -- der verpasste
+         Lead kostet nichts. Bei Pay as you go ist es der offene Betrag, und
+         sie laeuft nach oben: Dort wird nichts abgebucht, es kommt etwas dazu
+         (Ticket #3). Der Server gibt den Anfangsstand im Markup mit, damit die
+         Zahl ohne Skript nicht leer bleibt. --}}
     <p class="billing-explainer__balance mt-4">
-        <span class="text-xs text-zinc-500">{{ __('portal.onboarding.done.explainer.balance') }}</span>
+        <span class="text-xs text-zinc-500">{{ $balanceLabel }}</span>
         <b
             class="billing-explainer__amount"
             x-text="amount"
             x-bind:class="{ 'is-counting': step === 1 }"
         >{{ \App\Support\Money::format($animation['from']) }}</b>
+    </p>
+
+    {{-- Wann die Rufnummer frei wird. Steht hier und nicht als vierter
+         Schritt: Der Player hat drei Zustaende des Motivs, ein vierter ohne
+         Bild waere ein Fremdkoerper -- und die Frage kommt genau hier auf,
+         zwischen Abbuchung und Gutschrift (Ticket #3). --}}
+    <p class="mt-3 flex items-start gap-2 text-xs text-zinc-500">
+        <x-app.icon name="lock" class="mt-0.5 size-3.5 shrink-0 text-zinc-400" />
+        <span>{{ $releaseNote }}</span>
     </p>
 
     {{-- Navigation: Punkte und "Weiter". Beide sind echte Knoepfe und nicht

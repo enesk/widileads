@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Portal\Onboarding;
 
+use App\Constants\WalletOwnerType;
+use App\Models\Tenant;
+use App\Models\Wallet;
+use App\Services\Wallet\PurchaseService;
 use App\Support\Money;
+use App\Support\PostpaidTerms;
+use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -29,6 +35,14 @@ use Livewire\Component;
  * ausschliesslich config('lead_calls.*') -- dieselbe Quelle, aus der
  * AttemptClassifier und LeadResolver ihre Schwellwerte nehmen. Steht der
  * Mindestabstand morgen auf drei Stunden, sagt dieser Player es mit.
+ *
+ * **Zwei Geschichten, je Zahlungsweise (Ticket #3).** Bei Guthaben geht der
+ * Preis vom Guthaben ab, die Zahl laeuft herunter. Bei Pay as you go geht
+ * nichts ab: Der Preis kommt zuzueglich Aufschlag auf die naechste
+ * Abrechnung, und die Zahl ist der offene Betrag, der nach oben laeuft. Den
+ * Modus holt die Komponente selbst aus dem Wallet des Mandanten, statt ihn
+ * sich von drei Aufrufern mitgeben zu lassen -- sonst erzaehlt sie an einer
+ * der drei Stellen die falsche Geschichte, und das faellt dort niemandem auf.
  *
  * Das Auf und Ab zwischen den Schritten gehoert dem Browser
  * (resources/js/modules/billing-explainer.js): Ein Schrittwechsel ist eine
@@ -78,37 +92,105 @@ class BillingExplainer extends Component
     public function render(): View
     {
         $price = max(0, $this->priceCents);
+        $wallet = $this->wallet();
+        $postpaid = PostpaidTerms::isPostpaid($wallet);
+
+        $surcharge = $postpaid
+            ? PurchaseService::surchargeCents($price, app(PurchaseService::class)->surchargePercent($wallet))
+            : 0;
+
+        return view('livewire.portal.onboarding.billing-explainer', [
+            'autoplay' => $this->autoplay,
+            'postpaid' => $postpaid,
+            'steps' => $this->steps($price, $surcharge, $postpaid, $wallet),
+            'balanceLabel' => $postpaid
+                ? __('portal.onboarding.done.explainer.balance_postpaid')
+                : __('portal.onboarding.done.explainer.balance'),
+            'releaseNote' => __('portal.onboarding.done.explainer.release_note', [
+                'attempts' => (int) config('lead_calls.unreachable_attempts'),
+            ]),
+            // Die Zahlen der Mini-Animation gehen in Cent an den Browser und
+            // kommen als Betrag zurueck: Das Herunterlaufen ist eine Reihe von
+            // Zwischenstaenden, und jeden davon hier zu formatieren waere eine
+            // Liste von hundert Zeichenketten.
+            'animation' => $this->animation($price, $surcharge, $postpaid, $wallet),
+        ]);
+    }
+
+    /**
+     * Die Zahl unter den Schritten: Guthaben, das herunterlaeuft -- oder der
+     * offene Betrag, der nach oben laeuft.
+     *
+     * @return array{from: int, to: int, currency: string}
+     */
+    private function animation(int $price, int $surcharge, bool $postpaid, ?Wallet $wallet): array
+    {
+        if ($postpaid) {
+            // Bei Pay as you go wird nichts abgebucht, es kommt etwas dazu.
+            // Eine herunterlaufende Zahl waere hier die falsche Bewegung.
+            $open = $wallet instanceof Wallet ? max(0, (int) $wallet->open_amount_cents) : 0;
+
+            return [
+                'from' => $open,
+                'to' => $open + $price + $surcharge,
+                'currency' => Money::symbol(),
+            ];
+        }
 
         // Ein Beispiel, in dem das Guthaben nicht reicht, erzaehlt die falsche
         // Geschichte: Die Zahl soll herunterlaufen und nicht ins Minus.
         $balance = max($this->balanceCents, $price);
 
-        return view('livewire.portal.onboarding.billing-explainer', [
-            'autoplay' => $this->autoplay,
-            'steps' => $this->steps($price, $balance),
-            // Die Zahlen der Mini-Animation gehen in Cent an den Browser und
-            // kommen als Betrag zurueck: Das Herunterlaufen ist eine Reihe von
-            // Zwischenstaenden, und jeden davon hier zu formatieren waere eine
-            // Liste von hundert Zeichenketten.
-            'animation' => [
-                'from' => $balance,
-                'to' => $balance - $price,
-                'currency' => Money::symbol(),
-            ],
-        ]);
+        return [
+            'from' => $balance,
+            'to' => $balance - $price,
+            'currency' => Money::symbol(),
+        ];
+    }
+
+    /**
+     * Das Kaeufer-Wallet des aktiven Mandanten -- oder null.
+     *
+     * Bewusst lesend und ohne firstOrCreate: Eine Ansicht legt kein Wallet an.
+     * Ohne Mandanten im Kontext (etwa in einem Komponententest) bleibt es
+     * null, und der Player erzaehlt die Guthaben-Geschichte.
+     */
+    private function wallet(): ?Wallet
+    {
+        $tenant = Filament::getTenant();
+
+        if (! $tenant instanceof Tenant) {
+            return null;
+        }
+
+        return Wallet::query()
+            ->where('owner_type', WalletOwnerType::BUYER->value)
+            ->where('owner_id', $tenant->getKey())
+            ->first();
     }
 
     /**
      * Die drei Schritte: Motivzustand, Ueberschrift, Satz.
      *
+     * Der zweite und der dritte Satz haengen an der Zahlungsweise: Bei Pay as
+     * you go geht nichts vom Guthaben ab und nichts kommt zurueck -- der
+     * Betrag kommt zuzueglich Aufschlag auf die Abrechnung oder eben nicht.
+     *
      * @return list<array{state: string, title: string, text: string, charge: ?string}>
      */
-    private function steps(int $price, int $balance): array
+    private function steps(int $price, int $surcharge, bool $postpaid, ?Wallet $wallet): array
     {
+        $total = $price + $surcharge;
+
         return [
             [
                 'state' => 'ringing',
                 'title' => __('portal.onboarding.done.explainer.steps.ringing.title'),
+                // Der Anfragende sieht die bestaetigte Nummer des Kaeufers:
+                // Die Bridge waehlt ihn mit `callerId => caller_number`
+                // (CallService::bridgeInstruction), und genau dafuer wird sie
+                // bestaetigt. Der Satz hat bis Ticket #3 das Gegenteil
+                // behauptet.
                 'text' => __('portal.onboarding.done.explainer.steps.ringing.text'),
                 'charge' => null,
             ],
@@ -117,23 +199,44 @@ class BillingExplainer extends Component
                 'title' => __('portal.onboarding.done.explainer.steps.answered.title', [
                     'seconds' => (int) config('lead_calls.answered_min_seconds'),
                 ]),
-                'text' => __('portal.onboarding.done.explainer.steps.answered.text', [
-                    'seconds' => (int) config('lead_calls.answered_min_seconds'),
-                    'amount' => Money::format($price),
-                ]),
-                'charge' => Money::formatSigned(-$price),
+                'text' => $postpaid
+                    ? __('portal.onboarding.done.explainer.steps.answered.text_postpaid', [
+                        'seconds' => (int) config('lead_calls.answered_min_seconds'),
+                        'amount' => Money::format($price),
+                        'percent' => PostpaidTerms::surchargePercentLabel($wallet),
+                        'total' => Money::format($total),
+                    ])
+                    : __('portal.onboarding.done.explainer.steps.answered.text', [
+                        'seconds' => (int) config('lead_calls.answered_min_seconds'),
+                        'amount' => Money::format($price),
+                    ]),
+                'charge' => $postpaid
+                    ? Money::formatSigned($total)
+                    : Money::formatSigned(-$price),
             ],
             [
                 'state' => 'missed',
                 'title' => __('portal.onboarding.done.explainer.steps.missed.title', [
                     'attempts' => (int) config('lead_calls.unreachable_attempts'),
                 ]),
-                'text' => __('portal.onboarding.done.explainer.steps.missed.text', [
-                    'attempts' => (int) config('lead_calls.unreachable_attempts'),
-                    'days' => (int) config('lead_calls.unreachable_min_days'),
-                    'hours' => (int) config('lead_calls.retry_min_hours'),
-                ]),
-                'charge' => Money::formatSigned($price),
+                // Der zweite Satz ist der, der Geld kostet: Laeuft die Frist
+                // ohne diese Versuche ab, wird der Lead berechnet
+                // (LeadResolutionReason::DEADLINE -> BILLABLE). Bis Ticket #3
+                // stand hier nur die kostenlose Haelfte.
+                'text' => $postpaid
+                    ? __('portal.onboarding.done.explainer.steps.missed.text_postpaid', [
+                        'attempts' => (int) config('lead_calls.unreachable_attempts'),
+                        'days' => (int) config('lead_calls.unreachable_min_days'),
+                        'hours' => (int) config('lead_calls.retry_min_hours'),
+                    ])
+                    : __('portal.onboarding.done.explainer.steps.missed.text', [
+                        'attempts' => (int) config('lead_calls.unreachable_attempts'),
+                        'days' => (int) config('lead_calls.unreachable_min_days'),
+                        'hours' => (int) config('lead_calls.retry_min_hours'),
+                    ]),
+                'charge' => $postpaid
+                    ? null
+                    : Money::formatSigned($price),
             ],
         ];
     }

@@ -64,7 +64,7 @@ return [
         ],
         'call' => [
             'title' => 'Jetzt anrufen',
-            'text' => 'Ein Tipp hier verbindet dich – deine eigene Nummer bekommt der Interessent nicht zu sehen.',
+            'text' => 'Ein Tipp hier verbindet dich – erst klingelt dein Telefon, dann der Interessent. Er sieht deine bestätigte Rufnummer.',
         ],
         'deadline' => [
             'title' => 'Deine Frist',

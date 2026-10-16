@@ -127,7 +127,7 @@ return [
             'states' => [
                 'ringing' => [
                     'title' => 'You call through widileads',
-                    'text' => 'You start the call from the portal. Your own number stays hidden.',
+                    'text' => 'You start the call from the portal: your phone rings first, then we connect you. The person you call sees your verified number.',
                 ],
                 'answered' => [
                     'title' => 'Call answered: the lead is charged',

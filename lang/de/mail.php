@@ -136,7 +136,7 @@ return [
             'states' => [
                 'ringing' => [
                     'title' => 'Du rufst über widileads an',
-                    'text' => 'Den Anruf startest du im Portal. Deine eigene Nummer bleibt dabei unsichtbar.',
+                    'text' => 'Den Anruf startest du im Portal: Erst klingelt dein Telefon, dann verbinden wir dich. Der Anfragende sieht deine bestätigte Rufnummer.',
                 ],
                 'answered' => [
                     'title' => 'Anruf angenommen: der Lead wird berechnet',
