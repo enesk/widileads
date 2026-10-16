@@ -793,6 +793,42 @@ class CallerIdTest extends FeatureTest
     }
 
     /**
+     * Ticket #2: Das Datum zur Zahl. Genommen wird die naechste Frist unter
+     * genau denselben Leads, die auch gezaehlt werden -- der abgelaufene Lead
+     * und der des Kollegen duerfen das Datum nicht nach vorn ziehen.
+     */
+    public function test_naechste_laufende_frist_gehoert_zur_gezaehlten_menge(): void
+    {
+        [$tenant, $user] = $this->verifiedUser();
+        $kollege = User::factory()->create();
+        $tenant->users()->attach($kollege);
+
+        $naechste = now()->addHours(5)->startOfSecond();
+
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, now()->addDays(3));
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, $naechste);
+
+        // Frueher, aber nicht betroffen: abgelaufen, abgeschlossen, fremd.
+        $this->purchaseFor($tenant, $user, LeadContactStatus::OPEN, now()->subHour());
+        $this->purchaseFor($tenant, $user, LeadContactStatus::BILLABLE, now()->addHour());
+        $this->purchaseFor($tenant, $kollege, LeadContactStatus::OPEN, now()->addMinutes(30));
+
+        $this->assertTrue(
+            $naechste->equalTo(app(CallerIdService::class)->nextOpenLeadDeadlineAtRisk($user)),
+            'Die genannte Frist gehoert nicht zu den gezaehlten Leads.',
+        );
+    }
+
+    /** Ohne betroffenen Lead gibt es kein Datum zu nennen. */
+    public function test_ohne_betroffene_leads_gibt_es_keine_frist(): void
+    {
+        [, $user] = $this->verifiedUser();
+
+        $this->assertSame(0, app(CallerIdService::class)->countOpenLeadsAtRisk($user));
+        $this->assertNull(app(CallerIdService::class)->nextOpenLeadDeadlineAtRisk($user));
+    }
+
+    /**
      * Ein Nutzer ohne Nummer: Der Weg sagt ehrlich, dass es nichts
      * zurueckzunehmen gab, statt einen Vorgang zu protokollieren, den es nicht
      * gab.

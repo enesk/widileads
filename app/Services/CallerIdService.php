@@ -386,13 +386,45 @@ class CallerIdService
      */
     public function countOpenLeadsAtRisk(User $user): int
     {
+        return $this->openLeadsAtRiskQuery($user)->count();
+    }
+
+    /**
+     * Wann laeuft die naechste dieser Fristen ab? (Ticket #2)
+     *
+     * Die Zahl allein ist schwaecher als die Zahl mit dem Datum: "2 Leads mit
+     * laufender Frist" sagt, dass etwas offen ist, "die naechste laeuft am
+     * 19.10. ab" sagt, ob es bis zur neuen Bestaetigung wartet. Null heisst:
+     * Es gibt keinen betroffenen Lead -- dann hat die Rueckfrage dazu auch
+     * nichts zu sagen.
+     *
+     * Dieselbe Trefferbedingung wie countOpenLeadsAtRisk(), bewusst aus einer
+     * Hand: Zwei Abfragen desselben Sachverhalts sind die Stelle, an der die
+     * Rueckfrage ein Datum nennt, das zu ihrer Zahl nicht passt.
+     */
+    public function nextOpenLeadDeadlineAtRisk(User $user): ?Carbon
+    {
+        $deadline = $this->openLeadsAtRiskQuery($user)
+            ->join('leads', 'leads.id', '=', 'lead_purchases.lead_id')
+            ->min('leads.deadline_at');
+
+        return is_string($deadline) ? Carbon::parse($deadline) : null;
+    }
+
+    /**
+     * Die eigenen Kaeufe dieses Nutzers, deren Lead offen ist und deren Frist
+     * noch laeuft -- die Trefferbedingung der Ansage, an einer Stelle.
+     *
+     * @return Builder<LeadPurchase>
+     */
+    private function openLeadsAtRiskQuery(User $user): Builder
+    {
         return LeadPurchase::query()
             ->ofUser($user)
             ->whereHas('lead', static fn (Builder $lead): Builder => $lead
                 ->where('contact_status', LeadContactStatus::OPEN)
                 ->whereNotNull('deadline_at')
-                ->where('deadline_at', '>', now()))
-            ->count();
+                ->where('deadline_at', '>', now()));
     }
 
     /**
