@@ -97,8 +97,20 @@ return [
             'pending' => 'Verification in progress',
             'verified' => 'Verified',
             'expired' => 'Expired',
+            'no_answer' => 'Call not answered',
+            'not_confirmed' => 'Not confirmed',
             'failed' => 'Failed',
         ],
+
+        'hint' => [
+            'expired' => 'The code has expired. Request the call again.',
+            'no_answer' => 'We called, but nobody picked up. Keep your phone at hand and try again.',
+            'not_confirmed' => 'The call went through, but the code was not confirmed. Enter it on your phone when the announcement asks for it — an answering machine cannot do that.',
+            'failed' => 'The call could not be delivered. Check the number and try again.',
+        ],
+
+        'throttled' => 'Too many verification calls. Please wait :seconds seconds.',
+        'throttled_window' => 'Too many verification calls in a short time. Please try again later.',
 
     ],
 

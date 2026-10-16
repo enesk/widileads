@@ -328,6 +328,28 @@ return [
             // Kaeufer kaeme an der Sperre vorbei.
             'required_for_portal' => (bool) env('FUNNEL_CALL_CALLER_ID_REQUIRED', true),
 
+            // Grenzen fuer die Anforderung eines Bestaetigungsanrufs
+            // (Ticket #97). Uebernommen aus dem abgeloesten SMS-Weg, dort
+            // standen sie in config/phone_verification.php. Hier wiegen sie
+            // schwerer: Ein Bestaetigungsanruf kostet Geld und laesst bei
+            // einem echten Menschen ein Telefon klingeln.
+            //
+            // Gezaehlt wird zweimal -- je Nummer, weil dort das Telefon
+            // klingelt, und je Nutzer, weil dort die Kosten anfallen. Wer
+            // sich zehn Konten anlegt, soll eine fremde Nummer nicht zehnmal
+            // so oft anrufen lassen koennen.
+            'limits' => [
+
+                'requests_per_phone' => (int) env('FUNNEL_CALL_CALLER_ID_REQUESTS_PER_PHONE', 3),
+                'requests_per_user' => (int) env('FUNNEL_CALL_CALLER_ID_REQUESTS_PER_USER', 3),
+                'requests_window_minutes' => (int) env('FUNNEL_CALL_CALLER_ID_REQUESTS_WINDOW', 60),
+
+                // Frueheste Wiederholung. Der Entwurf nennt dem Nutzer
+                // dieselbe Zahl ("Kein Anruf nach 60 Sekunden?").
+                'resend_after_seconds' => (int) env('FUNNEL_CALL_CALLER_ID_RESEND_AFTER', 60),
+
+            ],
+
         ],
 
     ],

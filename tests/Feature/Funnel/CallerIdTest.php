@@ -14,10 +14,12 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\CallerIdService;
 use App\Services\Twilio\CallerIdValidationClient;
+use App\Services\Twilio\CallerIdValidationThrottled;
 use Filament\Facades\Filament;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
 use Livewire\Livewire;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\FeatureTest;
 use Twilio\Security\RequestValidator;
 
@@ -117,6 +119,11 @@ class CallerIdTest extends FeatureTest
         $this->assertSame(CallerIdStatus::PENDING, $callerId->fresh()->status);
     }
 
+    /**
+     * Ticket #97: Der Anruf kam zustande, bestaetigt wurde nichts --
+     * Anrufbeantworter, falscher Code oder aufgelegt. Twilio trennt die drei
+     * nicht, deshalb trennen wir sie auch nicht.
+     */
     public function test_gescheiterte_bestaetigung_schaltet_die_nummer_nicht_frei(): void
     {
         $callerId = $this->pendingCallerId();
@@ -124,10 +131,188 @@ class CallerIdTest extends FeatureTest
         $this->postSigned([
             'To' => $callerId->phone_number,
             'VerificationStatus' => 'failed',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $this->assertSame(CallerIdStatus::NOT_CONFIRMED, $callerId->fresh()->status);
+        $this->assertFalse($callerId->fresh()->isUsableAsCallerId());
+        $this->assertTrue($callerId->fresh()->status->isFailure());
+    }
+
+    /**
+     * Ticket #97: Es hat niemand abgenommen. Eigener Stand, weil der Nutzer
+     * etwas anderes tun muss als bei einem nicht bestaetigten Anruf -- und
+     * weil kein Stand "wartet" stehen bleiben darf, auf das nichts folgt.
+     */
+    #[DataProvider('unbeantworteteAnrufe')]
+    public function test_nicht_angenommener_anruf_bekommt_einen_eigenen_stand(string $callStatus): void
+    {
+        $callerId = $this->pendingCallerId();
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'failed',
+            'CallStatus' => $callStatus,
+        ])->assertNoContent();
+
+        $this->assertSame(CallerIdStatus::NO_ANSWER, $callerId->fresh()->status);
+        $this->assertFalse($callerId->fresh()->isUsableAsCallerId());
+        $this->assertNull($callerId->fresh()->expires_at);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function unbeantworteteAnrufe(): array
+    {
+        return [
+            'niemand nimmt ab' => ['no-answer'],
+            'besetzt' => ['busy'],
+            'abgebrochen' => ['canceled'],
+        ];
+    }
+
+    /** Ticket #97: Twilio kam gar nicht durch -- technischer Fehler. */
+    public function test_technisch_gescheiterter_anruf_bleibt_fehlgeschlagen(): void
+    {
+        $callerId = $this->pendingCallerId();
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'failed',
+            'CallStatus' => 'failed',
         ])->assertNoContent();
 
         $this->assertSame(CallerIdStatus::FAILED, $callerId->fresh()->status);
-        $this->assertFalse($callerId->fresh()->isUsableAsCallerId());
+    }
+
+    /**
+     * Ticket #97: Eine Festnetznummer laesst sich bestaetigen -- ein
+     * Handwerksbetrieb erreicht seine Leads ueber die Werkstattnummer.
+     */
+    public function test_festnetznummer_laesst_sich_bestaetigen(): void
+    {
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create();
+        $tenant->users()->attach($user);
+
+        $callerId = app(CallerIdService::class)->requestValidation(
+            $tenant,
+            $user,
+            '030 1234567',
+            route('twilio.caller-id.validation-status'),
+        );
+
+        $this->postSigned([
+            'To' => $callerId->phone_number,
+            'VerificationStatus' => 'success',
+            'CallStatus' => 'completed',
+        ])->assertNoContent();
+
+        $this->assertSame(CallerIdStatus::VERIFIED, $callerId->fresh()->status);
+        $this->assertTrue($callerId->fresh()->isUsableAsCallerId());
+    }
+
+    /**
+     * Ticket #97: Zwei Anforderungen hintereinander -- die zweite wartet. Der
+     * Bestaetigungsanruf kostet Geld und laesst ein echtes Telefon klingeln.
+     */
+    public function test_zweite_anforderung_muss_die_wartezeit_abwarten(): void
+    {
+        config()->set('funnel.call.caller_id.limits.resend_after_seconds', 60);
+
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create();
+        $tenant->users()->attach($user);
+
+        $this->requestFor($tenant, $user, '030 1234567');
+
+        try {
+            $this->requestFor($tenant, $user, '030 1234567');
+            $this->fail('Die zweite Anforderung haette abgewiesen werden muessen.');
+        } catch (CallerIdValidationThrottled $exception) {
+            $this->assertGreaterThan(0, $exception->retryAfterSeconds);
+        }
+    }
+
+    /** Ticket #97: Das Zeitfenster zaehlt je Nutzer. */
+    public function test_rate_limit_zaehlt_je_nutzer(): void
+    {
+        config()->set('funnel.call.caller_id.limits.resend_after_seconds', 0);
+        config()->set('funnel.call.caller_id.limits.requests_per_user', 2);
+        config()->set('funnel.call.caller_id.limits.requests_per_phone', 99);
+
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create();
+        $tenant->users()->attach($user);
+
+        $this->requestFor($tenant, $user, '030 1234567');
+        $this->requestFor($tenant, $user, '030 7654321');
+
+        $this->expectException(CallerIdValidationThrottled::class);
+
+        $this->requestFor($tenant, $user, '030 1111111');
+    }
+
+    /**
+     * Ticket #97: ... und je Nummer. Sonst liesse sich ein fremder Anschluss
+     * ueber mehrere Konten beliebig oft anklingeln.
+     */
+    public function test_rate_limit_zaehlt_je_nummer_ueber_konten_hinweg(): void
+    {
+        config()->set('funnel.call.caller_id.limits.resend_after_seconds', 0);
+        config()->set('funnel.call.caller_id.limits.requests_per_phone', 1);
+        config()->set('funnel.call.caller_id.limits.requests_per_user', 99);
+
+        $tenant = Tenant::factory()->create();
+        $erster = User::factory()->create();
+        $zweiter = User::factory()->create();
+        $tenant->users()->attach($erster);
+        $tenant->users()->attach($zweiter);
+
+        $this->requestFor($tenant, $erster, '030 1234567');
+
+        $this->expectException(CallerIdValidationThrottled::class);
+
+        $this->requestFor($tenant, $zweiter, '030 1234567');
+    }
+
+    /**
+     * Ticket #97: Eine abgewiesene Anforderung darf keine Spur hinterlassen --
+     * sonst wartet die Oberflaeche auf einen Anruf, den niemand ausgeloest hat.
+     */
+    public function test_abgewiesene_anforderung_legt_keine_zeile_an(): void
+    {
+        config()->set('funnel.call.caller_id.limits.resend_after_seconds', 0);
+        config()->set('funnel.call.caller_id.limits.requests_per_user', 1);
+
+        $tenant = Tenant::factory()->create();
+        $user = User::factory()->create();
+        $tenant->users()->attach($user);
+
+        $this->requestFor($tenant, $user, '030 1234567');
+
+        try {
+            $this->requestFor($tenant, $user, '030 7654321');
+        } catch (CallerIdValidationThrottled) {
+            // erwartet
+        }
+
+        $this->assertDatabaseMissing('caller_ids', ['phone_number' => '+49307654321']);
+        $this->assertSame(
+            '+49301234567',
+            app(CallerIdService::class)->forUser($user)?->phone_number,
+        );
+    }
+
+    private function requestFor(Tenant $tenant, User $user, string $input): CallerId
+    {
+        return app(CallerIdService::class)->requestValidation(
+            $tenant,
+            $user,
+            $input,
+            route('twilio.caller-id.validation-status'),
+        );
     }
 
     public function test_ein_workspace_sieht_die_nummern_eines_anderen_nicht(): void

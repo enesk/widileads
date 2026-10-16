@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\CallerIdService;
 use App\Services\Twilio\CallerIdValidationFailed;
+use App\Services\Twilio\CallerIdValidationThrottled;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
@@ -165,6 +166,13 @@ class CallerId extends Page implements HasForms
                 ->send();
 
             return;
+        } catch (CallerIdValidationThrottled $exception) {
+            Notification::make()
+                ->danger()
+                ->title($this->throttleMessage($exception))
+                ->send();
+
+            return;
         } catch (CallerIdValidationFailed $exception) {
             // Die Twilio-Meldung gehoert ins Log, nicht auf den Bildschirm des
             // Mitarbeiters -- sie nennt Kontodetails.
@@ -194,5 +202,17 @@ class CallerId extends Page implements HasForms
         abort_unless($user instanceof User, 403);
 
         return $user;
+    }
+
+    /**
+     * Die Meldung zur Begrenzung (Ticket #97): mit Sekunden, wenn eine
+     * Wartezeit bekannt ist, sonst ohne -- eine erfundene Zahl waere
+     * schlechter als keine.
+     */
+    private function throttleMessage(CallerIdValidationThrottled $exception): string
+    {
+        return $exception->retryAfterSeconds > 0
+            ? __('call.caller_id.throttled', ['seconds' => $exception->retryAfterSeconds])
+            : __('call.caller_id.throttled_window');
     }
 }

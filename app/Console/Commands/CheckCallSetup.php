@@ -26,6 +26,14 @@ use Twilio\Rest\Client as TwilioClient;
  */
 class CheckCallSetup extends Command
 {
+    /**
+     * Hoechstzahl der Caller IDs, die der Befehl aus dem Konto liest, und die
+     * Marke, ab der er warnt (Ticket #97).
+     */
+    private const CALLER_ID_READ_LIMIT = 1000;
+
+    private const CALLER_ID_WARN_AT = 100;
+
     protected $signature = 'leads:check-call-setup
         {--user= : E-Mail des Mitarbeiters, dessen bestaetigte Rufnummer geprueft wird}
         {--remote : Zusaetzlich das Twilio-Konto abfragen (Zugangsdaten und Portal-Nummer)}
@@ -319,8 +327,9 @@ class CheckCallSetup extends Command
             );
 
             $owned = $client->incomingPhoneNumbers->read(['phoneNumber' => $this->platformNumber()], 1);
+            $outgoingCallerIds = $client->outgoingCallerIds->read([], self::CALLER_ID_READ_LIMIT);
             $verified = array_filter(
-                $client->outgoingCallerIds->read([], 50),
+                $outgoingCallerIds,
                 fn ($callerId): bool => $callerId->phoneNumber === $this->platformNumber(),
             );
 
@@ -344,10 +353,38 @@ class CheckCallSetup extends Command
                 warnOnly: ! $this->isProductionCheck(),
             );
 
+            $this->checkVerifiedCallerIdCount(count($outgoingCallerIds));
             $this->checkRegulatoryBundle($client, $owned !== []);
         } catch (Throwable $exception) {
             $this->assert('Twilio-Konto', false, 'Abfrage gescheitert: '.$exception->getMessage(), '');
         }
+    }
+
+    /**
+     * Wie viele verifizierte Absendernummern liegen im Konto? (Ticket #97)
+     *
+     * Seit der Bestaetigungsanruf der einzige Weg ist, landet pro Kaeufer-
+     * Mitarbeiter eine Nummer in den Outgoing Caller IDs des Kontos. Damit
+     * ist diese Zahl eine Wachstumsgroesse.
+     *
+     * **Die echte Obergrenze kennen wir nicht**: Twilio dokumentiert weder
+     * ein Maximum je Konto noch ein Rate-Limit der Validation Requests
+     * (geprueft am 16.10.2026, siehe #97; die Frage an den Support ist #99).
+     * Die Marke hier ist deshalb kein Grenzwert von Twilio, sondern unser
+     * eigener Zeitpunkt zum Nachfragen -- frueh genug, dass die Antwort da
+     * ist, bevor ein Kaeufer an die Grenze laeuft.
+     */
+    private function checkVerifiedCallerIdCount(int $count): void
+    {
+        $this->assert(
+            'Verifizierte Absendernummern',
+            $count < self::CALLER_ID_WARN_AT,
+            $count.' verifizierte Caller IDs im Konto (ab '.self::CALLER_ID_WARN_AT.' nachfragen). '
+                .'Twilio nennt keine dokumentierte Obergrenze -- vor weiterem Wachstum beim Support klaeren (#99).',
+            $count.' von hoechstens '.self::CALLER_ID_READ_LIMIT.' gelesen'
+                .($count >= self::CALLER_ID_READ_LIMIT ? ' -- die Liste ist moeglicherweise laenger.' : ''),
+            warnOnly: true,
+        );
     }
 
     /**

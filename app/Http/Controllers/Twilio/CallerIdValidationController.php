@@ -26,6 +26,10 @@ class CallerIdValidationController extends Controller
             $callerIds->completeValidation(
                 $phoneNumber,
                 $request->string('VerificationStatus')->toString() === 'success',
+                // Trennt "niemand abgenommen" von "Anruf lief, nicht
+                // bestaetigt" (Ticket #97). Fehlt der Wert, bleibt es beim
+                // zweiten Fall.
+                $request->has('CallStatus') ? $request->string('CallStatus')->toString() : null,
             );
         }
 

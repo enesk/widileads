@@ -10,6 +10,7 @@ use App\Models\CallerId;
 use App\Models\User;
 use App\Services\CallerIdService;
 use App\Services\Twilio\CallerIdValidationFailed;
+use App\Services\Twilio\CallerIdValidationThrottled;
 use App\Support\PortalCallerIdLock;
 use Illuminate\Contracts\View\View;
 use InvalidArgumentException;
@@ -152,6 +153,16 @@ class CallerIdVerification extends Component
             $this->state = self::STATE_ENTER;
 
             return;
+        } catch (CallerIdValidationThrottled $exception) {
+            // Ticket #97: Eine Anforderung zu viel. Es ist nichts geschrieben
+            // und nichts gewaehlt worden -- der Nutzer bleibt im ersten
+            // Schritt und bekommt die Wartezeit genannt.
+            $this->notice = $exception->retryAfterSeconds > 0
+                ? __('call.caller_id.throttled', ['seconds' => $exception->retryAfterSeconds])
+                : __('call.caller_id.throttled_window');
+            $this->state = self::STATE_ENTER;
+
+            return;
         } catch (CallerIdValidationFailed $exception) {
             // Die Twilio-Meldung nennt Kontodetails und gehoert ins Log.
             logger()->error('Twilio lehnte die Rufnummern-Bestaetigung ab.', [
@@ -185,8 +196,11 @@ class CallerIdVerification extends Component
             return;
         }
 
-        if (in_array($callerId->status, [CallerIdStatus::FAILED, CallerIdStatus::EXPIRED], true)) {
-            $this->notice = __('call.caller_id.portal.failed');
+        if ($callerId->status->isFailure()) {
+            // Ticket #97: Warum es nicht geklappt hat, steht am Stand --
+            // "nicht angenommen" verlangt etwas anderes vom Nutzer als "Code
+            // nicht bestaetigt".
+            $this->notice = $callerId->status->failureHint() ?? __('call.caller_id.portal.failed');
             $this->state = self::STATE_ENTER;
         }
     }

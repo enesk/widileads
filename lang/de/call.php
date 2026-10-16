@@ -109,8 +109,23 @@ return [
             'pending' => 'Bestätigung läuft',
             'verified' => 'Bestätigt',
             'expired' => 'Abgelaufen',
+            'no_answer' => 'Anruf nicht angenommen',
+            'not_confirmed' => 'Nicht bestätigt',
             'failed' => 'Fehlgeschlagen',
         ],
+
+        // Was der Nutzer tun soll, wenn es nicht geklappt hat. Der Stand allein
+        // sagt ihm nichts (Ticket #97).
+        'hint' => [
+            'expired' => 'Der angesagte Code ist abgelaufen. Fordere den Anruf erneut an.',
+            'no_answer' => 'Wir haben angerufen, es hat aber niemand abgenommen. Halte das Telefon bereit und versuche es erneut.',
+            'not_confirmed' => 'Der Anruf kam zustande, der Code wurde aber nicht bestätigt. Tippe ihn am Telefon ein, sobald die Ansage danach fragt – ein Anrufbeantworter kann das nicht.',
+            'failed' => 'Der Anruf konnte nicht zugestellt werden. Prüfe die Nummer und versuche es erneut.',
+        ],
+
+        // Begrenzung der Anforderungen (Ticket #97).
+        'throttled' => 'Zu viele Bestätigungsanrufe. Bitte warte :seconds Sekunden.',
+        'throttled_window' => 'Zu viele Bestätigungsanrufe in kurzer Zeit. Bitte versuche es später erneut.',
 
     ],
 

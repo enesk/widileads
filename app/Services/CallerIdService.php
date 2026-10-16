@@ -11,7 +11,9 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Twilio\CallerIdValidationClient;
 use App\Services\Twilio\CallerIdValidationFailed;
+use App\Services\Twilio\CallerIdValidationThrottled;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use InvalidArgumentException;
 use libphonenumber\NumberParseException;
 use libphonenumber\PhoneNumberFormat;
@@ -62,7 +64,16 @@ class CallerIdService
      * Lehnt Twilio die Anforderung ab, bleibt der Datensatz nicht auf
      * `pending` stehen, sondern geht auf `failed` -- es klingelt ja nichts.
      *
+     * Die Begrenzung (Ticket #97) steht VOR dem Schreiben der Zeile: Eine
+     * abgewiesene Anforderung darf keinen `pending`-Rest hinterlassen, auf den
+     * die Oberflaeche dann wartet.
+     *
+     * Festnetz ist ausdruecklich erlaubt -- geprueft wird allein, ob die
+     * Nummer waehlbar ist (`normalize()`). Ein Handwerksbetrieb erreicht seine
+     * Leads ueber die Werkstattnummer.
+     *
      * @throws InvalidArgumentException wenn die Eingabe keine waehlbare Nummer ist.
+     * @throws CallerIdValidationThrottled wenn zu oft hintereinander angefordert wurde.
      * @throws CallerIdValidationFailed wenn Twilio die Anforderung ablehnt.
      */
     public function requestValidation(Tenant $tenant, User $user, string $input, string $statusCallbackUrl): CallerId
@@ -70,6 +81,7 @@ class CallerIdService
         $phoneNumber = $this->normalize($input);
 
         $this->guardAgainstForeignClaim($phoneNumber, $user);
+        $this->guardAgainstTooManyRequests($phoneNumber, $user);
 
         $ttl = (int) config('funnel.call.caller_id.validation_ttl_minutes');
 
@@ -90,6 +102,8 @@ class CallerIdService
 
             return $callerId;
         });
+
+        $this->countRequest($phoneNumber, $user);
 
         // Erst nach dem Speichern gewaehlt: Klingelt das Telefon, muss der Stand
         // schon stehen -- der Rueckruf von Twilio kann schneller sein als die
@@ -220,7 +234,7 @@ class CallerIdService
             return false;
         }
 
-        return in_array($callerId->status, [CallerIdStatus::FAILED, CallerIdStatus::EXPIRED], true);
+        return $callerId->status->isFailure();
     }
 
     /**
@@ -230,8 +244,13 @@ class CallerIdService
      * Kennungen. Eine Nummer, zu der keine offene Bestaetigung liegt, wird
      * stillschweigend verworfen -- ein spaeter Rueckruf darf keinen
      * abgeschlossenen Stand mehr aendern.
+     *
+     * `$callStatus` ist Twilios `CallStatus` aus demselben Rueckruf. Er
+     * trennt die beiden Fehlerfaelle, die sich ehrlich trennen lassen: Es hat
+     * niemand abgenommen, oder der Anruf kam zustande und wurde nicht
+     * bestaetigt (Ticket #97, siehe CallerIdStatus).
      */
-    public function completeValidation(string $phoneNumber, bool $verified): ?CallerId
+    public function completeValidation(string $phoneNumber, bool $verified, ?string $callStatus = null): ?CallerId
     {
         $callerId = CallerId::query()
             ->withoutGlobalScopes()
@@ -245,8 +264,9 @@ class CallerIdService
 
         if (! $verified) {
             $callerId->forceFill([
-                'status' => CallerIdStatus::FAILED,
+                'status' => $this->failureStatusFor($callStatus),
                 'validation_code' => null,
+                'expires_at' => null,
             ])->save();
 
             return $callerId;
@@ -337,6 +357,79 @@ class CallerIdService
         if ($taken) {
             throw new InvalidArgumentException('Diese Rufnummer ist bereits bestaetigt.');
         }
+    }
+
+    /**
+     * Welcher Fehlerstand gehoert zu dieser Rueckmeldung?
+     *
+     * `no-answer`, `busy` und `canceled` heissen: Es hat niemand abgenommen.
+     * `failed` heisst: Twilio kam gar nicht durch. Alles andere -- vor allem
+     * `completed` ohne Bestaetigung -- heisst: Der Anruf lief, der Code wurde
+     * nicht bestaetigt. Ob dahinter ein Anrufbeantworter, ein Tippfehler oder
+     * ein Auflegen steckt, sagt Twilio nicht.
+     */
+    private function failureStatusFor(?string $callStatus): CallerIdStatus
+    {
+        return match (strtolower(trim((string) $callStatus))) {
+            'no-answer', 'busy', 'canceled' => CallerIdStatus::NO_ANSWER,
+            'failed' => CallerIdStatus::FAILED,
+            default => CallerIdStatus::NOT_CONFIRMED,
+        };
+    }
+
+    /**
+     * Darf jetzt ein Bestaetigungsanruf ausgeloest werden? (Ticket #97)
+     *
+     * Drei Grenzen, in der Reihenfolge, in der sie dem Nutzer am meisten
+     * sagen: die Wartezeit seit der letzten Anforderung (daraus wird der
+     * Zaehler in der Oberflaeche), die Anrufe je Nummer und die je Nutzer.
+     *
+     * @throws CallerIdValidationThrottled
+     */
+    private function guardAgainstTooManyRequests(string $phoneNumber, User $user): void
+    {
+        $limits = (array) config('funnel.call.caller_id.limits');
+        $wait = (int) ($limits['resend_after_seconds'] ?? 0);
+        $existing = $this->forUser($user);
+
+        if ($wait > 0 && $existing instanceof CallerId && $existing->requested_at !== null) {
+            $elapsed = $existing->requested_at->diffInSeconds(now());
+
+            if ($elapsed < $wait) {
+                throw new CallerIdValidationThrottled((int) ceil($wait - $elapsed));
+            }
+        }
+
+        foreach ($this->limiterKeys($phoneNumber, $user) as $key => $max) {
+            if ($max > 0 && RateLimiter::tooManyAttempts($key, $max)) {
+                throw new CallerIdValidationThrottled(RateLimiter::availableIn($key));
+            }
+        }
+    }
+
+    /** Zaehlt die Anforderung -- erst, wenn wirklich gewaehlt wird. */
+    private function countRequest(string $phoneNumber, User $user): void
+    {
+        $window = (int) config('funnel.call.caller_id.limits.requests_window_minutes') * 60;
+
+        foreach (array_keys($this->limiterKeys($phoneNumber, $user)) as $key) {
+            RateLimiter::hit($key, $window);
+        }
+    }
+
+    /**
+     * Die Zaehler und ihre Hoechstwerte: einer an der Nummer, einer am Nutzer.
+     *
+     * @return array<string, int>
+     */
+    private function limiterKeys(string $phoneNumber, User $user): array
+    {
+        $limits = (array) config('funnel.call.caller_id.limits');
+
+        return [
+            'caller-id-validation:phone:'.$phoneNumber => (int) ($limits['requests_per_phone'] ?? 0),
+            'caller-id-validation:user:'.$user->getKey() => (int) ($limits['requests_per_user'] ?? 0),
+        ];
     }
 
     /**
