@@ -84,6 +84,7 @@ return [
                 'no_calls' => 'You cannot call purchased leads until the new number is confirmed.',
                 'portal_locked' => 'Until then this confirmation page is all you can reach – no marketplace, no leads, no balance.',
                 'open_leads' => '{1} One purchased lead has a running deadline. It keeps running without a number.|[2,*] :count purchased leads have running deadlines. They keep running without a number.',
+                'open_leads_until' => '{1} One purchased lead has a running deadline – it ends on :date and keeps running without a number.|[2,*] :count purchased leads have running deadlines, the next one ends on :date. They keep running without a number.',
                 'cancel' => 'Cancel',
                 'confirm' => 'Withdraw and confirm a new one',
                 'done' => 'Phone number withdrawn. Confirm your new number now.',

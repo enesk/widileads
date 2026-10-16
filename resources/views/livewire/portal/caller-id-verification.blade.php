@@ -259,7 +259,17 @@
                             @if ($openLeadsAtRisk > 0)
                                 <li class="flex gap-2">
                                     <x-app.icon name="clock" class="size-4 shrink-0 mt-0.5" />
-                                    <span>{{ trans_choice('call.caller_id.portal.release.open_leads', $openLeadsAtRisk, ['count' => $openLeadsAtRisk]) }}</span>
+                                    {{-- Mit Datum, wo es eins gibt: "zwei Leads
+                                         mit laufender Frist" ist eine Zahl, "die
+                                         naechste laeuft am 19.10. ab" eine
+                                         Entscheidungsgrundlage (Ticket #4). --}}
+                                    <span>
+                                        @if ($nextDeadlineAtRisk !== null)
+                                            {{ trans_choice('call.caller_id.portal.release.open_leads_until', $openLeadsAtRisk, ['count' => $openLeadsAtRisk, 'date' => $nextDeadlineAtRisk]) }}
+                                        @else
+                                            {{ trans_choice('call.caller_id.portal.release.open_leads', $openLeadsAtRisk, ['count' => $openLeadsAtRisk]) }}
+                                        @endif
+                                    </span>
                                 </li>
                             @endif
                         </ul>

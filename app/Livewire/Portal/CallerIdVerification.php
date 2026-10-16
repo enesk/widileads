@@ -115,6 +115,10 @@ class CallerIdVerification extends Component
             // Die Zahl kostet eine Abfrage und ist auf der ruhigen Seite ohne
             // Aussage.
             'openLeadsAtRisk' => $this->confirmingRelease ? $this->openLeadsAtRisk() : 0,
+            // Die Frist der naechsten betroffenen Zeile (Ticket #4). Sie kommt
+            // aus derselben Abfrage wie die Zahl und kann deshalb nicht zu
+            // einer anderen Menge gehoeren.
+            'nextDeadlineAtRisk' => $this->confirmingRelease ? $this->nextDeadlineAtRisk() : null,
             'portalNumber' => $this->portalNumber(),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $this->portalTenant()->uuid]),
             // Eine eigene Liste der Rufnummern gibt es noch nicht. Der Weg
@@ -289,6 +293,24 @@ class CallerIdVerification extends Component
         return $user instanceof User
             ? app(CallerIdService::class)->countOpenLeadsAtRisk($user)
             : 0;
+    }
+
+    /**
+     * Wann die naechste dieser Fristen ablaeuft -- oder null, wenn keine
+     * laeuft (Ticket #4).
+     */
+    private function nextDeadlineAtRisk(): ?string
+    {
+        $user = $this->portalUser();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        return app(CallerIdService::class)
+            ->nextOpenLeadDeadlineAtRisk($user)
+            ?->timezone(config('app.timezone'))
+            ->format('d.m.Y');
     }
 
     /** Der Stand der eigenen Nummer, Verfallenes bereits gekennzeichnet. */

@@ -109,6 +109,7 @@ return [
                 'no_calls' => 'Du kannst gekaufte Leads nicht mehr anrufen, bis die neue Nummer bestätigt ist.',
                 'portal_locked' => 'Bis dahin erreichst du nur diese Bestätigungsseite – kein Marktplatz, keine Leads, kein Guthaben.',
                 'open_leads' => '{1} Ein gekaufter Lead hat eine laufende Frist. Sie läuft weiter, auch ohne Nummer.|[2,*] :count gekaufte Leads haben eine laufende Frist. Sie laufen weiter, auch ohne Nummer.',
+                'open_leads_until' => '{1} Ein gekaufter Lead hat eine laufende Frist – sie läuft am :date ab und läuft weiter, auch ohne Nummer.|[2,*] :count gekaufte Leads haben eine laufende Frist, die nächste läuft am :date ab. Sie laufen weiter, auch ohne Nummer.',
                 'cancel' => 'Abbrechen',
                 'confirm' => 'Zurücknehmen und neu bestätigen',
                 'done' => 'Rufnummer zurückgenommen. Bestätige jetzt deine neue Nummer.',

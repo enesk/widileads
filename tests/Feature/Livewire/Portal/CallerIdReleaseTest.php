@@ -14,6 +14,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Twilio\CallerIdValidationClient;
 use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 use Tests\Feature\FeatureTest;
 
@@ -70,16 +71,21 @@ class CallerIdReleaseTest extends FeatureTest
             ->assertDontSee(__('call.caller_id.portal.release.open_leads', ['count' => 1]));
     }
 
-    public function test_die_rueckfrage_nennt_die_offenen_leads_des_nutzers(): void
+    public function test_die_rueckfrage_nennt_die_offenen_leads_und_die_naechste_frist(): void
     {
         $user = $this->actingAsBuyerWithNumber();
 
-        $this->purchaseWithRunningDeadline($user);
-        $this->purchaseWithRunningDeadline($user);
+        // Die fruehere der beiden Fristen gehoert in den Satz -- sie ist die,
+        // nach der sich der Nutzer richten muss (Ticket #4).
+        $this->purchaseWithRunningDeadline($user, now()->addDays(5));
+        $this->purchaseWithRunningDeadline($user, now()->addDays(2));
 
         Livewire::test(CallerIdVerification::class)
             ->call('confirmRelease')
-            ->assertSee(trans_choice('call.caller_id.portal.release.open_leads', 2, ['count' => 2]));
+            ->assertSee(trans_choice('call.caller_id.portal.release.open_leads_until', 2, [
+                'count' => 2,
+                'date' => now()->addDays(2)->format('d.m.Y'),
+            ]));
     }
 
     public function test_abbrechen_laesst_die_nummer_stehen(): void
@@ -144,11 +150,11 @@ class CallerIdReleaseTest extends FeatureTest
      * Ein eigener Kauf mit laufender Frist -- genau das, was
      * CallerIdService::countOpenLeadsAtRisk() zaehlt.
      */
-    private function purchaseWithRunningDeadline(User $user): LeadPurchase
+    private function purchaseWithRunningDeadline(User $user, ?Carbon $deadline = null): LeadPurchase
     {
         $lead = Lead::factory()->create([
             'contact_status' => LeadContactStatus::OPEN,
-            'deadline_at' => now()->addDays(3),
+            'deadline_at' => $deadline ?? now()->addDays(3),
         ]);
 
         return LeadPurchase::factory()->create([
