@@ -94,6 +94,25 @@ return [
             'why_three' => 'Nur bestätigte Nummern können Anrufe auslösen – so kann niemand auf deine Kosten telefonieren.',
 
             'verified_heading' => 'Bereits bestätigt',
+
+            /*
+            | Rufnummer zuruecknehmen (Ticket #2)
+            |------------------------------------------------------------------
+            |
+            | Die Rueckfrage nennt die Folgen und nicht "Sind Sie sicher?": Ohne
+            | bestaetigte Nummer greift die Telefonsperre wieder, und die
+            | Fristen der offenen Leads laufen weiter.
+            */
+            'release' => [
+                'action' => 'Rufnummer ändern',
+                'heading' => 'Rufnummer wirklich zurücknehmen?',
+                'no_calls' => 'Du kannst gekaufte Leads nicht mehr anrufen, bis die neue Nummer bestätigt ist.',
+                'portal_locked' => 'Bis dahin erreichst du nur diese Bestätigungsseite – kein Marktplatz, keine Leads, kein Guthaben.',
+                'open_leads' => '{1} Ein gekaufter Lead hat eine laufende Frist. Sie läuft weiter, auch ohne Nummer.|[2,*] :count gekaufte Leads haben eine laufende Frist. Sie laufen weiter, auch ohne Nummer.',
+                'cancel' => 'Abbrechen',
+                'confirm' => 'Zurücknehmen und neu bestätigen',
+                'done' => 'Rufnummer zurückgenommen. Bestätige jetzt deine neue Nummer.',
+            ],
             'default_label' => 'Standard',
             'trouble_heading' => 'Probleme?',
             'trouble_text' => 'Anruf kommt nicht an: Prüf, ob die Nummer unterdrückte Anrufe blockiert. Unsere Nummer ist :number.',

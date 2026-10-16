@@ -233,6 +233,49 @@
                         </li>
                     @endforeach
                 </ul>
+
+                {{-- Nummer gewechselt? Der Weg dafuer steht hier und nur hier
+                     (Ticket #2) -- eine zweite Stelle zum Zuruecknehmen waere
+                     eine zweite, die irgendwann anders entscheidet. --}}
+                @if ($confirmingRelease)
+                    {{-- @container statt sm: Die Karte steht in der schmalen
+                         Spalte, waehrend das Fenster breit ist -- eine
+                         Bildschirmbreite entscheidet hier das Falsche. --}}
+                    <div role="alertdialog" aria-labelledby="release-heading" class="@container mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                        <p id="release-heading" class="font-semibold text-amber-900">{{ __('call.caller_id.portal.release.heading') }}</p>
+
+                        {{-- Drei Folgen, nicht eine Floskel: kein Anruf mehr,
+                             nur noch die Bestaetigungsseite, und die Fristen
+                             laufen weiter. --}}
+                        <ul class="mt-2 space-y-1.5 text-sm text-amber-900">
+                            <li class="flex gap-2">
+                                <x-app.icon name="phone-off" class="size-4 shrink-0 mt-0.5" />
+                                <span>{{ __('call.caller_id.portal.release.no_calls') }}</span>
+                            </li>
+                            <li class="flex gap-2">
+                                <x-app.icon name="lock" class="size-4 shrink-0 mt-0.5" />
+                                <span>{{ __('call.caller_id.portal.release.portal_locked') }}</span>
+                            </li>
+                            @if ($openLeadsAtRisk > 0)
+                                <li class="flex gap-2">
+                                    <x-app.icon name="clock" class="size-4 shrink-0 mt-0.5" />
+                                    <span>{{ trans_choice('call.caller_id.portal.release.open_leads', $openLeadsAtRisk, ['count' => $openLeadsAtRisk]) }}</span>
+                                </li>
+                            @endif
+                        </ul>
+
+                        <div class="mt-4 flex flex-col-reverse @sm:flex-row @sm:justify-end gap-2">
+                            <button type="button" class="btn-ghost" wire:click="cancelRelease">{{ __('call.caller_id.portal.release.cancel') }}</button>
+                            <button type="button" class="btn-primary" wire:click="releaseNumber" wire:loading.attr="disabled">
+                                {{ __('call.caller_id.portal.release.confirm') }}
+                            </button>
+                        </div>
+                    </div>
+                @else
+                    <button type="button" class="btn-secondary mt-4 w-full sm:w-auto" wire:click="confirmRelease">
+                        {{ __('call.caller_id.portal.release.action') }}
+                    </button>
+                @endif
             </section>
         @endif
 

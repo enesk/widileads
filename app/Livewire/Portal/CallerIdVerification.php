@@ -65,6 +65,16 @@ class CallerIdVerification extends Component
     /** Meldung ueber dem Ablauf, etwa wenn Twilio die Anforderung ablehnt. */
     public ?string $notice = null;
 
+    /**
+     * Steht die Rueckfrage vor dem Zuruecknehmen offen? (Ticket #2)
+     *
+     * Die Rueckfrage ist kein "Sind Sie sicher?": Ohne bestaetigte Nummer
+     * kommt der Nutzer nur noch auf die Bestaetigungsseite, und die Fristen
+     * seiner offenen Leads laufen weiter. Beides steht im Text, deshalb
+     * braucht sie einen eigenen Zustand und kein wire:confirm.
+     */
+    public bool $confirmingRelease = false;
+
     public function mount(): void
     {
         $callerId = $this->callerId();
@@ -101,6 +111,10 @@ class CallerIdVerification extends Component
             'displayNumber' => $this->displayNumber($callerId),
             'expectedCode' => $callerId?->status === CallerIdStatus::PENDING ? $callerId->validation_code : null,
             'verified' => $this->verifiedNumbers(),
+            // Nur fuer die Rueckfrage gezaehlt, und nur, wenn sie offensteht:
+            // Die Zahl kostet eine Abfrage und ist auf der ruhigen Seite ohne
+            // Aussage.
+            'openLeadsAtRisk' => $this->confirmingRelease ? $this->openLeadsAtRisk() : 0,
             'portalNumber' => $this->portalNumber(),
             'marketplaceUrl' => route('portal.marketplace', ['tenant' => $this->portalTenant()->uuid]),
             // Eine eigene Liste der Rufnummern gibt es noch nicht. Der Weg
@@ -196,10 +210,85 @@ class CallerIdVerification extends Component
         }
     }
 
+    /**
+     * Oeffnet die Rueckfrage vor dem Zuruecknehmen (Ticket #2).
+     */
+    public function confirmRelease(): void
+    {
+        $this->notice = null;
+        $this->confirmingRelease = true;
+    }
+
+    public function cancelRelease(): void
+    {
+        $this->confirmingRelease = false;
+    }
+
+    /**
+     * Nimmt die bestaetigte Nummer zurueck und beginnt die Bestaetigung von
+     * vorn (Ticket #2).
+     *
+     * Geloescht wird im CallerIdService -- hier steht keine Entscheidung. Der
+     * Nutzer uebergibt sich selbst und nie eine Kennung aus dem Browser:
+     * sonst naehme jemand die Nummer eines Kollegen zurueck.
+     *
+     * Danach greift die Telefonsperre wieder, und die einzige erreichbare
+     * Seite ist die Bestaetigung. Genau dorthin wird geleitet -- eine Seite
+     * stehen zu lassen, die der Nutzer nicht mehr aufrufen darf, waere ein
+     * Bildschirm voller Verweise ins Leere.
+     */
+    public function releaseNumber(CallerIdService $callerIds): mixed
+    {
+        $user = $this->portalUser();
+
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $release = $callerIds->releaseNumber($user);
+
+        $this->confirmingRelease = false;
+
+        if (! $release->released) {
+            // Es gab nichts zurueckzunehmen -- etwa, weil ein zweites Fenster
+            // schneller war. Kein Fehler, nur nichts zu tun.
+            $this->state = self::STATE_ENTER;
+
+            return null;
+        }
+
+        // Dass die Loeschung im Twilio-Konto scheiterte, ist eine Sache des
+        // Betreibers: Fuer den Nutzer ist die Nummer zurueckgenommen, und sie
+        // gilt hier auch nicht mehr. Der Fehlschlag steht im Pruefprotokoll.
+        session()->flash('toast', [
+            'message' => __('call.caller_id.portal.release.done'),
+            'level' => 'success',
+            'title' => null,
+        ]);
+
+        return redirect()->route('onboarding.phone');
+    }
+
     public function goToEnter(): void
     {
         $this->notice = null;
         $this->state = self::STATE_ENTER;
+    }
+
+    /**
+     * Wie viele eigene Kaeufe mit laufender Frist das Zuruecknehmen trifft.
+     *
+     * Gezaehlt wird im CallerIdService und nicht hier: Eine zweite Zaehlweise
+     * waere die Stelle, an der die Rueckfrage eine andere Zahl nennt als die
+     * Abrechnung.
+     */
+    private function openLeadsAtRisk(): int
+    {
+        $user = $this->portalUser();
+
+        return $user instanceof User
+            ? app(CallerIdService::class)->countOpenLeadsAtRisk($user)
+            : 0;
     }
 
     /** Der Stand der eigenen Nummer, Verfallenes bereits gekennzeichnet. */

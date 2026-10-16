@@ -419,6 +419,7 @@ return [
             'unverified' => 'Pending',
             'member_since' => 'Member since',
             'workspace' => 'Workspace',
+            'phone' => 'Phone number',
             'address_hint' => 'The billing address belongs to the workspace and lives under',
         ],
     ],

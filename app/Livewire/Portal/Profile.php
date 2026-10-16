@@ -83,6 +83,11 @@ class Profile extends Component
             'twoFactorActive' => $user->hasTwoFactorEnabled(),
             'twoFactorUrl' => route('filament.dashboard.pages.two-factor-auth', ['tenant' => $tenant->uuid]),
             'settingsUrl' => route('portal.settings', ['tenant' => $tenant->uuid]),
+            // Die bestaetigte Rufnummer steht hier nur, geaendert wird sie auf
+            // ihrer eigenen Seite (Ticket #2): Zwei Wege zum Zuruecknehmen
+            // waeren zwei, die irgendwann anders entscheiden.
+            'phoneNumber' => $user->phone_e164,
+            'phoneUrl' => route('portal.caller-id', ['tenant' => $tenant->uuid]),
         ])->title(__('portal.profile.heading'));
     }
 

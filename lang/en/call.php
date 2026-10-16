@@ -77,6 +77,17 @@ return [
             'why_three' => 'Only confirmed numbers can start calls, so nobody can call at your expense.',
 
             'verified_heading' => 'Already confirmed',
+
+            'release' => [
+                'action' => 'Change phone number',
+                'heading' => 'Really withdraw this number?',
+                'no_calls' => 'You cannot call purchased leads until the new number is confirmed.',
+                'portal_locked' => 'Until then this confirmation page is all you can reach – no marketplace, no leads, no balance.',
+                'open_leads' => '{1} One purchased lead has a running deadline. It keeps running without a number.|[2,*] :count purchased leads have running deadlines. They keep running without a number.',
+                'cancel' => 'Cancel',
+                'confirm' => 'Withdraw and confirm a new one',
+                'done' => 'Phone number withdrawn. Confirm your new number now.',
+            ],
             'default_label' => 'Default',
             'trouble_heading' => 'Problems?',
             'trouble_text' => 'No call arriving: check whether the number blocks withheld callers. Our number is :number.',

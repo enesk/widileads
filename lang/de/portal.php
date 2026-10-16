@@ -520,6 +520,7 @@ return [
             'unverified' => 'Offen',
             'member_since' => 'Dabei seit',
             'workspace' => 'Workspace',
+            'phone' => 'Rufnummer',
             'address_hint' => 'Die Rechnungsanschrift gehört zum Workspace und steht unter',
         ],
     ],

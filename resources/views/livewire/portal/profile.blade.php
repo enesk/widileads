@@ -8,6 +8,7 @@
 
     Erwartete Daten:
       $user, $initial, $emailChanged, $isVerified, $memberSince, $workspaceName
+      $phoneNumber, $phoneUrl
       $showPasswordForm, $twoFactorEnabled, $twoFactorActive, $twoFactorUrl
       $settingsUrl
 --}}
@@ -168,6 +169,18 @@
                     <dt class="text-zinc-500 shrink-0">{{ __('portal.profile.side.workspace') }}</dt>
                     <dd class="text-zinc-900 truncate">{{ $workspaceName }}</dd>
                 </div>
+
+                {{-- Die Nummer steht hier, geaendert wird sie auf ihrer eigenen
+                     Seite (Ticket #2). --}}
+                @if ($phoneNumber)
+                    <div class="flex items-center justify-between gap-3 min-w-0">
+                        <dt class="text-zinc-500 shrink-0">{{ __('portal.profile.side.phone') }}</dt>
+                        <dd class="min-w-0 text-right">
+                            <span class="block text-zinc-900 tabular-nums truncate">{{ $phoneNumber }}</span>
+                            <a href="{{ $phoneUrl }}" class="text-xs text-brand hover:underline">{{ __('call.caller_id.portal.release.action') }}</a>
+                        </dd>
+                    </div>
+                @endif
             </dl>
 
             {{-- Die Rechnungsanschrift gehoert dem Workspace, nicht dem
