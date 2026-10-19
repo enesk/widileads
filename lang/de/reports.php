@@ -41,6 +41,13 @@ return [
         'description' => 'Nach Eingangsdatum, über alle Workspaces. Im gewählten Zeitraum: :count.',
         'dataset' => 'Leads',
         'week' => 'KW :week/:year',
+        'portal_filter' => 'Portal',
+        'all_portals' => 'Alle Portale',
+        // Ein Lead ohne embed_origin: direkter Aufruf einer Funnel-Seite oder
+        // eine Einreichung ohne Einbettung.
+        'unknown_portal' => 'Ohne Portalangabe',
+        'other_portals' => 'Andere Portale',
+        'description_portal' => 'Nach Eingangsdatum, Portal :portal. Im gewählten Zeitraum: :count.',
     ],
 
     'onboarding' => [

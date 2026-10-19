@@ -76,6 +76,78 @@ class LeadsReceivedChartTest extends FeatureTest
     }
 
     /**
+     * Ohne Auswahl zeigt das Diagramm je Portal eine eigene Reihe -- die
+     * Frage "welches Portal bringt wie viele" ist damit ohne Klick
+     * beantwortet.
+     */
+    public function test_ohne_auswahl_steht_jedes_portal_als_eigene_reihe(): void
+    {
+        $this->actingAs($this->createAdminUser());
+
+        $this->leadAt('2026-10-10 10:00:00', 'https://elektrikerportal.com');
+        $this->leadAt('2026-10-11 10:00:00', 'https://elektrikerportal.com');
+        $this->leadAt('2026-10-12 10:00:00', 'https://pfotencheck.tierarztportal.com');
+
+        $data = $this->chartData([
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-31',
+            'period' => 'month',
+        ]);
+
+        $this->assertSame(
+            ['elektrikerportal.com', 'pfotencheck.tierarztportal.com'],
+            array_column($data['datasets'], 'label'),
+        );
+        $this->assertSame([2], $data['datasets'][0]['data']);
+        $this->assertSame([1], $data['datasets'][1]['data']);
+    }
+
+    /** Ein gewaehltes Portal schraenkt das Diagramm auf dessen Leads ein. */
+    public function test_auswahl_schraenkt_auf_ein_portal_ein(): void
+    {
+        $this->actingAs($this->createAdminUser());
+
+        $this->leadAt('2026-10-10 10:00:00', 'https://elektrikerportal.com');
+        $this->leadAt('2026-10-12 10:00:00', 'https://pfotencheck.tierarztportal.com');
+
+        $data = $this->chartData([
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-31',
+            'period' => 'month',
+        ], portal: 'pfotencheck.tierarztportal.com');
+
+        $this->assertSame(['pfotencheck.tierarztportal.com'], array_column($data['datasets'], 'label'));
+        $this->assertSame([1], $data['datasets'][0]['data']);
+    }
+
+    /**
+     * Die Auswahlliste nennt die Portale mit ihrer Menge, das staerkste
+     * zuerst, und davor "Alle Portale".
+     */
+    public function test_auswahlliste_nennt_die_portale_mit_ihrer_menge(): void
+    {
+        $this->actingAs($this->createAdminUser());
+
+        $this->leadAt('2026-10-10 10:00:00', 'https://elektrikerportal.com');
+        $this->leadAt('2026-10-11 10:00:00', 'https://elektrikerportal.com');
+        $this->leadAt('2026-10-12 10:00:00', 'https://pfotencheck.tierarztportal.com');
+
+        $widget = $this->widget([
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-31',
+            'period' => 'month',
+        ]);
+
+        $filters = (new ReflectionMethod($widget, 'getFilters'))->invoke($widget);
+
+        $this->assertSame([
+            'all' => 'Alle Portale',
+            'elektrikerportal.com' => 'elektrikerportal.com (2)',
+            'pfotencheck.tierarztportal.com' => 'pfotencheck.tierarztportal.com (1)',
+        ], $filters);
+    }
+
+    /**
      * Die Daten, die das Diagramm zeichnet.
      *
      * Ueber die Komponente und nicht ueber den Report: Gefragt ist, ob der
@@ -86,9 +158,9 @@ class LeadsReceivedChartTest extends FeatureTest
      * @param  array<string, string>  $pageFilters
      * @return array<string, mixed>
      */
-    private function chartData(array $pageFilters = []): array
+    private function chartData(array $pageFilters = [], ?string $portal = null): array
     {
-        $widget = Livewire::test(LeadsReceivedChart::class, ['pageFilters' => $pageFilters])->instance();
+        $widget = $this->widget($pageFilters, $portal);
 
         $data = new ReflectionMethod($widget, 'getData');
 
@@ -98,10 +170,32 @@ class LeadsReceivedChartTest extends FeatureTest
         return $result;
     }
 
-    private function leadAt(string $createdAt): void
+    /**
+     * Das Widget mit gesetztem Seitenfilter und gesetzter Portalauswahl.
+     *
+     * @param  array<string, string>  $pageFilters
+     */
+    private function widget(array $pageFilters = [], ?string $portal = null): LeadsReceivedChart
+    {
+        $component = Livewire::test(LeadsReceivedChart::class, ['pageFilters' => $pageFilters]);
+
+        if ($portal !== null) {
+            $component->set('filter', $portal);
+        }
+
+        /** @var LeadsReceivedChart $widget */
+        $widget = $component->instance();
+
+        return $widget;
+    }
+
+    private function leadAt(string $createdAt, ?string $portal = null): void
     {
         Lead::factory()
-            ->create(['tenant_id' => Tenant::factory()->create()->getKey()])
+            ->create([
+                'tenant_id' => Tenant::factory()->create()->getKey(),
+                'embed_origin' => $portal,
+            ])
             ->forceFill(['created_at' => Carbon::parse($createdAt)])
             ->save();
     }

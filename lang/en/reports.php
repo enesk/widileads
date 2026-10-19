@@ -39,6 +39,11 @@ return [
         'description' => 'By date received, across all workspaces. In the selected period: :count.',
         'dataset' => 'Leads',
         'week' => 'Week :week/:year',
+        'portal_filter' => 'Portal',
+        'all_portals' => 'All portals',
+        'unknown_portal' => 'No portal given',
+        'other_portals' => 'Other portals',
+        'description_portal' => 'By date received, portal :portal. In the selected period: :count.',
     ],
 
     'onboarding' => [
