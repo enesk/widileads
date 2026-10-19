@@ -34,6 +34,13 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'leads' => [
+        'heading' => 'Leads received',
+        'description' => 'By date received, across all workspaces. In the selected period: :count.',
+        'dataset' => 'Leads',
+        'week' => 'Week :week/:year',
+    ],
+
     'onboarding' => [
         'heading' => 'Onboarding',
         'nav_label' => 'Onboarding',

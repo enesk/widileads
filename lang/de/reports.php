@@ -34,6 +34,15 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'leads' => [
+        'heading' => 'Eingegangene Leads',
+        // Gezaehlt wird der Eingang (leads.created_at), nicht die
+        // Auslieferung -- siehe LeadVolumeReport.
+        'description' => 'Nach Eingangsdatum, über alle Workspaces. Im gewählten Zeitraum: :count.',
+        'dataset' => 'Leads',
+        'week' => 'KW :week/:year',
+    ],
+
     'onboarding' => [
         'heading' => 'Onboarding',
         'nav_label' => 'Onboarding',
