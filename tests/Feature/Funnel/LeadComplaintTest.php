@@ -39,7 +39,15 @@ class LeadComplaintTest extends FeatureTest
      */
     private function purchase(int $boughtDaysAgo = 0): array
     {
-        $operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        // Der Preis steht hier ausdruecklich und nicht als Vorgabe aus der
+        // Konfiguration: Die Betraege unten rechnen mit 15,00 EUR, und sie
+        // sollen nicht stillschweigend falsch werden, wenn der Standardpreis
+        // sich aendert. Gezahlt wird der Preis des VERKAEUFERS
+        // (tenants.lead_price_cents), nicht der des Funnels.
+        $operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => 1500,
+        ]);
         $buyer = BuyerRegistration::factory()->approved()->create()->tenant->fresh();
         $buyer->users()->attach(User::factory()->create());
 

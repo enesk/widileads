@@ -42,7 +42,15 @@ class AutoLeadPurchaseTest extends FeatureTest
 
         Mail::fake();
 
-        $this->operator = Tenant::factory()->create(['type' => TenantType::OPERATOR]);
+        // Der Preis steht hier ausdruecklich und nicht als Vorgabe aus der
+        // Konfiguration: Die Betraege unten rechnen mit 15,00 EUR, und sie
+        // sollen nicht stillschweigend falsch werden, wenn der Standardpreis
+        // sich aendert. Gezahlt wird der Preis des VERKAEUFERS
+        // (tenants.lead_price_cents), nicht der des Funnels.
+        $this->operator = Tenant::factory()->create([
+            'type' => TenantType::OPERATOR,
+            'lead_price_cents' => 1500,
+        ]);
         $this->funnel = Funnel::factory()->create([
             'tenant_id' => $this->operator->getKey(),
             'status' => FunnelStatus::PUBLISHED,

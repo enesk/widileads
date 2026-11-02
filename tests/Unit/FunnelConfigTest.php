@@ -18,7 +18,7 @@ class FunnelConfigTest extends TestCase
     public static function defaultValueProvider(): array
     {
         return [
-            'lead.default_price' => ['funnel.lead.default_price', 15.00],
+            'lead.default_price' => ['funnel.lead.default_price', 20.00],
             'lead.reservation_ttl' => ['funnel.lead.reservation_ttl', 10],
             'lead.retention_days' => ['funnel.lead.retention_days', 730],
             'lead.stale_after_days' => ['funnel.lead.stale_after_days', 3],

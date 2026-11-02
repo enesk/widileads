@@ -147,7 +147,7 @@ return [
 
         // Standard-Verkaufspreis eines Leads in EUR, falls weder Funnel noch
         // Kaeufer-Vertrag einen abweichenden Preis definieren.
-        'default_price' => (float) env('FUNNEL_LEAD_DEFAULT_PRICE', 15.00),
+        'default_price' => (float) env('FUNNEL_LEAD_DEFAULT_PRICE', 20.00),
 
         // Minuten, die ein Lead fuer einen Kaeufer exklusiv reserviert bleibt,
         // bevor die Reservierung verfaellt und der Lead wieder freigegeben wird.

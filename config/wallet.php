@@ -28,10 +28,10 @@ return [
 
     // Vorgabepreis (Cent), zu dem ein neu angelegter Verkaeufer-Mandant seine
     // Leads anbietet, solange er keinen eigenen Preis gesetzt hat. Entspricht
-    // config('funnel.lead.default_price') von 15,00 EUR. Gesetzt wird der Wert
+    // config('funnel.lead.default_price') von 20,00 EUR. Gesetzt wird der Wert
     // beim Anlegen des Mandanten (App\Observers\TenantObserver); der
     // Spaltendefault in der Migration ist nur der Rueckfall der Datenbank.
-    'default_lead_price_cents' => (int) env('WALLET_DEFAULT_LEAD_PRICE_CENTS', 1500),
+    'default_lead_price_cents' => (int) env('WALLET_DEFAULT_LEAD_PRICE_CENTS', 2000),
 
     // Grenzen (Cent) fuer den vom Verkaeufer selbst gesetzten Leadpreis. Jede
     // Eingabe im Verkaeufer-Portal wird gegen diese Spanne geprueft, damit
